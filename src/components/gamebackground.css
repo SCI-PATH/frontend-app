@@ -1,0 +1,106 @@
+.game-background {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.game-background__media {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.game-background__content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.game-page {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-align: left;
+}
+
+.game-page__sprite {
+  position: absolute;
+  left: clamp(0.2rem, 1.25%, 0.65rem);
+
+  /* moved character upward */
+  bottom: clamp(7rem, 8vh, 4rem);
+
+  margin: 0;
+  display: block;
+  min-width: 0;
+  max-width: min(78%, 500px);
+  max-height: min(64vh, 540px);
+}
+
+/* One whole sprite: breath transform here; idle strip advances on a single <img> in JS */
+.game-page__sprite-body {
+  display: inline-block;
+  max-width: min(95%, 500px);
+  max-height: min(70vh, 540px);
+  transform-origin: left bottom;
+  will-change: transform;
+  line-height: 0;
+  vertical-align: bottom;
+}
+
+.game-page__sprite-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(78%, 500px);
+  max-height: min(64vh, 540px);
+  object-fit: contain;
+  object-position: left bottom;
+}
+
+.game-page__panel {
+  padding: 1.5rem 1.25rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+
+.game-page__panel h1 {
+  margin-top: 0;
+}
+
+.game-page__panel a {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
