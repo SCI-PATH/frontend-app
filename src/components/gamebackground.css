@@ -1,0 +1,416 @@
+.game-background {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.game-background__media {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.game-background__content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.game-page {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* Parallax strip: first tile then second (e.g. gamingback2 once per round); scroll clamps at end */
+.game-page--scroll {
+  isolation: isolate;
+}
+
+/* North run on middle tile: allow sprite to move up without clipping */
+.game-page.game-page--northOnGamingback2 {
+  overflow: visible;
+}
+
+.game-page--scroll .game-page__sprite {
+  z-index: 2;
+}
+
+/* Crocodile on the bridge (gamingback2); tune left/bottom to match art */
+.game-page__croc {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(13rem, 24vh, 20rem);
+  z-index: 1;
+  pointer-events: none;
+  transform: translate3d(-50%, var(--croc-bob, 0px), 0);
+  will-change: transform;
+  line-height: 0;
+}
+
+.game-page__croc-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(56vw, 400px);
+  max-height: min(44vh, 330px);
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 4px 8px color-mix(in srgb, #000 35%, transparent));
+}
+
+.game-page__parallax {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.game-page__parallax-row {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: max-content;
+  will-change: transform;
+}
+
+.game-page__parallax-tile {
+  flex: 0 0 auto;
+  width: 100vw;
+  min-width: 100vw;
+  height: 100vh;
+  background-color: var(--bg);
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 100% 100%;
+}
+
+.game-page__sprite {
+  position: absolute;
+  left: clamp(0.2rem, 1.25%, 0.65rem);
+
+  /* moved character upward */
+  bottom: clamp(7rem, 8vh, 4rem);
+
+  margin: 0;
+  display: block;
+  min-width: 0;
+  max-width: min(78%, 500px);
+  max-height: min(64vh, 540px);
+  transition: left 0.2s ease-out;
+}
+
+.game-page__sprite.game-page__sprite--fightForward {
+  left: clamp(2.5rem, 14vw, 9rem);
+}
+
+/* Lean away when the crocodile lunges */
+.game-page__sprite.game-page__sprite--leanBack {
+  left: clamp(0.15rem, 0.8%, 0.45rem);
+  transition: left 0.18s ease-out;
+}
+
+/* After correct answer: north run with sprite centered on the bridge tile */
+.game-page__sprite.game-page__sprite--centerNorthRun {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  transition:
+    left 0.28s ease-out,
+    transform 0.28s ease-out;
+}
+
+.game-page__sprite.game-page__sprite--centerNorthRun .game-page__sprite-body {
+  transform-origin: center bottom;
+}
+
+/* Sprite: optional motion on body; run frames advance on a single <img> in JS */
+.game-page__sprite-body {
+  display: inline-block;
+  max-width: min(95%, 500px);
+  max-height: min(70vh, 540px);
+  transform-origin: left bottom;
+  will-change: transform;
+  line-height: 0;
+  vertical-align: bottom;
+}
+
+.game-page__sprite-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(78%, 500px);
+  max-height: min(64vh, 540px);
+  object-fit: contain;
+  object-position: left bottom;
+}
+
+/*
+ * Post-correct north sprint: realistic limb motion comes from advancing Run (1–10) sprites;
+ * scaleX(-1) reads as sprinting north. PNG “backwards.png” can’t redraw legs/arms alone.
+ */
+.game-page__sprite-img.game-page__sprite-img--runningNorthFace {
+  display: block;
+  max-width: min(70vw, 420px);
+  max-height: min(58vh, 480px);
+  transform-origin: 50% 94%;
+  transform: scaleX(-1) scale(0.88);
+}
+
+.game-page__panel {
+  padding: 1.5rem 1.25rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+
+.game-page__panel h1 {
+  margin-top: 0;
+}
+
+.game-page__panel a {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Science prompt on lake tile (gamingback2); follows .game-page--atLake */
+.game-page__science-placeholder {
+  position: fixed;
+  top: clamp(0.85rem, 3vh, 2rem);
+  right: clamp(0.75rem, 3.5vw, 1.75rem);
+  left: auto;
+  width: min(92vw, 360px);
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.38s ease,
+    transform 0.38s ease;
+}
+
+.game-page--lakeQuiz .game-page__science-placeholder {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.game-page--fighting.game-page--lakeQuiz .game-page__science-placeholder {
+  opacity: 1;
+}
+
+.game-page__science-card.game-page__panel {
+  padding: 1rem 1.05rem;
+  margin: 0;
+}
+
+.game-page__science-hearts {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.game-page__science-heart--on {
+  color: #e8486a;
+  text-shadow: 0 0 8px color-mix(in srgb, #e8486a 45%, transparent);
+}
+
+.game-page__science-heart--off {
+  color: color-mix(in srgb, var(--text, #ccc) 25%, #444);
+  filter: grayscale(0.9);
+  opacity: 0.4;
+}
+
+.game-page--scienceLocked .game-page__science-heart--on {
+  text-shadow: none;
+}
+
+.game-page__science-eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text, #e8e8e8) 65%, transparent);
+}
+
+.game-page__science-q {
+  margin: 0 0 0.75rem;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.game-page__science-fieldset {
+  margin: 0 0 0.65rem;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.game-page__science-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.game-page__science-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.game-page__science-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.game-page__science-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border, #555) 75%, transparent);
+  background: color-mix(in srgb, var(--bg, #0f0f0f) 55%, transparent);
+  cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.game-page__science-option:hover {
+  border-color: color-mix(in srgb, var(--accent, #6ae) 55%, var(--border, #555));
+}
+
+.game-page__science-option:focus-within {
+  outline: 2px solid var(--accent, #6ae);
+  outline-offset: 2px;
+}
+
+.game-page__science-option--selected {
+  border-color: color-mix(in srgb, var(--accent, #6ae) 70%, var(--border, #555));
+  background: color-mix(in srgb, var(--accent, #6ae) 14%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #6ae) 35%, transparent);
+}
+
+.game-page__science-option-body {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.game-page__science-letter {
+  flex-shrink: 0;
+  width: 1.35rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--accent, #6ae) 88%, var(--text, #fff));
+}
+
+.game-page__science-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.game-page__science-actions {
+  margin: 0.5rem 0 0.55rem;
+}
+
+.game-page__science-check {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--accent, #6ae);
+  background: color-mix(in srgb, var(--accent, #6ae) 22%, transparent);
+  color: var(--text, #f2f2f2);
+  cursor: pointer;
+}
+
+.game-page__science-check:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #6ae) 32%, transparent);
+}
+
+.game-page__science-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.game-page__science-feedback {
+  margin: 0.45rem 0 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.game-page__science-feedback--ok {
+  color: color-mix(in srgb, #5dc 80%, var(--text, #fff));
+}
+
+.game-page__science-feedback--bad {
+  color: color-mix(in srgb, #e86 85%, #fff);
+}
+
+.game-page__science-note {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--text, #e8e8e8) 70%, transparent);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
