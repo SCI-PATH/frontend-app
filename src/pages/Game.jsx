@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import GameBackground from '../components/gamebackground.jsx'
 import gamingBack from '../resources/gamingBack.jpg'
 import gamingback2 from '../resources/gamingback2.png'
+import background3 from '../resources/background3.png'
+import background4 from '../resources/background4.png'
 import crocodile0 from '../resources/crocodile.png'
 import crocodile1 from '../resources/crocodile1.png'
 import crocodile2 from '../resources/crocodile2.png'
@@ -21,6 +23,9 @@ const IDLE_FRAMES = Array.from({ length: 10 }, (_, i) =>
 
 const ATTACK_FRAMES = Array.from({ length: 10 }, (_, i) =>
   new URL(`../resources/Attack (${i + 1}).png`, import.meta.url).href,
+)
+const JUMP_FRAMES = Array.from({ length: 10 }, (_, i) =>
+  new URL(`../resources/Jump (${i + 1}).png`, import.meta.url).href,
 )
 
 const RUN_FRAME_MS = 72
@@ -77,6 +82,63 @@ const LAKE_SCIENCE_CHOICES = [
 ]
 
 const SCIENCE_CORRECT_ID = 'B'
+const BACKGROUND3_CORRECT_ID = 'A'
+
+const BACKGROUND3_MOCK_CHOICES = [
+  { id: 'A', label: 'When air cools, water vapor condenses into tiny droplets' },
+  { id: 'B', label: 'Water vapor becomes metal particles in clouds' },
+  { id: 'C', label: 'Sunlight converts vapor directly to stones' },
+  { id: 'D', label: 'Vapor disappears without changing state' },
+]
+
+const BACKGROUND3_MOCK_QUESTIONS = [
+  'What happens to water vapor when cooler air is reached?',
+  'How do tiny cloud droplets begin to form?',
+  'Which process starts cloud formation from water vapor?',
+  'When warm vapor rises and cools, what is the next step?',
+]
+
+const BACKGROUND3_BREAK_CELEBRATION_MS = 950
+
+function shuffleChallenges(challenges) {
+  const out = [...challenges]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+function getRandomizedChallengeBackgrounds(pool, count) {
+  if (!Array.isArray(pool) || pool.length === 0 || count <= 0) return []
+  if (count <= pool.length) {
+    const shuffled = [...pool]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled.slice(0, count)
+  }
+  const out = new Array(count)
+  let prev = null
+  for (let i = 0; i < count; i++) {
+    let pick = Math.floor(Math.random() * pool.length)
+    if (pool.length > 1 && pool[pick] === prev) {
+      // Avoid immediate repeats (e.g. gamingback2 gamingback2 gamingback2...).
+      let guard = 0
+      while (pool[pick] === prev && guard < 8) {
+        pick = Math.floor(Math.random() * pool.length)
+        guard += 1
+      }
+      if (pool[pick] === prev) {
+        pick = (pick + 1) % pool.length
+      }
+    }
+    out[i] = pool[pick]
+    prev = out[i]
+  }
+  return out
+}
 
 /** Sprite order: closed → open. Mouth opens periodically, then closes. */
 const CROC_FRAMES = [crocodile2, crocodile0, crocodile1]
@@ -127,10 +189,23 @@ export default function Game() {
   const [scienceLives, setScienceLives] = useState(3)
   const [scienceSolved, setScienceSolved] = useState(false)
   const [scienceLocked, setScienceLocked] = useState(false)
+  const [background3QuestionIndex, setBackground3QuestionIndex] = useState(0)
+  const [background3Choice, setBackground3Choice] = useState(null)
+  const [background3Lives, setBackground3Lives] = useState(3)
+  const [background3Solved, setBackground3Solved] = useState(false)
+  const [background3Locked, setBackground3Locked] = useState(false)
 
   const scienceSolvedRef = useRef(false)
   const scienceLockedRef = useRef(false)
   const scienceLivesRef = useRef(3)
+  const bg3QuestionIndexRef = useRef(0)
+  const bg3QuizVisibleRef = useRef(false)
+  const background3SolvedRef = useRef(false)
+  const background3LockedRef = useRef(false)
+  const background3LivesRef = useRef(3)
+  const bg3CelebratingRef = useRef(false)
+  const bg3CelebrationStartRef = useRef(0)
+  const [bg3CelebratingUI, setBg3CelebratingUI] = useState(false)
   /** Countdown ticks on the lake after a correct answer before the north run on gamingback2. */
   const trailSnapDelayRef = useRef(0)
 
@@ -143,10 +218,36 @@ export default function Game() {
   const scrollPxRef = useRef(0)
   const crocAudioCtxRef = useRef(null)
   const gamePageRef = useRef(null)
+  const randomizedChallenges = useMemo(
+    () =>
+      shuffleChallenges([
+        {
+          id: 'crocodile',
+          backgrounds: [gamingback2], // ✅ ONLY the challenge
+        },
+        {
+          id: 'gate',
+          backgrounds: [background3, background4], // ✅ stays grouped
+        },
+      ]),
+    [],
+  )
+  
+  const parallaxBackgrounds = useMemo(() => {
+    const result = [gamingBack]
+  
+    randomizedChallenges.forEach((challenge) => {
+      result.push(...challenge.backgrounds)
+      result.push(gamingBack) // ✅ add BETWEEN challenges
+    })
+  
+    return result
+  }, [randomizedChallenges])
 
   useEffect(() => {
     for (const url of [
       ...RUN_FRAMES,
+      ...JUMP_FRAMES,
       ...IDLE_FRAMES,
       ...CROC_FRAMES,
       ...ATTACK_FRAMES,
@@ -172,6 +273,27 @@ export default function Game() {
     if (next <= 0) {
       scienceLockedRef.current = true
       setScienceLocked(true)
+    }
+  }
+
+  function handleBackground3Check() {
+    if (background3SolvedRef.current || background3LockedRef.current || !background3Choice) {
+      return
+    }
+    if (background3Choice === BACKGROUND3_CORRECT_ID) {
+      background3SolvedRef.current = true
+      setBackground3Solved(true)
+      bg3CelebratingRef.current = true
+      bg3CelebrationStartRef.current = performance.now()
+      setBg3CelebratingUI(true)
+      return
+    }
+    const next = background3LivesRef.current - 1
+    background3LivesRef.current = next
+    setBackground3Lives(next)
+    if (next <= 0) {
+      background3LockedRef.current = true
+      setBackground3Locked(true)
     }
   }
 
@@ -218,6 +340,23 @@ export default function Game() {
     /** Timestamp when purely north climb on gamingback2 started; `0` means not started. */
     let northBridgeRunStart = 0
     let northBridgeComplete = false
+    const lakeTileIndex = parallaxBackgrounds.findIndex(
+      (bg, i) => i > 0 && bg === gamingback2,
+    )
+    const trailTileIndex =
+      lakeTileIndex >= 0
+        ? Math.min(lakeTileIndex + 1, parallaxBackgrounds.length - 1)
+        : -1
+    const background3TileIndex = parallaxBackgrounds.findIndex(
+      (bg, i) => i > 0 && bg === background3,
+    )
+    const background4TileIndex =
+      background3TileIndex >= 0
+        ? parallaxBackgrounds.findIndex((bg, i) => i > background3TileIndex && bg === background4)
+        : -1
+    const challenge2First =
+      background3TileIndex >= 0 &&
+      (lakeTileIndex < 0 || background3TileIndex < lakeTileIndex)
 
     async function catchUpSpriteFrames(frameUrls, kind) {
       while (!cancelled && displayedFrame !== targetFrame) {
@@ -256,27 +395,40 @@ export default function Game() {
       const root = gamePageRef.current
       const tw = getTileWidth()
       const sx = scrollPxRef.current
+      const lakeScroll = lakeTileIndex * tw
+      const trailScroll = trailTileIndex * tw
+      const background3Scroll = background3TileIndex >= 0 ? background3TileIndex * tw : Infinity
+      const background4Scroll = background4TileIndex >= 0 ? background4TileIndex * tw : Infinity
       const onTrailTile =
-        scienceSolvedRef.current && sx >= 2 * tw - 2
+        scienceSolvedRef.current && sx >= trailScroll - 2
       const runningNorthOnBridgeFrozen =
         scienceSolvedRef.current &&
         trailSnapDelayRef.current === 0 &&
         !northBridgeComplete &&
-        sx < 2 * tw - 12
+        sx < trailScroll - 12
       /* Question stays up at the lake; hide on the trail tile (gamingBack) after a correct answer. */
       const lakeQuizDom =
         reachedGamingback2 &&
         !onTrailTile &&
-        (!scienceSolvedRef.current || sx < tw + 96)
+        (!scienceSolvedRef.current || sx < lakeScroll + 96)
+      const challenge2Unlocked = challenge2First || scienceSolvedRef.current
+      const background3QuizDom =
+        challenge2Unlocked &&
+        !background3SolvedRef.current &&
+        background3TileIndex >= 0 &&
+        sx >= background3Scroll - 2 &&
+        sx < background4Scroll - 2
       if (root) {
         root.classList.toggle('game-page--lakeQuiz', lakeQuizDom)
+        root.classList.toggle('game-page--background3Quiz', background3QuizDom)
+        root.classList.toggle('game-page--bg3Celebrating', bg3CelebratingRef.current)
         root.classList.toggle(
           'game-page--atLake',
-          reachedGamingback2 && sx >= tw && sx < 2 * tw,
+          reachedGamingback2 && sx >= lakeScroll && sx < trailScroll,
         )
         root.classList.toggle(
           'game-page--pastBridge',
-          scienceSolvedRef.current && sx >= 2 * tw - 2,
+          scienceSolvedRef.current && sx >= trailScroll - 2,
         )
         root.classList.toggle('game-page--fighting', inFight)
         root.classList.toggle('game-page--scienceLocked', scienceLockedRef.current)
@@ -285,6 +437,25 @@ export default function Game() {
           runningNorthOnBridgeFrozen,
         )
       }
+      if (background3QuizDom && !bg3QuizVisibleRef.current) {
+        let next = Math.floor(Math.random() * BACKGROUND3_MOCK_QUESTIONS.length)
+        if (BACKGROUND3_MOCK_QUESTIONS.length > 1 && next === bg3QuestionIndexRef.current) {
+          next = (next + 1) % BACKGROUND3_MOCK_QUESTIONS.length
+        }
+        bg3QuestionIndexRef.current = next
+        setBackground3QuestionIndex(next)
+        setBackground3Choice(null)
+        setBackground3Solved(false)
+        background3SolvedRef.current = false
+        setBackground3Lives(3)
+        background3LivesRef.current = 3
+        setBackground3Locked(false)
+        background3LockedRef.current = false
+        bg3CelebratingRef.current = false
+        bg3CelebrationStartRef.current = 0
+        setBg3CelebratingUI(false)
+      }
+      bg3QuizVisibleRef.current = background3QuizDom
       imgRef.current?.classList.toggle(
         'game-page__sprite-img--runningNorthFace',
         runningNorthOnBridgeFrozen,
@@ -306,44 +477,115 @@ export default function Game() {
       const vw = Math.max(320, window.innerWidth)
       const vh = window.innerHeight
       const tw = getTileWidth()
+      const lakeScroll = lakeTileIndex * tw
+      const trailScroll = trailTileIndex * tw
+      const background3Scroll = background3TileIndex >= 0 ? background3TileIndex * tw : trailScroll
+      const background4Scroll =
+        background4TileIndex >= 0 ? background4TileIndex * tw : background3Scroll
+      const firstChallengeScroll =
+        challenge2First && !background3SolvedRef.current ? background3Scroll : lakeScroll
 
       if (!reachedGamingback2) {
-        scrollPxRef.current += SCROLL_SPEED * dt
-        if (scrollPxRef.current >= tw) {
-          scrollPxRef.current = tw
-          reachedGamingback2 = true
-          idleStart = now
-          trailIdleReady = false
-          northBridgeRunStart = 0
-          northBridgeComplete = false
-          img.src = IDLE_FRAMES[0]
-          displayedFrame = 0
-          const fig = figureRef.current
-          if (fig && !lakeAriaSet) {
-            fig.setAttribute(
-              'aria-label',
-              'Character resting and watching the lake',
+        if (challenge2First && background3SolvedRef.current) {
+          if (bg3CelebratingRef.current) {
+            const celebrateFor = now - bg3CelebrationStartRef.current
+            scrollPxRef.current = background4Scroll
+            if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
+              bg3CelebratingRef.current = false
+              setBg3CelebratingUI(false)
+            }
+          } else {
+            scrollPxRef.current = Math.max(
+              background4Scroll,
+              scrollPxRef.current + SCROLL_SPEED * dt,
             )
-            lakeAriaSet = true
+            if (scrollPxRef.current >= lakeScroll) {
+              scrollPxRef.current = lakeScroll
+              reachedGamingback2 = true
+              idleStart = now
+              trailIdleReady = false
+              northBridgeRunStart = 0
+              northBridgeComplete = false
+              img.src = IDLE_FRAMES[0]
+              displayedFrame = 0
+              const fig = figureRef.current
+              if (fig && !lakeAriaSet) {
+                fig.setAttribute(
+                  'aria-label',
+                  'Character resting and watching the lake',
+                )
+                lakeAriaSet = true
+              }
+            }
+          }
+        } else {
+          scrollPxRef.current += SCROLL_SPEED * dt
+          if (scrollPxRef.current >= firstChallengeScroll) {
+            scrollPxRef.current = firstChallengeScroll
+            reachedGamingback2 = firstChallengeScroll === lakeScroll
+            idleStart = now
+            trailIdleReady = false
+            northBridgeRunStart = 0
+            northBridgeComplete = false
+            img.src = IDLE_FRAMES[0]
+            displayedFrame = 0
+            const fig = figureRef.current
+            if (fig && !lakeAriaSet) {
+              fig.setAttribute(
+                'aria-label',
+                'Character resting and watching the lake',
+              )
+              lakeAriaSet = true
+            }
           }
         }
       } else if (scienceSolvedRef.current) {
         if (trailSnapFramesBeforeTick > 0) {
-          scrollPxRef.current = tw
+          scrollPxRef.current = lakeScroll
         } else if (!northBridgeComplete) {
           if (northBridgeRunStart === 0) northBridgeRunStart = now
           const nbElapsed = now - northBridgeRunStart
           if (nbElapsed < NORTH_BRIDGE_RUN_MS) {
-            scrollPxRef.current = tw
+            scrollPxRef.current = lakeScroll
           } else {
-            scrollPxRef.current = 2 * tw
+            scrollPxRef.current = trailScroll
             northBridgeComplete = true
           }
         } else {
-          scrollPxRef.current = 2 * tw
+          // Continue forward from trail tile to background3.
+          if (background3SolvedRef.current) {
+            if (bg3CelebratingRef.current) {
+              const celebrateFor = now - bg3CelebrationStartRef.current
+              if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
+                bg3CelebratingRef.current = false
+                setBg3CelebratingUI(false)
+
+                // After sparkles, move to the gamingBack tile after background4.
+                const nextGamingBackScroll = (background4TileIndex + 1) * tw
+                scrollPxRef.current = nextGamingBackScroll
+              } else {
+                // During sparkles, always reveal background4.
+                scrollPxRef.current = background4Scroll
+              }
+            } else {
+              // After challenge 2 is solved, stay on the next gamingBack tile.
+              const nextGamingBackScroll = (background4TileIndex + 1) * tw
+              scrollPxRef.current = nextGamingBackScroll
+            }
+          } else if (!trailIdleReady) {
+            scrollPxRef.current = trailScroll
+          } else {
+            scrollPxRef.current = Math.min(
+              background3Scroll,
+              scrollPxRef.current + SCROLL_SPEED * dt,
+            )
+          }
         }
       } else {
-        scrollPxRef.current = tw
+        scrollPxRef.current =
+          challenge2First && !background3SolvedRef.current
+            ? background3Scroll
+            : lakeScroll
       }
 
       const x = scrollPxRef.current
@@ -354,7 +596,8 @@ export default function Game() {
 
       if (reachedGamingback2) {
         const idleT = now - idleStart
-        const lakeParked = x <= tw + 1 && !scienceSolvedRef.current
+        const lakeParked =
+          x >= lakeScroll - 1 && x <= lakeScroll + 1 && !scienceSolvedRef.current
         const elapsedNorthBridge =
           northBridgeRunStart > 0 ? now - northBridgeRunStart : 0
         const runningNorthBridge =
@@ -364,11 +607,11 @@ export default function Game() {
           northBridgeRunStart > 0 &&
           elapsedNorthBridge < NORTH_BRIDGE_RUN_MS
         const pastBridge =
-          scienceSolvedRef.current && x >= 2 * tw - 1
+          scienceSolvedRef.current && x >= trailScroll - 1
         const waitingTrailSnap =
           scienceSolvedRef.current &&
           trailSnapFramesBeforeTick > 0 &&
-          x <= tw + 1
+          x <= lakeScroll + 1
 
         if (pastBridge && !trailIdleReady) {
           trailIdleReady = true
@@ -590,18 +833,42 @@ export default function Game() {
           }
         } else if (pastBridge) {
           const trailT = now - trailIdleStart
-          targetFrame =
-            Math.floor(trailT / IDLE_FRAME_MS) % IDLE_FRAMES.length
-          const breath =
-            Math.sin((trailT / BREATH_PERIOD_MS) * Math.PI * 2) *
-            (BREATH_BOB_PX * 0.5)
-          body.style.transform = `translate(0px, ${breath}px)`
+          const runningToBackground3 =
+            x < background3Scroll - 1 && !bg3CelebratingRef.current
+          if (bg3CelebratingRef.current) {
+            const celebrateT = now - bg3CelebrationStartRef.current
+            targetFrame =
+              Math.floor(celebrateT / IDLE_FRAME_MS) % IDLE_FRAMES.length
+            const breath =
+              Math.sin((celebrateT / BREATH_PERIOD_MS) * Math.PI * 2) *
+              (BREATH_BOB_PX * 0.5)
+            body.style.transform = `translate(0px, ${breath}px)`
+          } else if (runningToBackground3) {
+            const bob =
+              Math.sin((trailT / BOB_PERIOD_MS) * Math.PI * 2) * (RUN_BOB_PX * 0.5)
+            body.style.transform = `translate(0px, ${bob}px)`
+            targetFrame = Math.floor(trailT / RUN_FRAME_MS) % RUN_FRAMES.length
+          } else {
+            targetFrame =
+              Math.floor(trailT / IDLE_FRAME_MS) % IDLE_FRAMES.length
+            const breath =
+              Math.sin((trailT / BREATH_PERIOD_MS) * Math.PI * 2) *
+              (BREATH_BOB_PX * 0.5)
+            body.style.transform = `translate(0px, ${breath}px)`
+          }
 
           if (crocWrap) crocWrap.style.visibility = 'hidden'
 
           if (!catchingUp && displayedFrame !== targetFrame) {
             catchingUp = true
-            void catchUpSpriteFrames(IDLE_FRAMES, 'idle')
+            void catchUpSpriteFrames(
+              bg3CelebratingRef.current
+                ? IDLE_FRAMES
+                : runningToBackground3
+                  ? RUN_FRAMES
+                  : IDLE_FRAMES,
+              runningToBackground3 ? 'run' : 'idle',
+            )
               .catch(() => {})
               .finally(() => {
                 catchingUp = false
@@ -646,18 +913,38 @@ export default function Game() {
       } else {
         if (crocWrap) crocWrap.style.visibility = 'hidden'
         lastCrocFrame = -1
-        const bob =
-          Math.sin((t / BOB_PERIOD_MS) * Math.PI * 2) * (RUN_BOB_PX * 0.5)
-        body.style.transform = `translate(0px, ${bob}px)`
 
-        targetFrame = Math.floor(t / RUN_FRAME_MS) % RUN_FRAMES.length
-        if (!catchingUp && displayedFrame !== targetFrame) {
-          catchingUp = true
-          void catchUpSpriteFrames(RUN_FRAMES, 'run')
-            .catch(() => {})
-            .finally(() => {
-              catchingUp = false
-            })
+        if (challenge2First && bg3CelebratingRef.current) {
+          const celebrateT = now - bg3CelebrationStartRef.current
+          targetFrame =
+            Math.floor(celebrateT / IDLE_FRAME_MS) % IDLE_FRAMES.length
+          const breath =
+            Math.sin((celebrateT / BREATH_PERIOD_MS) * Math.PI * 2) *
+            (BREATH_BOB_PX * 0.5)
+          body.style.transform = `translate(0px, ${breath}px)`
+
+          if (!catchingUp && displayedFrame !== targetFrame) {
+            catchingUp = true
+            void catchUpSpriteFrames(IDLE_FRAMES, 'idle')
+              .catch(() => {})
+              .finally(() => {
+                catchingUp = false
+              })
+          }
+        } else {
+          const bob =
+            Math.sin((t / BOB_PERIOD_MS) * Math.PI * 2) * (RUN_BOB_PX * 0.5)
+          body.style.transform = `translate(0px, ${bob}px)`
+
+          targetFrame = Math.floor(t / RUN_FRAME_MS) % RUN_FRAMES.length
+          if (!catchingUp && displayedFrame !== targetFrame) {
+            catchingUp = true
+            void catchUpSpriteFrames(RUN_FRAMES, 'run')
+              .catch(() => {})
+              .finally(() => {
+                catchingUp = false
+              })
+          }
         }
       }
 
@@ -693,9 +980,6 @@ export default function Game() {
     }
   }, [])
 
-  const bgA = `url(${gamingBack})`
-  const bgB = `url(${gamingback2})`
-
   return (
     <GameBackground hideImage>
       <div
@@ -706,18 +990,13 @@ export default function Game() {
       >
         <div className="game-page__parallax" aria-hidden>
           <div ref={parallaxRowRef} className="game-page__parallax-row">
-            <div
-              className="game-page__parallax-tile"
-              style={{ backgroundImage: bgA }}
-            />
-            <div
-              className="game-page__parallax-tile"
-              style={{ backgroundImage: bgB }}
-            />
-            <div
-              className="game-page__parallax-tile"
-              style={{ backgroundImage: bgA }}
-            />
+            {parallaxBackgrounds.map((bg, i) => (
+              <div
+                key={`${i}-${bg}`}
+                className="game-page__parallax-tile"
+                style={{ backgroundImage: `url(${bg})` }}
+              />
+            ))}
           </div>
         </div>
 
@@ -806,6 +1085,108 @@ export default function Game() {
             </p>
           </div>
         </section>
+        <section
+          className="game-page__random-placeholder"
+          aria-label="Background three random question"
+        >
+          <div className="game-page__panel game-page__random-card">
+            <p className="game-page__science-eyebrow">Trail — mock checkpoint</p>
+            <div
+              className="game-page__science-hearts"
+              aria-label={`${background3Lives} of 3 attempts remaining`}
+            >
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className={
+                    i < background3Lives
+                      ? 'game-page__science-heart game-page__science-heart--on'
+                      : 'game-page__science-heart game-page__science-heart--off'
+                  }
+                  aria-hidden
+                >
+                  ♥
+                </span>
+              ))}
+            </div>
+            <p className="game-page__science-q" id="trail-mock-q-title">
+              {BACKGROUND3_MOCK_QUESTIONS[background3QuestionIndex]}
+            </p>
+            <fieldset
+              className="game-page__science-fieldset"
+              aria-labelledby="trail-mock-q-title"
+            >
+              <legend className="game-page__science-legend">Choose one answer</legend>
+              <div className="game-page__science-options">
+                {BACKGROUND3_MOCK_CHOICES.map((c) => (
+                  <label
+                    key={c.id}
+                    className={
+                      background3Choice === c.id
+                        ? 'game-page__science-option game-page__science-option--selected'
+                        : 'game-page__science-option'
+                    }
+                  >
+                    <input
+                      type="radio"
+                      className="game-page__science-radio"
+                      name="trail-mock-q"
+                      value={c.id}
+                      checked={background3Choice === c.id}
+                      onChange={() => setBackground3Choice(c.id)}
+                      disabled={background3Solved || background3Locked}
+                    />
+                    <span className="game-page__science-option-body">
+                      <span className="game-page__science-letter">{c.id}</span>
+                      <span className="game-page__science-label">{c.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="game-page__science-actions">
+              <button
+                type="button"
+                className="game-page__science-check"
+                onClick={handleBackground3Check}
+                disabled={!background3Choice || background3Solved || background3Locked}
+              >
+                Check answer
+              </button>
+            </div>
+            {background3Solved ? (
+              <p className="game-page__science-feedback game-page__science-feedback--ok">
+                Correct.
+              </p>
+            ) : null}
+            {background3Locked && !background3Solved ? (
+              <p className="game-page__science-feedback game-page__science-feedback--bad">
+                No attempts left for this question.
+              </p>
+            ) : null}
+          </div>
+        </section>
+        <div
+          className={
+            bg3CelebratingUI
+              ? 'game-page__break-sparkles game-page__break-sparkles--active'
+              : 'game-page__break-sparkles'
+          }
+          aria-hidden
+        >
+          <span className="game-page__spark game-page__spark--a" />
+          <span className="game-page__spark game-page__spark--b" />
+          <span className="game-page__spark game-page__spark--c" />
+          <span className="game-page__spark game-page__spark--d" />
+          <span className="game-page__spark game-page__spark--e" />
+          <span className="game-page__spark game-page__spark--f" />
+          <span className="game-page__spark game-page__spark--g" />
+          <span className="game-page__spark game-page__spark--h" />
+          <span className="game-page__spark game-page__spark--i" />
+          <span className="game-page__spark game-page__spark--j" />
+          <span className="game-page__spark game-page__spark--k" />
+          <span className="game-page__spark game-page__spark--l" />
+        </div>
 
         <div
           ref={crocWrapRef}

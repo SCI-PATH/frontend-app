@@ -213,7 +213,28 @@
     transform 0.38s ease;
 }
 
+.game-page__random-placeholder {
+  position: fixed;
+  top: clamp(0.85rem, 3vh, 2rem);
+  right: clamp(0.75rem, 3.5vw, 1.75rem);
+  left: auto;
+  width: min(92vw, 360px);
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.38s ease,
+    transform 0.38s ease;
+}
+
 .game-page--lakeQuiz .game-page__science-placeholder {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.game-page--background3Quiz .game-page__random-placeholder {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -226,6 +247,76 @@
 .game-page__science-card.game-page__panel {
   padding: 1rem 1.05rem;
   margin: 0;
+}
+
+.game-page__random-card.game-page__panel {
+  padding: 1rem 1.05rem;
+  margin: 0;
+}
+
+.game-page__break-sparkles {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(9rem, 18vh, 14rem);
+  width: clamp(520px, 68vw, 920px);
+  height: clamp(320px, 50vh, 620px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 12;
+  opacity: 0;
+  transition: opacity 0.12s linear;
+}
+
+.game-page--bg3Celebrating .game-page__break-sparkles {
+  opacity: 1;
+}
+
+.game-page__break-sparkles--active {
+  opacity: 1;
+}
+
+.game-page__spark {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, #fffde9 0 16%, #ffe99b 17% 43%, #ffc84a 44% 72%, #f39a19 73% 100%);
+  box-shadow:
+    0 0 52px rgb(255 222 120 / 100%),
+    0 0 105px rgb(255 175 48 / 95%);
+  filter: saturate(1.08);
+  animation: game-spark-burst 0.78s ease-out infinite;
+}
+
+.game-page__spark--a { left: 50%; top: 58%; animation-delay: 0ms; --dx: 1.9; --dy: -1.0; }
+.game-page__spark--b { left: 44%; top: 62%; animation-delay: 70ms; --dx: -2.3; --dy: -0.86; }
+.game-page__spark--c { left: 57%; top: 64%; animation-delay: 120ms; --dx: 2.8; --dy: -1.15; }
+.game-page__spark--d { left: 47%; top: 57%; animation-delay: 170ms; --dx: -1.6; --dy: -1.28; }
+.game-page__spark--e { left: 53%; top: 60%; animation-delay: 220ms; --dx: 1.1; --dy: -1.35; }
+.game-page__spark--f { left: 40%; top: 56%; animation-delay: 260ms; --dx: -2.9; --dy: -1.2; }
+.game-page__spark--g { left: 60%; top: 57%; animation-delay: 300ms; --dx: 3.1; --dy: -1.18; }
+.game-page__spark--h { left: 42%; top: 66%; animation-delay: 340ms; --dx: -2.2; --dy: -0.72; }
+.game-page__spark--i { left: 58%; top: 66%; animation-delay: 380ms; --dx: 2.35; --dy: -0.74; }
+.game-page__spark--j { left: 49%; top: 52%; animation-delay: 420ms; --dx: -0.42; --dy: -1.55; }
+.game-page__spark--k { left: 36%; top: 62%; animation-delay: 460ms; --dx: -3.25; --dy: -0.95; }
+.game-page__spark--l { left: 64%; top: 62%; animation-delay: 500ms; --dx: 3.25; --dy: -0.95; }
+
+@keyframes game-spark-burst {
+  0% {
+    transform: translate(0, 0) scale(0.25);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(calc(var(--dx, 0) * 56px), calc(var(--dy, -1) * 156px)) scale(1.48);
+    opacity: 0;
+  }
 }
 
 .game-page__science-hearts {
