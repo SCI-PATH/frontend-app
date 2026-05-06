@@ -4,6 +4,13 @@ import gamingBack from '../resources/gamingBack.jpg'
 import gamingback2 from '../resources/gamingback2.png'
 import background3 from '../resources/background3.png'
 import background4 from '../resources/background4.png'
+import background5 from '../resources/background5.png'
+import background6 from '../resources/background6.png'
+import kingDead from '../resources/Dead (1).png'
+import kingHappy from '../resources/Idle (1).png'
+import victoryBadge from '../resources/victory.png'
+import goodBadge from '../resources/good.png'
+import bronzeBadge from '../resources/bronz.png'
 import crocodile0 from '../resources/crocodile.png'
 import crocodile1 from '../resources/crocodile1.png'
 import crocodile2 from '../resources/crocodile2.png'
@@ -28,13 +35,13 @@ const JUMP_FRAMES = Array.from({ length: 10 }, (_, i) =>
   new URL(`../resources/Jump (${i + 1}).png`, import.meta.url).href,
 )
 
-const RUN_FRAME_MS = 72
+const RUN_FRAME_MS = 54
 const RUN_BOB_PX = 4.5
 const BOB_PERIOD_MS = 280
 const IDLE_FRAME_MS = 110
 const BREATH_BOB_PX = 2.5
 const BREATH_PERIOD_MS = 2400
-const SCROLL_SPEED = 165
+const SCROLL_SPEED = 360
 
 /** Slower wind-up, faster strike — reads more like a real swing. */
 const ATTACK_DURATIONS_MS = [78, 72, 68, 62, 46, 38, 36, 38, 44, 52]
@@ -43,9 +50,9 @@ const ATTACK_SWING_MS = ATTACK_DURATIONS_MS.reduce((a, b) => a + b, 0)
 /** Start croc fight this long after reaching the lake (while the science card is up). */
 const LAKE_FIGHT_START_MS = 900
 /** Ticks after “Correct” to show feedback, then pure northward run on gamingback2. */
-const TRAIL_FEEDBACK_DELAY_FRAMES = 12
+const TRAIL_FEEDBACK_DELAY_FRAMES = 7
 /** How long the sprite runs straight north on the frozen bridge tile (ms), then jumps to trail. */
-const NORTH_BRIDGE_RUN_MS = 2800
+const NORTH_BRIDGE_RUN_MS = 1600
 /** Max upward travel (north) clamped vs viewport height. */
 const NORTH_BRIDGE_RISE_VH_RATIO = 0.46
 const NORTH_BRIDGE_RISE_CAP_PX = 400
@@ -98,7 +105,24 @@ const BACKGROUND3_MOCK_QUESTIONS = [
   'When warm vapor rises and cools, what is the next step?',
 ]
 
+const BACKGROUND5_CORRECT_ID = 'B'
+
+const BACKGROUND5_MOCK_CHOICES = [
+  { id: 'A', label: 'Clouds shrink until new water appears from nothing' },
+  { id: 'B', label: 'Droplets merge and fall when they grow heavy enough' },
+  { id: 'C', label: 'Wind removes all weight so rain never falls' },
+  { id: 'D', label: 'Cloud droplets freeze into solids before any fall' },
+]
+
+const BACKGROUND5_MOCK_QUESTIONS = [
+  'What must happen inside a cloud before precipitation can occur?',
+  'Why do clouds often release rain or snow instead of storing it forever?',
+  'What tends to occur when countless cloud droplets collide and combine?',
+]
+
 const BACKGROUND3_BREAK_CELEBRATION_MS = 950
+const BACKGROUND6_NORTH_RUN_MS = 1400
+const HEARTS_PER_CHALLENGE = 4
 
 function shuffleChallenges(challenges) {
   const out = [...challenges]
@@ -184,28 +208,60 @@ function decodeOffscreen(url) {
   })
 }
 
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function Game() {
   const [scienceChoice, setScienceChoice] = useState(null)
-  const [scienceLives, setScienceLives] = useState(3)
+  const [scienceLives, setScienceLives] = useState(HEARTS_PER_CHALLENGE)
   const [scienceSolved, setScienceSolved] = useState(false)
   const [scienceLocked, setScienceLocked] = useState(false)
   const [background3QuestionIndex, setBackground3QuestionIndex] = useState(0)
   const [background3Choice, setBackground3Choice] = useState(null)
-  const [background3Lives, setBackground3Lives] = useState(3)
+  const [background3Lives, setBackground3Lives] = useState(HEARTS_PER_CHALLENGE)
   const [background3Solved, setBackground3Solved] = useState(false)
   const [background3Locked, setBackground3Locked] = useState(false)
+  const [background5QuestionIndex, setBackground5QuestionIndex] = useState(0)
+  const [background5Choice, setBackground5Choice] = useState(null)
+  const [background5Lives, setBackground5Lives] = useState(HEARTS_PER_CHALLENGE)
+  const [background5Solved, setBackground5Solved] = useState(false)
+  const [background5Locked, setBackground5Locked] = useState(false)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const [finishedElapsedMs, setFinishedElapsedMs] = useState(null)
+  const [successAnimFrame, setSuccessAnimFrame] = useState(0)
+  const answerTimingActiveRef = useRef(false)
+  const answerTimingStartRef = useRef(0)
+  const answerTimingAccumulatedMsRef = useRef(0)
+  /** After correct challenge3 answer: tile shows background6 under rain / after (same strip cell). */
+  const [challenge3TileIsBackground6, setChallenge3TileIsBackground6] = useState(false)
+  const challenge3TileIsBackground6Ref = useRef(false)
+
+  useEffect(() => {
+    challenge3TileIsBackground6Ref.current = challenge3TileIsBackground6
+  }, [challenge3TileIsBackground6])
 
   const scienceSolvedRef = useRef(false)
   const scienceLockedRef = useRef(false)
-  const scienceLivesRef = useRef(3)
+  const scienceLivesRef = useRef(HEARTS_PER_CHALLENGE)
   const bg3QuestionIndexRef = useRef(0)
   const bg3QuizVisibleRef = useRef(false)
   const background3SolvedRef = useRef(false)
   const background3LockedRef = useRef(false)
-  const background3LivesRef = useRef(3)
+  const background3LivesRef = useRef(HEARTS_PER_CHALLENGE)
   const bg3CelebratingRef = useRef(false)
   const bg3CelebrationStartRef = useRef(0)
   const [bg3CelebratingUI, setBg3CelebratingUI] = useState(false)
+  const bg5QuestionIndexRef = useRef(0)
+  const bg5QuizVisibleRef = useRef(false)
+  const background5SolvedRef = useRef(false)
+  const background5LockedRef = useRef(false)
+  const background5LivesRef = useRef(HEARTS_PER_CHALLENGE)
+  const bg5CelebratingRef = useRef(false)
+  const bg5CelebrationStartRef = useRef(0)
   /** Countdown ticks on the lake after a correct answer before the north run on gamingback2. */
   const trailSnapDelayRef = useRef(0)
 
@@ -229,6 +285,10 @@ export default function Game() {
           id: 'gate',
           backgrounds: [background3, background4], // ✅ stays grouped
         },
+        {
+          id: 'challenge3',
+          backgrounds: [background5],
+        },
       ]),
     [],
   )
@@ -244,6 +304,84 @@ export default function Game() {
     return result
   }, [randomizedChallenges])
 
+  const challenge3ParallaxTileIndex = useMemo(
+    () => parallaxBackgrounds.findIndex((b, idx) => idx > 0 && b === background5),
+    [parallaxBackgrounds],
+  )
+
+  const allChallengesOver =
+    (scienceSolved || scienceLocked) &&
+    (background3Solved || background3Locked) &&
+    (background5Solved || background5Locked)
+  const totalHeartsMax = HEARTS_PER_CHALLENGE
+  const totalHeartsDamagedRaw =
+    (HEARTS_PER_CHALLENGE - scienceLives) +
+    (HEARTS_PER_CHALLENGE - background3Lives) +
+    (HEARTS_PER_CHALLENGE - background5Lives)
+  const totalHeartsDamaged = Math.min(totalHeartsMax, totalHeartsDamagedRaw)
+  const totalHeartsRemaining = totalHeartsMax - totalHeartsDamaged
+  const isGameOver = totalHeartsRemaining <= 0
+  const solvedCount =
+    Number(scienceSolved) + Number(background3Solved) + Number(background5Solved)
+  const gameScore = Math.max(0, solvedCount * 100 - totalHeartsDamaged * 10)
+  const displayElapsedMs = finishedElapsedMs ?? elapsedMs
+  const displayElapsedSec = Math.floor(displayElapsedMs / 1000)
+  const winGrade =
+    totalHeartsRemaining >= 3 && displayElapsedSec <= 35
+      ? 'Victory'
+      : totalHeartsRemaining >= 2 && displayElapsedSec <= 55
+        ? 'Good'
+        : 'Bronze'
+  const winBadgeImage =
+    winGrade === 'Victory' ? victoryBadge : winGrade === 'Good' ? goodBadge : bronzeBadge
+  const performanceRatio = Math.max(0, Math.min(1, gameScore / 300))
+  const motivationAdvice =
+    performanceRatio >= 0.85
+      ? 'Excellent performance! Keep this pace and challenge yourself with trickier questions next.'
+      : performanceRatio >= 0.55
+        ? 'Good effort! Review the options twice before checking, and you can push this into top score range.'
+        : 'Do not worry — progress comes with practice. Slow down, eliminate wrong options, and you will improve quickly.'
+
+  function restartGame() {
+    window.location.reload()
+  }
+
+  useEffect(() => {
+    if (finishedElapsedMs !== null) return
+    const timer = window.setInterval(() => {
+      const now = performance.now()
+      const runningSlice = answerTimingActiveRef.current
+        ? now - answerTimingStartRef.current
+        : 0
+      setElapsedMs(Math.floor(answerTimingAccumulatedMsRef.current + runningSlice))
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [finishedElapsedMs])
+
+  useEffect(() => {
+    if (allChallengesOver && finishedElapsedMs === null) {
+      const now = performance.now()
+      const runningSlice = answerTimingActiveRef.current
+        ? now - answerTimingStartRef.current
+        : 0
+      const total = Math.floor(answerTimingAccumulatedMsRef.current + runningSlice)
+      setFinishedElapsedMs(total)
+      if (answerTimingActiveRef.current) {
+        answerTimingAccumulatedMsRef.current = total
+        answerTimingActiveRef.current = false
+        answerTimingStartRef.current = 0
+      }
+    }
+  }, [allChallengesOver, finishedElapsedMs])
+
+  useEffect(() => {
+    if (!(allChallengesOver && !isGameOver)) return
+    const anim = window.setInterval(() => {
+      setSuccessAnimFrame((prev) => (prev + 1) % JUMP_FRAMES.length)
+    }, 95)
+    return () => window.clearInterval(anim)
+  }, [allChallengesOver, isGameOver])
+
   useEffect(() => {
     for (const url of [
       ...RUN_FRAMES,
@@ -251,6 +389,7 @@ export default function Game() {
       ...IDLE_FRAMES,
       ...CROC_FRAMES,
       ...ATTACK_FRAMES,
+      background6,
     ]) {
       const pre = new Image()
       pre.src = url
@@ -297,6 +436,27 @@ export default function Game() {
     }
   }
 
+  function handleBackground5Check() {
+    if (background5SolvedRef.current || background5LockedRef.current || !background5Choice) {
+      return
+    }
+    if (background5Choice === BACKGROUND5_CORRECT_ID) {
+      background5SolvedRef.current = true
+      setBackground5Solved(true)
+      setChallenge3TileIsBackground6(true)
+      bg5CelebratingRef.current = true
+      bg5CelebrationStartRef.current = performance.now()
+      return
+    }
+    const next = background5LivesRef.current - 1
+    background5LivesRef.current = next
+    setBackground5Lives(next)
+    if (next <= 0) {
+      background5LockedRef.current = true
+      setBackground5Locked(true)
+    }
+  }
+
   useEffect(() => {
     const body = bodyRef.current
     const img = imgRef.current
@@ -340,6 +500,9 @@ export default function Game() {
     /** Timestamp when purely north climb on gamingback2 started; `0` means not started. */
     let northBridgeRunStart = 0
     let northBridgeComplete = false
+    /** Background6 also uses a frozen middle-screen north run before returning to gamingBack. */
+    let background6NorthRunStart = 0
+    let background6NorthRunComplete = false
     const lakeTileIndex = parallaxBackgrounds.findIndex(
       (bg, i) => i > 0 && bg === gamingback2,
     )
@@ -354,6 +517,16 @@ export default function Game() {
       background3TileIndex >= 0
         ? parallaxBackgrounds.findIndex((bg, i) => i > background3TileIndex && bg === background4)
         : -1
+    /** When challenge3 sits after the gate pair on the strip, run from post-gate separator to this tile. */
+    const background5AfterGateTileIndex =
+      background4TileIndex >= 0
+        ? parallaxBackgrounds.findIndex(
+            (bg, i) => i > background4TileIndex && bg === background5,
+          )
+        : -1
+    const challenge3TileIndex = parallaxBackgrounds.findIndex(
+      (bg, i) => i > 0 && bg === background5,
+    )
     const challenge2First =
       background3TileIndex >= 0 &&
       (lakeTileIndex < 0 || background3TileIndex < lakeTileIndex)
@@ -379,10 +552,35 @@ export default function Game() {
           scienceSolvedRef.current &&
           trailSnapDelayRef.current === 0 &&
           sx < 2 * tw - 8
-        if (kind === 'run' && lakeParkedScroll && !inFight) return
-        if (
+        const challenge5EarlyPx =
+          challenge3TileIndex >= 0 ? challenge3TileIndex * tw : 0
+        const challenge5BeforeLakeCatchup =
+          challenge3TileIndex >= 0 &&
+          lakeTileIndex >= 0 &&
+          challenge3TileIndex < lakeTileIndex
+        const allowIdleChallenge5Early =
           kind === 'idle' &&
-          (!reachedGamingback2 || inFight || spriteRunningNorthTowardTrail)
+          challenge5BeforeLakeCatchup &&
+          (bg5CelebratingRef.current ||
+            (!background5SolvedRef.current &&
+              sx >= challenge5EarlyPx - 2 &&
+              sx <= challenge5EarlyPx + 2))
+        const runningNorthBackground6Catchup =
+          challenge3TileIsBackground6Ref.current &&
+          background5SolvedRef.current &&
+          !background6NorthRunComplete &&
+          challenge3TileIndex >= 0 &&
+          sx >= challenge5EarlyPx - 2 &&
+          sx <= challenge5EarlyPx + 2 &&
+          !bg5CelebratingRef.current
+        if (kind === 'run' && lakeParkedScroll && !inFight) return
+        if (kind === 'run' && !reachedGamingback2 && runningNorthBackground6Catchup) {
+          // Allow early background6 north-facing run before the lake challenge.
+        } else if (
+          kind === 'idle' &&
+          (!reachedGamingback2 || inFight || spriteRunningNorthTowardTrail) &&
+          !(challenge2First && bg3CelebratingRef.current) &&
+          !allowIdleChallenge5Early
         ) {
           return
         }
@@ -401,27 +599,84 @@ export default function Game() {
       const background4Scroll = background4TileIndex >= 0 ? background4TileIndex * tw : Infinity
       const onTrailTile =
         scienceSolvedRef.current && sx >= trailScroll - 2
+      const allChallengesOver =
+        (scienceSolvedRef.current || scienceLockedRef.current) &&
+        (background3SolvedRef.current || background3LockedRef.current) &&
+        (background5SolvedRef.current || background5LockedRef.current)
       const runningNorthOnBridgeFrozen =
         scienceSolvedRef.current &&
         trailSnapDelayRef.current === 0 &&
         !northBridgeComplete &&
         sx < trailScroll - 12
+      const background6Scroll =
+        challenge3TileIndex >= 0 ? challenge3TileIndex * tw : Infinity
+      const background6NextGamingBackScroll =
+        challenge3TileIndex >= 0 ? (challenge3TileIndex + 1) * tw : Infinity
+      const runningNorthOnBackground6Frozen =
+        challenge3TileIsBackground6Ref.current &&
+        background5SolvedRef.current &&
+        !background6NorthRunComplete &&
+        !bg5CelebratingRef.current &&
+        sx >= background6Scroll - 2 &&
+        sx < background6NextGamingBackScroll - 2
       /* Question stays up at the lake; hide on the trail tile (gamingBack) after a correct answer. */
       const lakeQuizDom =
+        !allChallengesOver &&
         reachedGamingback2 &&
         !onTrailTile &&
         (!scienceSolvedRef.current || sx < lakeScroll + 96)
       const challenge2Unlocked = challenge2First || scienceSolvedRef.current
       const background3QuizDom =
+        !allChallengesOver &&
         challenge2Unlocked &&
         !background3SolvedRef.current &&
         background3TileIndex >= 0 &&
         sx >= background3Scroll - 2 &&
         sx < background4Scroll - 2
+      const challenge3Scroll = challenge3TileIndex >= 0 ? challenge3TileIndex * tw : Infinity
+      const challenge3EndScroll =
+        challenge3TileIndex >= 0 ? (challenge3TileIndex + 1) * tw : Infinity
+      const challenge5BeforeLake =
+        challenge3TileIndex >= 0 &&
+        lakeTileIndex >= 0 &&
+        challenge3TileIndex < lakeTileIndex
+      const background5QuizUnlocked =
+        challenge3TileIndex >= 0 &&
+        (background5AfterGateTileIndex >= 0
+          ? background3SolvedRef.current
+          : challenge5BeforeLake
+            ? true
+            : scienceSolvedRef.current)
+      const background5QuizDom =
+        !allChallengesOver &&
+        background5QuizUnlocked &&
+        !background5SolvedRef.current &&
+        challenge3TileIndex >= 0 &&
+        sx >= challenge3Scroll - 2 &&
+        sx < challenge3EndScroll - 2
+      const answerActiveDom =
+        (lakeQuizDom && !scienceSolvedRef.current && !scienceLockedRef.current) ||
+        (background3QuizDom &&
+          !background3SolvedRef.current &&
+          !background3LockedRef.current) ||
+        (background5QuizDom &&
+          !background5SolvedRef.current &&
+          !background5LockedRef.current)
+      const nowForAnswerTimer = performance.now()
+      if (answerActiveDom && !answerTimingActiveRef.current) {
+        answerTimingActiveRef.current = true
+        answerTimingStartRef.current = nowForAnswerTimer
+      } else if (!answerActiveDom && answerTimingActiveRef.current) {
+        answerTimingAccumulatedMsRef.current += nowForAnswerTimer - answerTimingStartRef.current
+        answerTimingActiveRef.current = false
+        answerTimingStartRef.current = 0
+      }
       if (root) {
         root.classList.toggle('game-page--lakeQuiz', lakeQuizDom)
         root.classList.toggle('game-page--background3Quiz', background3QuizDom)
+        root.classList.toggle('game-page--background5Quiz', background5QuizDom)
         root.classList.toggle('game-page--bg3Celebrating', bg3CelebratingRef.current)
+        root.classList.toggle('game-page--bg5Rain', bg5CelebratingRef.current)
         root.classList.toggle(
           'game-page--atLake',
           reachedGamingback2 && sx >= lakeScroll && sx < trailScroll,
@@ -434,7 +689,7 @@ export default function Game() {
         root.classList.toggle('game-page--scienceLocked', scienceLockedRef.current)
         root.classList.toggle(
           'game-page--northOnGamingback2',
-          runningNorthOnBridgeFrozen,
+          runningNorthOnBridgeFrozen || runningNorthOnBackground6Frozen,
         )
       }
       if (background3QuizDom && !bg3QuizVisibleRef.current) {
@@ -447,8 +702,8 @@ export default function Game() {
         setBackground3Choice(null)
         setBackground3Solved(false)
         background3SolvedRef.current = false
-        setBackground3Lives(3)
-        background3LivesRef.current = 3
+        setBackground3Lives(HEARTS_PER_CHALLENGE)
+        background3LivesRef.current = HEARTS_PER_CHALLENGE
         setBackground3Locked(false)
         background3LockedRef.current = false
         bg3CelebratingRef.current = false
@@ -456,13 +711,34 @@ export default function Game() {
         setBg3CelebratingUI(false)
       }
       bg3QuizVisibleRef.current = background3QuizDom
+      if (background5QuizDom && !bg5QuizVisibleRef.current) {
+        let next = Math.floor(Math.random() * BACKGROUND5_MOCK_QUESTIONS.length)
+        if (BACKGROUND5_MOCK_QUESTIONS.length > 1 && next === bg5QuestionIndexRef.current) {
+          next = (next + 1) % BACKGROUND5_MOCK_QUESTIONS.length
+        }
+        bg5QuestionIndexRef.current = next
+        setBackground5QuestionIndex(next)
+        setBackground5Choice(null)
+        setBackground5Solved(false)
+        background5SolvedRef.current = false
+        setBackground5Lives(HEARTS_PER_CHALLENGE)
+        background5LivesRef.current = HEARTS_PER_CHALLENGE
+        setBackground5Locked(false)
+        background5LockedRef.current = false
+        bg5CelebratingRef.current = false
+        bg5CelebrationStartRef.current = 0
+        background6NorthRunStart = 0
+        background6NorthRunComplete = false
+        setChallenge3TileIsBackground6(false)
+      }
+      bg5QuizVisibleRef.current = background5QuizDom
       imgRef.current?.classList.toggle(
         'game-page__sprite-img--runningNorthFace',
-        runningNorthOnBridgeFrozen,
+        runningNorthOnBridgeFrozen || runningNorthOnBackground6Frozen,
       )
       figureRef.current?.classList.toggle(
         'game-page__sprite--centerNorthRun',
-        runningNorthOnBridgeFrozen,
+        runningNorthOnBridgeFrozen || runningNorthOnBackground6Frozen,
       )
     }
 
@@ -482,12 +758,54 @@ export default function Game() {
       const background3Scroll = background3TileIndex >= 0 ? background3TileIndex * tw : trailScroll
       const background4Scroll =
         background4TileIndex >= 0 ? background4TileIndex * tw : background3Scroll
-      const firstChallengeScroll =
-        challenge2First && !background3SolvedRef.current ? background3Scroll : lakeScroll
+      const challenge5ScrollPx =
+        challenge3TileIndex >= 0 ? challenge3TileIndex * tw : lakeScroll
+      const postChallenge5GamingBackScrollPx =
+        challenge3TileIndex >= 0 ? (challenge3TileIndex + 1) * tw : lakeScroll
+      const background6NorthRunPending =
+        challenge3TileIsBackground6Ref.current &&
+        background5SolvedRef.current &&
+        !background6NorthRunComplete &&
+        challenge3TileIndex >= 0
+      const challenge5BeforeLake =
+        challenge3TileIndex >= 0 &&
+        lakeTileIndex >= 0 &&
+        challenge3TileIndex < lakeTileIndex
+      const challenge5BetweenGateAndLake =
+        challenge5BeforeLake &&
+        background4TileIndex >= 0 &&
+        challenge3TileIndex > background4TileIndex
+
+      let firstChallengeScroll = lakeScroll
+      if (challenge2First && !background3SolvedRef.current) {
+        firstChallengeScroll = Math.min(firstChallengeScroll, background3Scroll)
+      }
+      if (challenge5BeforeLake && !background5SolvedRef.current) {
+        firstChallengeScroll = Math.min(firstChallengeScroll, challenge5ScrollPx)
+      }
 
       if (!reachedGamingback2) {
         if (challenge2First && background3SolvedRef.current) {
-          if (bg3CelebratingRef.current) {
+          if (
+            bg5CelebratingRef.current &&
+            challenge5BeforeLake &&
+            challenge3TileIndex >= 0
+          ) {
+            scrollPxRef.current = challenge5ScrollPx
+            const celebrateFor = now - bg5CelebrationStartRef.current
+            if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
+              bg5CelebratingRef.current = false
+            }
+          } else if (background6NorthRunPending && challenge5BeforeLake) {
+            if (background6NorthRunStart === 0) background6NorthRunStart = now
+            const bg6NorthElapsed = now - background6NorthRunStart
+            if (bg6NorthElapsed < BACKGROUND6_NORTH_RUN_MS) {
+              scrollPxRef.current = challenge5ScrollPx
+            } else {
+              background6NorthRunComplete = true
+              scrollPxRef.current = postChallenge5GamingBackScrollPx
+            }
+          } else if (bg3CelebratingRef.current) {
             const celebrateFor = now - bg3CelebrationStartRef.current
             scrollPxRef.current = background4Scroll
             if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
@@ -495,11 +813,15 @@ export default function Game() {
               setBg3CelebratingUI(false)
             }
           } else {
+            let moveCap = lakeScroll
+            if (challenge5BetweenGateAndLake && !background5SolvedRef.current) {
+              moveCap = Math.min(moveCap, challenge5ScrollPx)
+            }
             scrollPxRef.current = Math.max(
               background4Scroll,
-              scrollPxRef.current + SCROLL_SPEED * dt,
+              Math.min(moveCap, scrollPxRef.current + SCROLL_SPEED * dt),
             )
-            if (scrollPxRef.current >= lakeScroll) {
+            if (scrollPxRef.current >= lakeScroll - 0.5) {
               scrollPxRef.current = lakeScroll
               reachedGamingback2 = true
               idleStart = now
@@ -519,23 +841,44 @@ export default function Game() {
             }
           }
         } else {
-          scrollPxRef.current += SCROLL_SPEED * dt
-          if (scrollPxRef.current >= firstChallengeScroll) {
-            scrollPxRef.current = firstChallengeScroll
-            reachedGamingback2 = firstChallengeScroll === lakeScroll
-            idleStart = now
-            trailIdleReady = false
-            northBridgeRunStart = 0
-            northBridgeComplete = false
-            img.src = IDLE_FRAMES[0]
-            displayedFrame = 0
-            const fig = figureRef.current
-            if (fig && !lakeAriaSet) {
-              fig.setAttribute(
-                'aria-label',
-                'Character resting and watching the lake',
-              )
-              lakeAriaSet = true
+          if (
+            bg5CelebratingRef.current &&
+            challenge5BeforeLake &&
+            challenge3TileIndex >= 0
+          ) {
+            scrollPxRef.current = challenge5ScrollPx
+            const celebrateFor = now - bg5CelebrationStartRef.current
+            if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
+              bg5CelebratingRef.current = false
+            }
+          } else if (background6NorthRunPending && challenge5BeforeLake) {
+            if (background6NorthRunStart === 0) background6NorthRunStart = now
+            const bg6NorthElapsed = now - background6NorthRunStart
+            if (bg6NorthElapsed < BACKGROUND6_NORTH_RUN_MS) {
+              scrollPxRef.current = challenge5ScrollPx
+            } else {
+              background6NorthRunComplete = true
+              scrollPxRef.current = postChallenge5GamingBackScrollPx
+            }
+          } else {
+            scrollPxRef.current += SCROLL_SPEED * dt
+            if (scrollPxRef.current >= firstChallengeScroll) {
+              scrollPxRef.current = firstChallengeScroll
+              reachedGamingback2 = firstChallengeScroll === lakeScroll
+              idleStart = now
+              trailIdleReady = false
+              northBridgeRunStart = 0
+              northBridgeComplete = false
+              img.src = IDLE_FRAMES[0]
+              displayedFrame = 0
+              const fig = figureRef.current
+              if (fig && !lakeAriaSet && reachedGamingback2) {
+                fig.setAttribute(
+                  'aria-label',
+                  'Character resting and watching the lake',
+                )
+                lakeAriaSet = true
+              }
             }
           }
         }
@@ -552,8 +895,31 @@ export default function Game() {
             northBridgeComplete = true
           }
         } else {
-          // Continue forward from trail tile to background3.
-          if (background3SolvedRef.current) {
+          // Continue forward from trail tile to challenge tiles / post-gate strip.
+          const postGateGamingBackScrollPx = (background4TileIndex + 1) * tw
+          const challenge3ScrollPx =
+            challenge3TileIndex >= 0 ? challenge3TileIndex * tw : postGateGamingBackScrollPx
+          const pastChallenge3ScrollPx =
+            challenge3TileIndex >= 0
+              ? (challenge3TileIndex + 1) * tw
+              : postGateGamingBackScrollPx
+
+          if (bg5CelebratingRef.current && challenge3TileIndex >= 0) {
+            const celebrateFor = now - bg5CelebrationStartRef.current
+            scrollPxRef.current = challenge3ScrollPx
+            if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
+              bg5CelebratingRef.current = false
+            }
+          } else if (background6NorthRunPending) {
+            if (background6NorthRunStart === 0) background6NorthRunStart = now
+            const bg6NorthElapsed = now - background6NorthRunStart
+            if (bg6NorthElapsed < BACKGROUND6_NORTH_RUN_MS) {
+              scrollPxRef.current = challenge3ScrollPx
+            } else {
+              background6NorthRunComplete = true
+              scrollPxRef.current = pastChallenge3ScrollPx
+            }
+          } else if (background3SolvedRef.current) {
             if (bg3CelebratingRef.current) {
               const celebrateFor = now - bg3CelebrationStartRef.current
               if (celebrateFor >= BACKGROUND3_BREAK_CELEBRATION_MS) {
@@ -568,15 +934,36 @@ export default function Game() {
                 scrollPxRef.current = background4Scroll
               }
             } else {
-              // After challenge 2 is solved, stay on the next gamingBack tile.
-              const nextGamingBackScroll = (background4TileIndex + 1) * tw
-              scrollPxRef.current = nextGamingBackScroll
+              if (background5AfterGateTileIndex >= 0) {
+                const cap =
+                  background5SolvedRef.current
+                    ? pastChallenge3ScrollPx
+                    : challenge3ScrollPx
+                scrollPxRef.current = Math.min(
+                  cap,
+                  Math.max(
+                    postGateGamingBackScrollPx,
+                    scrollPxRef.current + SCROLL_SPEED * dt,
+                  ),
+                )
+              } else {
+                scrollPxRef.current = postGateGamingBackScrollPx
+              }
             }
           } else if (!trailIdleReady) {
             scrollPxRef.current = trailScroll
           } else {
+            const gateApproachScroll =
+              background3TileIndex >= 0 ? background3Scroll : trailScroll
+            const stopBeforeGateScroll =
+              challenge3TileIndex >= 0 &&
+              background3TileIndex >= 0 &&
+              challenge3TileIndex < background3TileIndex &&
+              !background5SolvedRef.current
+                ? challenge3TileIndex * tw
+                : gateApproachScroll
             scrollPxRef.current = Math.min(
-              background3Scroll,
+              stopBeforeGateScroll,
               scrollPxRef.current + SCROLL_SPEED * dt,
             )
           }
@@ -833,16 +1220,83 @@ export default function Game() {
           }
         } else if (pastBridge) {
           const trailT = now - trailIdleStart
+          const postGateGamingBackScrollPx = (background4TileIndex + 1) * tw
+          const challenge3ScrollPx =
+            challenge3TileIndex >= 0 ? challenge3TileIndex * tw : 0
+          const postChallenge3GamingBackScrollPx =
+            challenge3TileIndex >= 0 ? (challenge3TileIndex + 1) * tw : 0
+          const waitingOnChallenge3 =
+            challenge3TileIndex >= 0 &&
+            x >= challenge3ScrollPx - 2 &&
+            x <= challenge3ScrollPx + 2 &&
+            !background5SolvedRef.current &&
+            !bg5CelebratingRef.current
+          const runningOnBackground6North =
+            challenge3TileIsBackground6Ref.current &&
+            background5SolvedRef.current &&
+            !background6NorthRunComplete &&
+            challenge3TileIndex >= 0 &&
+            x >= challenge3ScrollPx - 2 &&
+            x < postChallenge3GamingBackScrollPx - 2 &&
+            !bg5CelebratingRef.current
+          const runningOnGamingBackAfterBg6 =
+            challenge3TileIsBackground6Ref.current &&
+            challenge3TileIndex >= 0 &&
+            x >= postChallenge3GamingBackScrollPx - 2 &&
+            x < postChallenge3GamingBackScrollPx + tw - 2 &&
+            !bg3CelebratingRef.current &&
+            !bg5CelebratingRef.current
+          const runningPastGateTowardChallenge3 =
+            background3SolvedRef.current &&
+            !bg3CelebratingRef.current &&
+            !bg5CelebratingRef.current &&
+            background5AfterGateTileIndex >= 0 &&
+            !background5SolvedRef.current &&
+            x >= postGateGamingBackScrollPx - 2 &&
+            x < challenge3ScrollPx - 1
+          const runningPreGateFromChallenge3TowardGate =
+            scienceSolvedRef.current &&
+            !bg3CelebratingRef.current &&
+            !bg5CelebratingRef.current &&
+            challenge3TileIndex >= 0 &&
+            background3TileIndex >= 0 &&
+            challenge3TileIndex < background3TileIndex &&
+            background5SolvedRef.current &&
+            x < background3Scroll - 1 &&
+            x >= challenge3ScrollPx - 2
           const runningToBackground3 =
-            x < background3Scroll - 1 && !bg3CelebratingRef.current
-          if (bg3CelebratingRef.current) {
-            const celebrateT = now - bg3CelebrationStartRef.current
+            !waitingOnChallenge3 &&
+            ((x < background3Scroll - 1 && !bg3CelebratingRef.current) ||
+              runningOnBackground6North ||
+              runningOnGamingBackAfterBg6 ||
+              runningPastGateTowardChallenge3 ||
+              runningPreGateFromChallenge3TowardGate)
+          if (bg3CelebratingRef.current || bg5CelebratingRef.current) {
+            const celebrateT =
+              now -
+              (bg5CelebratingRef.current
+                ? bg5CelebrationStartRef.current
+                : bg3CelebrationStartRef.current)
             targetFrame =
               Math.floor(celebrateT / IDLE_FRAME_MS) % IDLE_FRAMES.length
             const breath =
               Math.sin((celebrateT / BREATH_PERIOD_MS) * Math.PI * 2) *
               (BREATH_BOB_PX * 0.5)
             body.style.transform = `translate(0px, ${breath}px)`
+          } else if (runningOnBackground6North) {
+            const bg6NorthElapsed =
+              background6NorthRunStart > 0 ? now - background6NorthRunStart : 0
+            const bob =
+              Math.sin((trailT / BOB_PERIOD_MS) * Math.PI * 2) * (RUN_BOB_PX * 0.5)
+            const p = Math.min(1, Math.max(0, bg6NorthElapsed / BACKGROUND6_NORTH_RUN_MS))
+            const rise =
+              p *
+              Math.min(
+                NORTH_BRIDGE_RISE_CAP_PX,
+                vh * NORTH_BRIDGE_RISE_VH_RATIO,
+              )
+            body.style.transform = `translate(0px, ${bob - rise}px)`
+            targetFrame = Math.floor(trailT / RUN_FRAME_MS) % RUN_FRAMES.length
           } else if (runningToBackground3) {
             const bob =
               Math.sin((trailT / BOB_PERIOD_MS) * Math.PI * 2) * (RUN_BOB_PX * 0.5)
@@ -862,7 +1316,7 @@ export default function Game() {
           if (!catchingUp && displayedFrame !== targetFrame) {
             catchingUp = true
             void catchUpSpriteFrames(
-              bg3CelebratingRef.current
+              bg3CelebratingRef.current || bg5CelebratingRef.current
                 ? IDLE_FRAMES
                 : runningToBackground3
                   ? RUN_FRAMES
@@ -914,12 +1368,95 @@ export default function Game() {
         if (crocWrap) crocWrap.style.visibility = 'hidden'
         lastCrocFrame = -1
 
-        if (challenge2First && bg3CelebratingRef.current) {
+        const xPre = scrollPxRef.current
+        const challenge5EarlyScrollPxSprite =
+          challenge3TileIndex >= 0 ? challenge3TileIndex * tw : 0
+        const challenge5BeforeLakeSprite =
+          challenge3TileIndex >= 0 &&
+          lakeTileIndex >= 0 &&
+          challenge3TileIndex < lakeTileIndex
+        const parkedOnEarlyChallenge5 =
+          challenge5BeforeLakeSprite &&
+          !background5SolvedRef.current &&
+          xPre >= challenge5EarlyScrollPxSprite - 2 &&
+          xPre <= challenge5EarlyScrollPxSprite + 2
+        const runningNorthEarlyBackground6 =
+          challenge5BeforeLakeSprite &&
+          challenge3TileIsBackground6Ref.current &&
+          background5SolvedRef.current &&
+          !background6NorthRunComplete &&
+          background6NorthRunStart > 0 &&
+          !bg5CelebratingRef.current &&
+          xPre >= challenge5EarlyScrollPxSprite - 2 &&
+          xPre <= challenge5EarlyScrollPxSprite + 2
+
+        if (runningNorthEarlyBackground6) {
+          const bg6NorthElapsed = now - background6NorthRunStart
+          const bob =
+            Math.sin((bg6NorthElapsed / BOB_PERIOD_MS) * Math.PI * 2) *
+            (RUN_BOB_PX * 0.5)
+          const p = Math.min(1, Math.max(0, bg6NorthElapsed / BACKGROUND6_NORTH_RUN_MS))
+          const rise =
+            p *
+            Math.min(
+              NORTH_BRIDGE_RISE_CAP_PX,
+              vh * NORTH_BRIDGE_RISE_VH_RATIO,
+            )
+          body.style.transform = `translate(0px, ${bob - rise}px)`
+          targetFrame = Math.floor(bg6NorthElapsed / RUN_FRAME_MS) % RUN_FRAMES.length
+
+          if (!catchingUp && displayedFrame !== targetFrame) {
+            catchingUp = true
+            void catchUpSpriteFrames(RUN_FRAMES, 'run')
+              .catch(() => {})
+              .finally(() => {
+                catchingUp = false
+              })
+          }
+        } else if (challenge2First && bg3CelebratingRef.current) {
           const celebrateT = now - bg3CelebrationStartRef.current
           targetFrame =
             Math.floor(celebrateT / IDLE_FRAME_MS) % IDLE_FRAMES.length
           const breath =
             Math.sin((celebrateT / BREATH_PERIOD_MS) * Math.PI * 2) *
+            (BREATH_BOB_PX * 0.5)
+          body.style.transform = `translate(0px, ${breath}px)`
+
+          if (!catchingUp && displayedFrame !== targetFrame) {
+            catchingUp = true
+            void catchUpSpriteFrames(IDLE_FRAMES, 'idle')
+              .catch(() => {})
+              .finally(() => {
+                catchingUp = false
+              })
+          }
+        } else if (
+          bg5CelebratingRef.current &&
+          challenge5BeforeLakeSprite &&
+          challenge3TileIndex >= 0
+        ) {
+          const celebrateT = now - bg5CelebrationStartRef.current
+          targetFrame =
+            Math.floor(celebrateT / IDLE_FRAME_MS) % IDLE_FRAMES.length
+          const breath =
+            Math.sin((celebrateT / BREATH_PERIOD_MS) * Math.PI * 2) *
+            (BREATH_BOB_PX * 0.5)
+          body.style.transform = `translate(0px, ${breath}px)`
+
+          if (!catchingUp && displayedFrame !== targetFrame) {
+            catchingUp = true
+            void catchUpSpriteFrames(IDLE_FRAMES, 'idle')
+              .catch(() => {})
+              .finally(() => {
+                catchingUp = false
+              })
+          }
+        } else if (parkedOnEarlyChallenge5) {
+          const breathT = now - start
+          targetFrame =
+            Math.floor(breathT / IDLE_FRAME_MS) % IDLE_FRAMES.length
+          const breath =
+            Math.sin((breathT / BREATH_PERIOD_MS) * Math.PI * 2) *
             (BREATH_BOB_PX * 0.5)
           body.style.transform = `translate(0px, ${breath}px)`
 
@@ -990,15 +1527,125 @@ export default function Game() {
       >
         <div className="game-page__parallax" aria-hidden>
           <div ref={parallaxRowRef} className="game-page__parallax-row">
-            {parallaxBackgrounds.map((bg, i) => (
-              <div
-                key={`${i}-${bg}`}
-                className="game-page__parallax-tile"
-                style={{ backgroundImage: `url(${bg})` }}
-              />
-            ))}
+            {parallaxBackgrounds.map((bg, i) => {
+              const tileUrl =
+                challenge3TileIsBackground6 && i === challenge3ParallaxTileIndex
+                  ? background6
+                  : bg
+              return (
+                <div
+                  key={i}
+                  className="game-page__parallax-tile"
+                  style={{ backgroundImage: `url(${tileUrl})` }}
+                />
+              )
+            })}
           </div>
         </div>
+
+        <div className="game-page__real-rain" aria-hidden>
+          <div className="game-page__real-rain-sky" />
+          <div className="game-page__real-rain-layer game-page__real-rain-layer--distant" />
+          <div className="game-page__real-rain-layer game-page__real-rain-layer--mid" />
+          <div className="game-page__real-rain-layer game-page__real-rain-layer--near" />
+          <div className="game-page__real-rain-mist" />
+        </div>
+
+        <aside className="game-page__hud" aria-label="Game dashboard">
+          <div className="game-page__hud-title">Game Dashboard</div>
+          <div className="game-page__hud-row">
+            <span className="game-page__hud-label">Hearts</span>
+            <span className="game-page__hud-value">
+              {totalHeartsRemaining}/{totalHeartsMax}
+            </span>
+          </div>
+          <div className="game-page__hud-hearts" aria-label="Total hearts status">
+            {Array.from({ length: totalHeartsMax }, (_, i) => (
+              <span
+                key={i}
+                className={
+                  i < totalHeartsRemaining
+                    ? 'game-page__hud-heart game-page__hud-heart--on'
+                    : 'game-page__hud-heart game-page__hud-heart--off'
+                }
+                aria-hidden
+              >
+                ♥
+              </span>
+            ))}
+          </div>
+          <div className="game-page__hud-row">
+            <span className="game-page__hud-label">Damaged</span>
+            <span className="game-page__hud-value">{totalHeartsDamaged}</span>
+          </div>
+          <div className="game-page__hud-row">
+            <span className="game-page__hud-label">Score</span>
+            <span className="game-page__hud-value game-page__hud-value--score">{gameScore}</span>
+          </div>
+          <div className="game-page__hud-row">
+            <span className="game-page__hud-label">Time</span>
+            <span className="game-page__hud-value game-page__hud-value--time">
+              {formatDuration(displayElapsedMs)}
+            </span>
+          </div>
+        </aside>
+
+        {isGameOver ? (
+          <section className="game-page__gameover" role="dialog" aria-modal="true">
+            <div className="game-page__gameover-card">
+              <img
+                src={kingDead}
+                alt="Sad king defeated"
+                className="game-page__gameover-img"
+              />
+              <h2 className="game-page__gameover-title">Game Over</h2>
+              <p className="game-page__gameover-text">
+                All hearts are damaged. Slow down, read each MCQ carefully, and answer before
+                clicking check.
+              </p>
+              <button
+                type="button"
+                className="game-page__gameover-restart"
+                onClick={restartGame}
+              >
+                Restart Game
+              </button>
+            </div>
+          </section>
+        ) : null}
+        {allChallengesOver && !isGameOver ? (
+          <section className="game-page__success" role="dialog" aria-modal="true">
+            <div className="game-page__success-card">
+              <img
+                src={winBadgeImage}
+                alt={`${winGrade} badge`}
+                className="game-page__success-badge-img"
+              />
+              <img
+                src={JUMP_FRAMES[successAnimFrame] || kingHappy}
+                alt="Happy king celebrating"
+                className="game-page__success-img"
+              />
+              <h2 className="game-page__success-title">Level Complete!</h2>
+              <p className="game-page__success-text">
+                Great work! All challenges are completed and you are ready for the next level.
+              </p>
+              <div className="game-page__success-stats">
+                <div className="game-page__success-stat">
+                  <span className="game-page__success-stat-label">Final Score</span>
+                  <span className="game-page__success-stat-value">{gameScore}</span>
+                </div>
+                <div className="game-page__success-stat">
+                  <span className="game-page__success-stat-label">Time Taken</span>
+                  <span className="game-page__success-stat-value">
+                    {formatDuration(displayElapsedMs)}
+                  </span>
+                </div>
+              </div>
+              <p className="game-page__success-advice">{motivationAdvice}</p>
+            </div>
+          </section>
+        ) : null}
 
         <section
           className="game-page__science-placeholder"
@@ -1006,24 +1653,6 @@ export default function Game() {
         >
           <div className="game-page__panel game-page__science-card">
             <p className="game-page__science-eyebrow">Bridge — science checkpoint</p>
-            <div
-              className="game-page__science-hearts"
-              aria-label={`${scienceLives} of 3 attempts remaining`}
-            >
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className={
-                    i < scienceLives
-                      ? 'game-page__science-heart game-page__science-heart--on'
-                      : 'game-page__science-heart game-page__science-heart--off'
-                  }
-                  aria-hidden
-                >
-                  ♥
-                </span>
-              ))}
-            </div>
             <p className="game-page__science-q" id="lake-science-q-title">
               What main process moves water from a lake surface into the air?
             </p>
@@ -1091,24 +1720,6 @@ export default function Game() {
         >
           <div className="game-page__panel game-page__random-card">
             <p className="game-page__science-eyebrow">Trail — mock checkpoint</p>
-            <div
-              className="game-page__science-hearts"
-              aria-label={`${background3Lives} of 3 attempts remaining`}
-            >
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className={
-                    i < background3Lives
-                      ? 'game-page__science-heart game-page__science-heart--on'
-                      : 'game-page__science-heart game-page__science-heart--off'
-                  }
-                  aria-hidden
-                >
-                  ♥
-                </span>
-              ))}
-            </div>
             <p className="game-page__science-q" id="trail-mock-q-title">
               {BACKGROUND3_MOCK_QUESTIONS[background3QuestionIndex]}
             </p>
@@ -1160,6 +1771,69 @@ export default function Game() {
               </p>
             ) : null}
             {background3Locked && !background3Solved ? (
+              <p className="game-page__science-feedback game-page__science-feedback--bad">
+                No attempts left for this question.
+              </p>
+            ) : null}
+          </div>
+        </section>
+        <section
+          className="game-page__challenge5-placeholder"
+          aria-label="Background five checkpoint question"
+        >
+          <div className="game-page__panel game-page__challenge5-card">
+            <p className="game-page__science-eyebrow">Path — cloud checkpoint</p>
+            <p className="game-page__science-q" id="challenge5-mock-q-title">
+              {BACKGROUND5_MOCK_QUESTIONS[background5QuestionIndex]}
+            </p>
+            <fieldset
+              className="game-page__science-fieldset"
+              aria-labelledby="challenge5-mock-q-title"
+            >
+              <legend className="game-page__science-legend">Choose one answer</legend>
+              <div className="game-page__science-options">
+                {BACKGROUND5_MOCK_CHOICES.map((c) => (
+                  <label
+                    key={c.id}
+                    className={
+                      background5Choice === c.id
+                        ? 'game-page__science-option game-page__science-option--selected'
+                        : 'game-page__science-option'
+                    }
+                  >
+                    <input
+                      type="radio"
+                      className="game-page__science-radio"
+                      name="challenge5-mock-q"
+                      value={c.id}
+                      checked={background5Choice === c.id}
+                      onChange={() => setBackground5Choice(c.id)}
+                      disabled={background5Solved || background5Locked}
+                    />
+                    <span className="game-page__science-option-body">
+                      <span className="game-page__science-letter">{c.id}</span>
+                      <span className="game-page__science-label">{c.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="game-page__science-actions">
+              <button
+                type="button"
+                className="game-page__science-check"
+                onClick={handleBackground5Check}
+                disabled={!background5Choice || background5Solved || background5Locked}
+              >
+                Check answer
+              </button>
+            </div>
+            {background5Solved ? (
+              <p className="game-page__science-feedback game-page__science-feedback--ok">
+                Correct.
+              </p>
+            ) : null}
+            {background5Locked && !background5Solved ? (
               <p className="game-page__science-feedback game-page__science-feedback--bad">
                 No attempts left for this question.
               </p>
