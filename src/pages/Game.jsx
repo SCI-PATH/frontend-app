@@ -123,6 +123,7 @@ const BACKGROUND5_MOCK_QUESTIONS = [
 const BACKGROUND3_BREAK_CELEBRATION_MS = 950
 const BACKGROUND6_NORTH_RUN_MS = 1400
 const HEARTS_PER_CHALLENGE = 4
+const QUESTION_TIME_LIMIT_MS = 15000
 
 function shuffleChallenges(challenges) {
   const out = [...challenges]
@@ -215,7 +216,14 @@ function formatDuration(ms) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function formatCountdownMs(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
+  return `00:${String(totalSeconds).padStart(2, '0')}`
+}
+
 export default function Game() {
+  const [level, setLevel] = useState(1)
+  const [runId, setRunId] = useState(0)
   const [scienceChoice, setScienceChoice] = useState(null)
   const [scienceLives, setScienceLives] = useState(HEARTS_PER_CHALLENGE)
   const [scienceSolved, setScienceSolved] = useState(false)
@@ -230,6 +238,9 @@ export default function Game() {
   const [background5Lives, setBackground5Lives] = useState(HEARTS_PER_CHALLENGE)
   const [background5Solved, setBackground5Solved] = useState(false)
   const [background5Locked, setBackground5Locked] = useState(false)
+  const [scienceTimeLeftMs, setScienceTimeLeftMs] = useState(QUESTION_TIME_LIMIT_MS)
+  const [background3TimeLeftMs, setBackground3TimeLeftMs] = useState(QUESTION_TIME_LIMIT_MS)
+  const [background5TimeLeftMs, setBackground5TimeLeftMs] = useState(QUESTION_TIME_LIMIT_MS)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [finishedElapsedMs, setFinishedElapsedMs] = useState(null)
   const [successAnimFrame, setSuccessAnimFrame] = useState(0)
@@ -249,6 +260,7 @@ export default function Game() {
   const scienceLivesRef = useRef(HEARTS_PER_CHALLENGE)
   const bg3QuestionIndexRef = useRef(0)
   const bg3QuizVisibleRef = useRef(false)
+  const scienceQuizVisibleRef = useRef(false)
   const background3SolvedRef = useRef(false)
   const background3LockedRef = useRef(false)
   const background3LivesRef = useRef(HEARTS_PER_CHALLENGE)
@@ -274,6 +286,7 @@ export default function Game() {
   const scrollPxRef = useRef(0)
   const crocAudioCtxRef = useRef(null)
   const gamePageRef = useRef(null)
+  const activeQuestionTimerRef = useRef({ key: null, startMs: 0 })
   const randomizedChallenges = useMemo(
     () =>
       shuffleChallenges([
@@ -346,6 +359,100 @@ export default function Game() {
     window.location.reload()
   }
 
+  function goToNextLevel() {
+    setLevel((prev) => prev + 1)
+
+    setScienceChoice(null)
+    setScienceLives(HEARTS_PER_CHALLENGE)
+    setScienceSolved(false)
+    setScienceLocked(false)
+    scienceLivesRef.current = HEARTS_PER_CHALLENGE
+    scienceSolvedRef.current = false
+    scienceLockedRef.current = false
+
+    setBackground3QuestionIndex(0)
+    setBackground3Choice(null)
+    setBackground3Lives(HEARTS_PER_CHALLENGE)
+    setBackground3Solved(false)
+    setBackground3Locked(false)
+    background3LivesRef.current = HEARTS_PER_CHALLENGE
+    background3SolvedRef.current = false
+    background3LockedRef.current = false
+    bg3QuestionIndexRef.current = 0
+    bg3QuizVisibleRef.current = false
+    bg3CelebratingRef.current = false
+    bg3CelebrationStartRef.current = 0
+    setBg3CelebratingUI(false)
+
+    setBackground5QuestionIndex(0)
+    setBackground5Choice(null)
+    setBackground5Lives(HEARTS_PER_CHALLENGE)
+    setBackground5Solved(false)
+    setBackground5Locked(false)
+    background5LivesRef.current = HEARTS_PER_CHALLENGE
+    background5SolvedRef.current = false
+    background5LockedRef.current = false
+    bg5QuestionIndexRef.current = 0
+    bg5QuizVisibleRef.current = false
+    bg5CelebratingRef.current = false
+    bg5CelebrationStartRef.current = 0
+
+    setElapsedMs(0)
+    setFinishedElapsedMs(null)
+    setSuccessAnimFrame(0)
+    answerTimingActiveRef.current = false
+    answerTimingStartRef.current = 0
+    answerTimingAccumulatedMsRef.current = 0
+
+    setScienceTimeLeftMs(QUESTION_TIME_LIMIT_MS)
+    setBackground3TimeLeftMs(QUESTION_TIME_LIMIT_MS)
+    setBackground5TimeLeftMs(QUESTION_TIME_LIMIT_MS)
+    scienceQuizVisibleRef.current = false
+    activeQuestionTimerRef.current = { key: null, startMs: 0 }
+
+    trailSnapDelayRef.current = 0
+    setChallenge3TileIsBackground6(false)
+    challenge3TileIsBackground6Ref.current = false
+    scrollPxRef.current = 0
+    parallaxRowRef.current?.style.setProperty('transform', 'translate3d(0px, 0, 0)')
+    bodyRef.current?.style.setProperty('transform', 'translate(0px, 0px)')
+
+    setRunId((prev) => prev + 1)
+  }
+
+  function applyScienceHeartPenalty() {
+    if (scienceSolvedRef.current || scienceLockedRef.current) return
+    const next = scienceLivesRef.current - 1
+    scienceLivesRef.current = next
+    setScienceLives(next)
+    if (next <= 0) {
+      scienceLockedRef.current = true
+      setScienceLocked(true)
+    }
+  }
+
+  function applyBackground3HeartPenalty() {
+    if (background3SolvedRef.current || background3LockedRef.current) return
+    const next = background3LivesRef.current - 1
+    background3LivesRef.current = next
+    setBackground3Lives(next)
+    if (next <= 0) {
+      background3LockedRef.current = true
+      setBackground3Locked(true)
+    }
+  }
+
+  function applyBackground5HeartPenalty() {
+    if (background5SolvedRef.current || background5LockedRef.current) return
+    const next = background5LivesRef.current - 1
+    background5LivesRef.current = next
+    setBackground5Lives(next)
+    if (next <= 0) {
+      background5LockedRef.current = true
+      setBackground5Locked(true)
+    }
+  }
+
   useEffect(() => {
     if (finishedElapsedMs !== null) return
     const timer = window.setInterval(() => {
@@ -383,6 +490,56 @@ export default function Game() {
   }, [allChallengesOver, isGameOver])
 
   useEffect(() => {
+    if (allChallengesOver || isGameOver) return
+    const timer = window.setInterval(() => {
+      const now = performance.now()
+      let activeKey = null
+      if (scienceQuizVisibleRef.current && !scienceSolvedRef.current && !scienceLockedRef.current) {
+        activeKey = 'science'
+      } else if (bg3QuizVisibleRef.current && !background3SolvedRef.current && !background3LockedRef.current) {
+        activeKey = 'background3'
+      } else if (bg5QuizVisibleRef.current && !background5SolvedRef.current && !background5LockedRef.current) {
+        activeKey = 'background5'
+      }
+
+      if (!activeKey) {
+        activeQuestionTimerRef.current = { key: null, startMs: 0 }
+        return
+      }
+
+      if (activeQuestionTimerRef.current.key !== activeKey) {
+        activeQuestionTimerRef.current = { key: activeKey, startMs: now }
+      }
+
+      const elapsed = now - activeQuestionTimerRef.current.startMs
+      const remaining = Math.max(0, QUESTION_TIME_LIMIT_MS - elapsed)
+
+      if (activeKey === 'science') setScienceTimeLeftMs(remaining)
+      if (activeKey === 'background3') setBackground3TimeLeftMs(remaining)
+      if (activeKey === 'background5') setBackground5TimeLeftMs(remaining)
+
+      if (remaining > 0) return
+
+      if (activeKey === 'science') {
+        applyScienceHeartPenalty()
+        setScienceChoice(null)
+        setScienceTimeLeftMs(QUESTION_TIME_LIMIT_MS)
+      } else if (activeKey === 'background3') {
+        applyBackground3HeartPenalty()
+        setBackground3Choice(null)
+        setBackground3TimeLeftMs(QUESTION_TIME_LIMIT_MS)
+      } else {
+        applyBackground5HeartPenalty()
+        setBackground5Choice(null)
+        setBackground5TimeLeftMs(QUESTION_TIME_LIMIT_MS)
+      }
+      activeQuestionTimerRef.current = { key: activeKey, startMs: now }
+    }, 120)
+
+    return () => window.clearInterval(timer)
+  }, [allChallengesOver, isGameOver])
+
+  useEffect(() => {
     for (const url of [
       ...RUN_FRAMES,
       ...JUMP_FRAMES,
@@ -406,13 +563,7 @@ export default function Game() {
       trailSnapDelayRef.current = TRAIL_FEEDBACK_DELAY_FRAMES
       return
     }
-    const next = scienceLivesRef.current - 1
-    scienceLivesRef.current = next
-    setScienceLives(next)
-    if (next <= 0) {
-      scienceLockedRef.current = true
-      setScienceLocked(true)
-    }
+    applyScienceHeartPenalty()
   }
 
   function handleBackground3Check() {
@@ -427,13 +578,7 @@ export default function Game() {
       setBg3CelebratingUI(true)
       return
     }
-    const next = background3LivesRef.current - 1
-    background3LivesRef.current = next
-    setBackground3Lives(next)
-    if (next <= 0) {
-      background3LockedRef.current = true
-      setBackground3Locked(true)
-    }
+    applyBackground3HeartPenalty()
   }
 
   function handleBackground5Check() {
@@ -448,13 +593,7 @@ export default function Game() {
       bg5CelebrationStartRef.current = performance.now()
       return
     }
-    const next = background5LivesRef.current - 1
-    background5LivesRef.current = next
-    setBackground5Lives(next)
-    if (next <= 0) {
-      background5LockedRef.current = true
-      setBackground5Locked(true)
-    }
+    applyBackground5HeartPenalty()
   }
 
   useEffect(() => {
@@ -654,6 +793,7 @@ export default function Game() {
         challenge3TileIndex >= 0 &&
         sx >= challenge3Scroll - 2 &&
         sx < challenge3EndScroll - 2
+      scienceQuizVisibleRef.current = lakeQuizDom
       const answerActiveDom =
         (lakeQuizDom && !scienceSolvedRef.current && !scienceLockedRef.current) ||
         (background3QuizDom &&
@@ -706,6 +846,7 @@ export default function Game() {
         background3LivesRef.current = HEARTS_PER_CHALLENGE
         setBackground3Locked(false)
         background3LockedRef.current = false
+        setBackground3TimeLeftMs(QUESTION_TIME_LIMIT_MS)
         bg3CelebratingRef.current = false
         bg3CelebrationStartRef.current = 0
         setBg3CelebratingUI(false)
@@ -725,6 +866,7 @@ export default function Game() {
         background5LivesRef.current = HEARTS_PER_CHALLENGE
         setBackground5Locked(false)
         background5LockedRef.current = false
+        setBackground5TimeLeftMs(QUESTION_TIME_LIMIT_MS)
         bg5CelebratingRef.current = false
         bg5CelebrationStartRef.current = 0
         background6NorthRunStart = 0
@@ -1515,7 +1657,7 @@ export default function Game() {
       }
       crocAudioCtxRef.current = null
     }
-  }, [])
+  }, [runId])
 
   return (
     <GameBackground hideImage>
@@ -1552,7 +1694,7 @@ export default function Game() {
         </div>
 
         <aside className="game-page__hud" aria-label="Game dashboard">
-          <div className="game-page__hud-title">Game Dashboard</div>
+          <div className="game-page__hud-title">Game Dashboard • Level {level}</div>
           <div className="game-page__hud-row">
             <span className="game-page__hud-label">Hearts</span>
             <span className="game-page__hud-value">
@@ -1643,6 +1785,13 @@ export default function Game() {
                 </div>
               </div>
               <p className="game-page__success-advice">{motivationAdvice}</p>
+              <button
+                type="button"
+                className="game-page__success-next"
+                onClick={goToNextLevel}
+              >
+                Next Level
+              </button>
             </div>
           </section>
         ) : null}
@@ -1652,7 +1801,17 @@ export default function Game() {
           aria-label="Science question"
         >
           <div className="game-page__panel game-page__science-card">
-            <p className="game-page__science-eyebrow">Bridge — science checkpoint</p>
+            <div className="game-page__science-header">
+              <p className="game-page__science-eyebrow">Bridge — science checkpoint</p>
+              <p className="game-page__science-timer" aria-label="Question timer">
+                <span className="game-page__science-timer-icon" aria-hidden>
+                  ⏰
+                </span>
+                <span className="game-page__science-timer-value">
+                  {formatCountdownMs(scienceTimeLeftMs)}
+                </span>
+              </p>
+            </div>
             <p className="game-page__science-q" id="lake-science-q-title">
               What main process moves water from a lake surface into the air?
             </p>
@@ -1710,7 +1869,7 @@ export default function Game() {
             ) : null}
             <p className="game-page__science-note">
               The crocodile fights until you answer. Get it right to run north-facing across the bridge,
-              then reach the trail. Each wrong check costs one heart (three tries).
+              then reach the trail. Each wrong check or timeout costs one heart.
             </p>
           </div>
         </section>
@@ -1719,7 +1878,17 @@ export default function Game() {
           aria-label="Background three random question"
         >
           <div className="game-page__panel game-page__random-card">
-            <p className="game-page__science-eyebrow">Trail — mock checkpoint</p>
+            <div className="game-page__science-header">
+              <p className="game-page__science-eyebrow">Trail — mock checkpoint</p>
+              <p className="game-page__science-timer" aria-label="Question timer">
+                <span className="game-page__science-timer-icon" aria-hidden>
+                  ⏰
+                </span>
+                <span className="game-page__science-timer-value">
+                  {formatCountdownMs(background3TimeLeftMs)}
+                </span>
+              </p>
+            </div>
             <p className="game-page__science-q" id="trail-mock-q-title">
               {BACKGROUND3_MOCK_QUESTIONS[background3QuestionIndex]}
             </p>
@@ -1782,7 +1951,17 @@ export default function Game() {
           aria-label="Background five checkpoint question"
         >
           <div className="game-page__panel game-page__challenge5-card">
-            <p className="game-page__science-eyebrow">Path — cloud checkpoint</p>
+            <div className="game-page__science-header">
+              <p className="game-page__science-eyebrow">Path — cloud checkpoint</p>
+              <p className="game-page__science-timer" aria-label="Question timer">
+                <span className="game-page__science-timer-icon" aria-hidden>
+                  ⏰
+                </span>
+                <span className="game-page__science-timer-value">
+                  {formatCountdownMs(background5TimeLeftMs)}
+                </span>
+              </p>
+            </div>
             <p className="game-page__science-q" id="challenge5-mock-q-title">
               {BACKGROUND5_MOCK_QUESTIONS[background5QuestionIndex]}
             </p>
