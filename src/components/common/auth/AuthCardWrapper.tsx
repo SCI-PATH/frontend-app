@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Atom, FlaskConical } from "lucide-react";
+import Image from "next/image";
 
 import {
   Card,
@@ -60,14 +60,14 @@ export function AuthCardWrapper({
         />
 
         <CardHeader className="items-center gap-3 pt-6 text-center">
-          <div className="relative">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#00A8E8_0%,#7209B7_100%)] text-white shadow-md shadow-brand-primary/25">
-              <FlaskConical className="size-7" aria-hidden />
-            </div>
-            <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-brand-secondary text-white shadow-sm ring-2 ring-white">
-              <Atom className="size-3.5" aria-hidden />
-            </span>
-          </div>
+          <Image
+            src="/brand/sci-path-mark.png"
+            alt="SCI-PATH"
+            width={56}
+            height={56}
+            className="size-14 rounded-2xl bg-white object-contain"
+            priority
+          />
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-center gap-2">
