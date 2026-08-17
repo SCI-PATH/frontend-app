@@ -36,7 +36,7 @@ const TABS = [
 ];
 
 export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlot }) {
-  const [teacherId] = useState(teacherIdProp || "teacher-1");
+  const [teacherId] = useState(teacherIdProp || "");
   const [grade, setGrade] = useState(7);
   const [profile, setProfile] = useState("weak");
   const [lessonId, setLessonId] = useState("");

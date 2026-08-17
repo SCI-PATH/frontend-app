@@ -1,6 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  BookOpen,
+  Check,
+  ChevronRight,
+  Compass,
+  GraduationCap,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useUserStore } from "@/store/useUserStore";
 import type { CurriculumLesson, CurriculumResponse, LessonResponse } from "@/types";
 
@@ -53,8 +61,8 @@ export default function StudentLearningPath() {
   const sessionGrade = useUserStore((s) => s.grade);
   const sessionName = useUserStore((s) => s.fullName);
 
-  const [userId, setUserId] = useState(sessionUserId || "demo-1");
-  const [grade, setGrade] = useState(sessionGrade || 7);
+  const [userId, setUserId] = useState(sessionUserId || "");
+  const [grade, setGrade] = useState(sessionGrade ?? 7);
   const [lessonId, setLessonId] = useState("");
   const [profile, setProfile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -143,6 +151,7 @@ export default function StudentLearningPath() {
   }, [finishedLessonId, gradeLessons]);
 
   useEffect(() => {
+    if (!userId) return undefined;
     let cancelled = false;
     Promise.all([getCurriculum(grade), getProgress(userId)])
       .then(([c, p]) => {
@@ -520,110 +529,223 @@ export default function StudentLearningPath() {
     );
   }
 
+  const learnerName = sessionName || "Science explorer";
+  const initials = learnerName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  const learningLevel = PROFILE_LABEL[profile || ""] || "Aptitude test pending";
+  const totalLessons = gradeLessons.length;
+  const pendingInGrade = Math.max(0, totalLessons - completedInGrade);
+  const progressPercent = totalLessons
+    ? Math.round((completedInGrade / totalLessons) * 100)
+    : 0;
+  const selectedLesson = gradeLessons.find((lesson) => lesson.lesson_id === lessonId);
+
   return (
     <FeatureShell>
-      <main className="mx-auto max-w-xl px-4 py-8">
-        <header className="mb-6">
-          <p className="text-sm font-medium text-brand-primary">SCI-PATH</p>
-          <h1 className="text-2xl font-semibold text-brand-text">Start a lesson</h1>
-          {sessionName ? (
-            <p className="mt-1 text-sm text-brand-text/70">Signed in as {sessionName}</p>
-          ) : null}
+      <div className="bg-brand-primary px-5 pt-5 pb-28 sm:px-8 lg:px-12 xl:px-16">
+        <header className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-brand-primary"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Dashboard
+          </Link>
+          <button
+            type="button"
+            onClick={() => setView("explore")}
+            className="m-0 inline-flex w-auto items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-special transition-colors hover:bg-brand-special hover:text-white"
+          >
+            <Compass className="size-4" aria-hidden />
+            Science map
+          </button>
         </header>
+      </div>
 
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle>Chapter selection</CardTitle>
-            <CardDescription>
-              After your aptitude test, choose Chapter 1 or any chapter in your grade. Lessons use
-              the level from the question engine.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setView("explore")}
-              >
-                Open science map
-              </Button>
+      <main className="mx-auto -mt-20 w-full max-w-[1440px] px-5 pb-10 sm:px-8 lg:px-12 xl:px-16">
+        <section className="mb-8 rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-brand-primary text-xl font-bold text-white sm:size-20 sm:text-2xl">
+                {initials || "SP"}
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold text-brand-text sm:text-3xl">
+                  {learnerName}
+                </h1>
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
+                    <GraduationCap className="size-3.5" aria-hidden />
+                    Grade {grade}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-surface px-3 py-1 text-xs font-semibold text-brand-text/70">
+                    {learningLevel}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-              <label htmlFor="userId" className="text-sm font-medium">
-                Student id
-              </label>
-              <Input
-                id="userId"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                disabled={Boolean(sessionUserId)}
+            <div className="grid w-full grid-cols-3 gap-3 lg:w-auto lg:min-w-[26rem]">
+              <div className="rounded-xl bg-brand-secondary/15 px-3 py-3 text-center">
+                <p className="text-2xl font-bold text-brand-text sm:text-3xl">{completedInGrade}</p>
+                <p className="text-xs font-medium text-brand-text/60">Completed</p>
+              </div>
+              <div className="rounded-xl bg-brand-accent/15 px-3 py-3 text-center">
+                <p className="text-2xl font-bold text-brand-text sm:text-3xl">{pendingInGrade}</p>
+                <p className="text-xs font-medium text-brand-text/60">Pending</p>
+              </div>
+              <div className="rounded-xl bg-brand-primary/15 px-3 py-3 text-center">
+                <p className="text-2xl font-bold text-brand-text sm:text-3xl">{progressPercent}%</p>
+                <p className="text-xs font-medium text-brand-text/60">Progress</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-brand-text/60">
+              <span>Grade {grade} progress</span>
+              <span>
+                {completedInGrade} of {totalLessons} chapters
+              </span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-brand-surface">
+              <div
+                className="h-full rounded-full bg-brand-secondary transition-[width] duration-500"
+                style={{ width: `${progressPercent}%` }}
               />
+            </div>
+          </div>
+        </section>
 
-              <label htmlFor="grade" className="text-sm font-medium">
-                Grade
-              </label>
-              <select
-                id="grade"
-                className={selectClassName}
-                value={grade}
-                onChange={(e) => void onGradeChange(e.target.value)}
-              >
-                {GRADE_OPTIONS.map((g) => (
-                  <option key={g} value={g}>
-                    Grade {g}
-                  </option>
-                ))}
-              </select>
-
-              <label htmlFor="lessonId" className="text-sm font-medium">
-                Chapter
-              </label>
-              <select
-                id="lessonId"
-                className={selectClassName}
-                value={lessonId}
-                onChange={(e) => setLessonId(e.target.value)}
-              >
-                <option value="">Choose…</option>
-                {gradeLessons.map((l, i) => (
-                  <option key={l.lesson_id} value={l.lesson_id}>
-                    {chapterOptionLabel(l, i)}
-                  </option>
-                ))}
-              </select>
-
-              {gradeLessons.length > 0 ? (
-                <p className="text-xs text-brand-text/70">
-                  Progress: <strong>{completedInGrade}</strong> / {gradeLessons.length} chapters
-                  done. ✓ means finished — you can still relearn.
-                </p>
-              ) : null}
-
-              <p className="text-sm text-brand-text/80">
-                Learning level:{" "}
-                <strong>{PROFILE_LABEL[profile || ""] || "Pending aptitude test"}</strong>
+        <form onSubmit={onSubmit}>
+          <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="text-lg font-bold text-brand-text sm:text-xl">Choose a chapter</h2>
+              <p className="mt-1 text-sm text-brand-text/60">
+                Completed chapters stay open so you can revise any time.
               </p>
+            </div>
+            {sessionGrade == null ? (
+              <div className="flex flex-wrap gap-1 rounded-xl border border-brand-surface bg-white p-1">
+                {GRADE_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => void onGradeChange(String(option))}
+                    className={`m-0 w-auto rounded-lg border-0 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      grade === option
+                        ? "bg-brand-primary text-white"
+                        : "bg-white text-brand-text/60 hover:text-brand-text"
+                    }`}
+                  >
+                    Grade {option}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
-              {choiceError ? (
-                <p className="text-sm text-brand-accent">{choiceError}</p>
-              ) : null}
+          <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-medium text-brand-text/60">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-3 rounded-full bg-brand-secondary" aria-hidden />
+              Completed
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-3 rounded-full bg-brand-surface" aria-hidden />
+              Not started
+            </span>
+          </div>
 
-              <Button
-                type="submit"
-                disabled={loading || !lessonId || !backendOnline}
-                className="bg-brand-primary text-white hover:bg-brand-primary/90"
-              >
-                {loading ? "Loading lesson…" : "Start lesson"}
-              </Button>
+          {gradeLessons.length ? (
+            <ul className="grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {gradeLessons.map((lesson, index) => {
+                const complete = completedSet.has(lesson.lesson_id);
+                const selected = lesson.lesson_id === lessonId;
+                const title = lesson.display_title || lesson.title || lesson.lesson_id;
+                return (
+                  <li key={lesson.lesson_id}>
+                    <button
+                      type="button"
+                      onClick={() => setLessonId(lesson.lesson_id)}
+                      aria-pressed={selected}
+                      className={`m-0 flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${
+                        selected
+                          ? "border-brand-primary bg-brand-primary/5"
+                          : complete
+                            ? "border-brand-secondary/40 bg-brand-secondary/5 hover:border-brand-secondary"
+                            : "border-brand-surface bg-white hover:border-brand-primary"
+                      }`}
+                    >
+                      <span
+                        className={`flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                          complete
+                            ? "bg-brand-secondary text-brand-text"
+                            : selected
+                              ? "bg-brand-primary text-white"
+                              : "bg-brand-surface text-brand-text/70"
+                        }`}
+                      >
+                        {complete ? <Check className="size-5" aria-hidden /> : index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-brand-text">{title}</span>
+                        <span className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-brand-text/55">
+                          <BookOpen className="size-3.5" aria-hidden />
+                          {complete ? "Completed — revise" : "Not started"}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <ChevronRight className="mt-1 size-4 shrink-0 text-brand-primary" aria-hidden />
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-brand-surface bg-white p-8 text-center text-sm text-brand-text/60">
+              {backendOnline
+                ? `Loading your Grade ${grade} chapters…`
+                : "Chapters unavailable while the learning service is offline."}
+            </div>
+          )}
 
-              {!backendOnline ? (
-                <p className="text-sm text-brand-accent">
-                  Cannot reach the learning service. Make sure it is running, then try again.
-                </p>
-              ) : null}
-            </form>
-          </CardContent>
-        </Card>
+          {choiceError ? (
+            <p className="mt-4 rounded-xl bg-brand-accent/10 px-3 py-2 text-sm font-medium text-brand-accent">
+              {choiceError}
+            </p>
+          ) : null}
+
+          {!backendOnline ? (
+            <p className="mt-4 rounded-xl bg-brand-accent/10 px-3 py-2 text-sm font-medium text-brand-accent">
+              Cannot reach the learning service. Make sure it is running, then try again.
+            </p>
+          ) : null}
+
+          <div className="sticky bottom-4 z-10 mt-6 flex flex-col items-stretch gap-4 rounded-2xl border border-brand-surface bg-white p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold tracking-wide text-brand-text/50 uppercase">
+                Selected chapter
+              </p>
+              <p className="mt-0.5 truncate text-base font-semibold text-brand-text">
+                {selectedLesson
+                  ? selectedLesson.display_title || selectedLesson.title || selectedLesson.lesson_id
+                  : "Choose a chapter above"}
+              </p>
+            </div>
+            <Button
+              type="submit"
+              disabled={loading || !lessonId || !backendOnline || !userId}
+              className="m-0 h-12 w-full shrink-0 border-0 bg-brand-primary px-8 text-base text-white hover:bg-brand-primary/90 sm:w-auto"
+            >
+              {loading ? "Preparing lesson…" : "Start lesson"}
+            </Button>
+          </div>
+        </form>
       </main>
     </FeatureShell>
   );

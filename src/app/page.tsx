@@ -2,6 +2,7 @@
 "use client";
 
 import { FlaskConical } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,8 +40,8 @@ export default function Home() {
           </p>
         </CardContent>
         <CardFooter className="justify-center gap-3 border-brand-surface">
-          <Button className="bg-brand-primary text-white hover:bg-brand-primary/90">
-            Enter workspace
+          <Button asChild className="bg-brand-primary text-white hover:bg-brand-primary/90">
+            <Link href="/login">Enter workspace</Link>
           </Button>
           <Button
             variant="outline"

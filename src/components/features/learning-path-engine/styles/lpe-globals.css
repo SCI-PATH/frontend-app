@@ -1,5 +1,5 @@
 
-:root {
+.lpe-app {
   --brand-focus: #00a8e8;
   --brand-focus-dark: #0086b8;
   --brand-focus-soft: #e6f7fd;
@@ -19,25 +19,61 @@
   --duo-card: #ffffff;
   --duo-ink: var(--brand-ink);
   --duo-muted: #6c757d;
-  font-family: var(--font-body);
-  line-height: 1.55;
-  color: var(--brand-ink);
-  background: var(--brand-canvas);
-  -webkit-font-smoothing: antialiased;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--brand-canvas); color: var(--brand-ink); }
-main { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
-h1 {
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0 0 1rem;
-  color: var(--brand-ink);
+/*
+ * Base-element defaults for the legacy LPE screens. They live in Tailwind's
+ * `base` layer and are scoped to `.lpe-app` so they neither leak into other
+ * routes nor outrank a Tailwind utility (unlayered CSS always wins over
+ * layered CSS, so the layer is what makes utilities usable in this subtree).
+ */
+@layer base {
+  .lpe-app {
+    font-family: var(--font-body);
+    line-height: 1.55;
+    color: var(--brand-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :where(.lpe-app) * { box-sizing: border-box; }
+  :where(.lpe-app main) { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+  :where(.lpe-app h1) {
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    color: var(--brand-ink);
+  }
+  :where(.lpe-app label) {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0.5rem 0 0.25rem;
+    color: var(--brand-ink);
+  }
+  :where(.lpe-app input, .lpe-app select, .lpe-app textarea, .lpe-app button) {
+    font: inherit;
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    border: 1px solid var(--brand-slate);
+    background: #fff;
+    color: var(--brand-ink);
+  }
+  :where(.lpe-app button) {
+    margin-top: 1rem;
+    cursor: pointer;
+    background: var(--brand-focus);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+  }
+  :where(.lpe-app button:hover:not(:disabled)) { background: var(--brand-focus-dark); }
+  :where(.lpe-app button:disabled) { opacity: 0.6; cursor: not-allowed; }
 }
-.card {
+
+.lpe-app .card {
   background: var(--duo-card);
   border: 1px solid var(--brand-slate);
   border-radius: 16px;
@@ -45,32 +81,6 @@ h1 {
   margin-bottom: 1rem;
   box-shadow: 0 4px 20px rgba(33, 37, 41, 0.05);
 }
-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin: 0.5rem 0 0.25rem;
-  color: var(--brand-ink);
-}
-input, select, textarea, button {
-  font: inherit;
-  width: 100%;
-  padding: 0.5rem 0.6rem;
-  border-radius: 10px;
-  border: 1px solid var(--brand-slate);
-  background: #fff;
-  color: var(--brand-ink);
-}
-button {
-  margin-top: 1rem;
-  cursor: pointer;
-  background: var(--brand-focus);
-  color: #fff;
-  border: none;
-  font-weight: 600;
-}
-button:hover:not(:disabled) { background: var(--brand-focus-dark); }
-button:disabled { opacity: 0.6; cursor: not-allowed; }
 pre.lesson {
   white-space: pre-wrap;
   word-break: break-word;

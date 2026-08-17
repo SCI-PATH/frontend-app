@@ -17,7 +17,7 @@ function loadReadAloudPreference() {
  */
 export const useAppStore = create((set) => ({
   role: "student", // student | teacher — mirror of route context, not auth
-  userId: "demo-1",
+  userId: "",
   grade: 6,
   /** Student opt-in: when true, lesson steps are read aloud. */
   readAloudEnabled: false,

@@ -13,7 +13,7 @@ import FeatureShell from "./FeatureShell";
  */
 export default function TeacherContentGeneration() {
   const userId = useUserStore((s) => s.userId);
-  const teacherId = userId || "teacher-1";
+  const teacherId = userId || "";
 
   return (
     <FeatureShell>
@@ -22,10 +22,10 @@ export default function TeacherContentGeneration() {
         onBack={undefined}
         backSlot={
           <Link
-            href="/"
+            href="/matrix"
             className="inline-flex h-7 items-center rounded-lg border border-brand-surface bg-white px-2.5 text-sm text-brand-text hover:bg-brand-surface/60"
           >
-            Back to home
+            Back to teacher home
           </Link>
         }
       />

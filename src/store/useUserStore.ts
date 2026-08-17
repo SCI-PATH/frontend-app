@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type { GradeLevel, User, UserRole } from "@/types";
 
@@ -17,6 +18,7 @@ type UserStore = {
   role: UserRole | null;
   grade: number | null;
   accessToken: string | null;
+  hasHydrated: boolean;
   login: (userData: User, token: string) => void;
   logout: () => void;
   setSession: (partial: {
@@ -30,6 +32,7 @@ type UserStore = {
     accessToken?: string | null;
   }) => void;
   clearSession: () => void;
+  setHasHydrated: (hydrated: boolean) => void;
 };
 
 function gradeLabelToNumber(grade?: GradeLevel): number | null {
@@ -54,12 +57,16 @@ function sessionFromUser(user: User | null, token: string | null) {
 
 const emptySession = sessionFromUser(null, null);
 
-export const useUserStore = create<UserStore>((set) => ({
-  ...emptySession,
-  login: (userData, token) => set(sessionFromUser(userData, token)),
-  logout: () => set(emptySession),
-  setSession: (partial) =>
-    set((state) => {
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set) => ({
+      ...emptySession,
+      hasHydrated: false,
+      login: (userData, token) =>
+        set({ ...sessionFromUser(userData, token), hasHydrated: true }),
+      logout: () => set({ ...emptySession, hasHydrated: true }),
+      setSession: (partial) =>
+        set((state) => {
       const nextUser =
         partial.user !== undefined
           ? partial.user
@@ -92,6 +99,26 @@ export const useUserStore = create<UserStore>((set) => ({
         ...(partial.grade !== undefined ? { grade: partial.grade } : {}),
         ...(partial.accessToken !== undefined ? { accessToken: partial.accessToken } : {}),
       };
+        }),
+      clearSession: () => set({ ...emptySession, hasHydrated: true }),
+      setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
     }),
-  clearSession: () => set(emptySession),
-}));
+    {
+      name: "sci-path-user-session",
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        userId: state.userId,
+        fullName: state.fullName,
+        email: state.email,
+        role: state.role,
+        grade: state.grade,
+        accessToken: state.accessToken,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    },
+  ),
+);

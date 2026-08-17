@@ -7,25 +7,13 @@ import { ArrowRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { loginUser } from "@/lib/user-management";
 import { useUserStore } from "@/store/useUserStore";
-import type { User, UserRole } from "@/types";
 
 const fieldClassName =
   "h-10 border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
 
-function resolveMockRole(identifier: string): UserRole {
-  const value = identifier.toLowerCase();
-  if (value.includes("educator") || value.includes("teacher")) {
-    return "educator";
-  }
-  return "student";
-}
-
-function createMockToken(): string {
-  return `mock-jwt.${btoa(`sci-path:${Date.now()}`)}.token`;
-}
-
-export function LoginForm() {
+export function LoginForm({ registrationComplete = false }: { registrationComplete?: boolean }) {
   const router = useRouter();
   const login = useUserStore((state) => state.login);
   const [identifier, setIdentifier] = useState("");
@@ -39,37 +27,20 @@ export function LoginForm() {
     setError(null);
 
     if (!identifier.trim() || !password) {
-      setError("Please enter your email/username and password.");
+      setError("Please enter your email and password.");
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate network auth delay
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    const role = resolveMockRole(identifier);
-    const email = identifier.includes("@")
-      ? identifier.trim()
-      : `${identifier.trim().toLowerCase()}@sci-path.local`;
-
-    const userData: User = {
-      id: `user_${Date.now()}`,
-      name: identifier.includes("@")
-        ? identifier.split("@")[0]
-        : identifier.trim(),
-      email,
-      role,
-      ...(role === "student"
-        ? { grade: "Grade 7" as const, classCode: "SCI101" }
-        : {
-            schoolName: "SCI-PATH Middle School",
-            sectionName: "Grade 7 Science - Section A",
-          }),
-    };
-
-    login(userData, createMockToken());
-    router.push(role === "educator" ? "/matrix" : "/dashboard");
+    try {
+      const session = await loginUser(identifier.trim(), password);
+      login(session.user, session.token);
+      router.push(session.user.role === "educator" ? "/matrix" : "/dashboard");
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "Could not sign in.");
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -80,24 +51,31 @@ export function LoginForm() {
           Welcome back
         </p>
         <p className="mt-0.5 text-xs text-brand-text/60">
-          Tip: use an email with{" "}
-          <span className="font-medium text-brand-special">educator</span> to
-          open the teacher matrix.
+          Sign in with your SCI-PATH student or teacher account.
         </p>
       </div>
+
+      {registrationComplete ? (
+        <p
+          className="rounded-lg border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text"
+          role="status"
+        >
+          Account created successfully. Log in to continue.
+        </p>
+      ) : null}
 
       <div className="space-y-1.5">
         <label
           htmlFor="login-identifier"
           className="text-sm font-medium text-brand-text"
         >
-          Email / Username
+          Email
         </label>
         <Input
           id="login-identifier"
-          type="text"
+          type="email"
           autoComplete="username"
-          placeholder="student@school.edu or educator@school.edu"
+          placeholder="student@school.edu"
           value={identifier}
           onChange={(event) => setIdentifier(event.target.value)}
           className={fieldClassName}
