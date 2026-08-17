@@ -1,5 +1,25 @@
 export type UserRole = "student" | "educator";
 
+export type {
+  AtRiskStudentAlert,
+  AtRiskStudentsRequest,
+  AtRiskStudentsResponse,
+  BktParameterRow,
+  ChatHistoryTurn,
+  ClassroomSliceResponse,
+  ClassroomStudentMeta,
+  ClassroomTopicMeta,
+  DistractorTagCount,
+  EngagementTimelinePoint,
+  MasteryCategory,
+  MasteryMatrixRequest,
+  MasteryMatrixResponse,
+  MasteryTimelinePoint,
+  MatrixBandCounts,
+  RiskTierId,
+  StudentProfileResponse,
+} from "./educator";
+
 export {
   TUTOR_PERSONAS,
   DEFAULT_TUTOR_PERSONA_ID,

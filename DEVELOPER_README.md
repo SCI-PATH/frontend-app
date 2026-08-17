@@ -63,7 +63,7 @@ npx shadcn@latest add <component>
 ```text
 src/
 ├── app/                         # ROUTING ONLY — endpoints, route groups, layouts
-│   ├── (auth)/                  # Login / logout / signup (auth developer)
+│   ├── (auth)/                  # Login / logout / register (auth developer)
 │   ├── (student)/               # Student dashboard & learning viewport
 │   ├── (educator)/              # Educator / teacher matrix dashboard
 │   ├── layout.tsx
@@ -116,7 +116,7 @@ Next.js [route groups](https://nextjs.org/docs/app/building-your-application/rou
 
 | Group | Intended routes | Purpose |
 | --- | --- | --- |
-| `(auth)` | e.g. `/login`, `/signup` | Unauthenticated entry; login/logout flows |
+| `(auth)` | e.g. `/login`, `/register` | Unauthenticated entry; login/logout flows |
 | `(student)` | e.g. `/dashboard`, learning session routes | Student experience |
 | `(educator)` | e.g. teacher matrix / classroom overview | Educator dashboards |
 
@@ -128,7 +128,8 @@ Example:
 
 ```text
 src/app/(auth)/login/page.tsx          → URL: /login
-src/app/(student)/dashboard/page.tsx   → URL: /dashboard
+src/app/(auth)/register/page.tsx       → URL: /register
+src/app/(student)/tutor/page.tsx       → URL: /tutor
 src/app/(educator)/matrix/page.tsx     → URL: /matrix
 ```
 

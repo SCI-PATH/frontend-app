@@ -172,7 +172,7 @@ export function LoginForm() {
         <p className="pt-4 text-sm text-brand-text/70">
           Don&apos;t have an account?{" "}
           <Link
-            href="/signup"
+            href="/register"
             className="font-semibold text-brand-primary transition-colors hover:text-brand-special hover:underline"
           >
             Sign up
