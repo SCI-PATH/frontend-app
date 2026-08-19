@@ -284,6 +284,32 @@ export function approveTeacherLessonSummary(lessonId, teacherId = "teacher-1") {
   });
 }
 
+export function addTeacherLessonImage(lessonId, { image_url, caption = "", teacher_id = "teacher-1" } = {}) {
+  return fetchJson(`/teacher/media/${encodeURIComponent(lessonId)}/images`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url, caption, teacher_id }),
+  });
+}
+
+export function uploadTeacherLessonImage(lessonId, { file, caption = "", teacher_id = "teacher-1" } = {}) {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("caption", caption);
+  body.append("teacher_id", teacher_id);
+  return fetchJson(`/teacher/media/${encodeURIComponent(lessonId)}/images/upload`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function deleteTeacherLessonImage(lessonId, imageId) {
+  return fetchJson(
+    `/teacher/media/${encodeURIComponent(lessonId)}/images/${encodeURIComponent(imageId)}`,
+    { method: "DELETE" },
+  );
+}
+
 // Topic-level AR packs (teacher-approved, generalized diagrams)
 export function getTeacherTopicArPacks() {
   return fetchJson("/teacher/ar-topics");
