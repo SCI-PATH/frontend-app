@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getCurriculumTitle } from "@/lib/curriculum/topics";
 import { countStudentTopicBands } from "@/lib/educator/bkt";
+import { formatEducatorTimestamp } from "@/lib/educator/format";
 import { getStudentDisplayName } from "@/lib/educator/students";
 import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { cn } from "@/lib/utils";
@@ -59,16 +60,33 @@ interface StudentDeepDiveProps {
 function MetricPill({
   label,
   value,
+  tone = "default",
 }: {
   label: string;
   value: string | number;
+  tone?: "default" | "danger" | "special";
 }) {
   return (
-    <div className="rounded-xl border border-brand-surface bg-brand-background px-3 py-2">
-      <p className="text-[0.68rem] uppercase tracking-wide text-brand-text/50">
+    <div
+      className={cn(
+        "rounded-lg border px-2.5 py-2",
+        tone === "danger" && "border-red-200 bg-red-50",
+        tone === "special" && "border-brand-special/20 bg-brand-special/5",
+        tone === "default" && "border-brand-surface bg-brand-background"
+      )}
+    >
+      <p className="truncate text-[0.62rem] uppercase tracking-wide text-brand-text/50">
         {label}
       </p>
-      <p className="text-lg font-bold text-brand-text">{value}</p>
+      <p
+        className={cn(
+          "text-base font-bold tabular-nums text-brand-text",
+          tone === "danger" && EDUCATOR_AT_RISK.textStrong,
+          tone === "special" && EDUCATOR_PURPLE.text
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -140,7 +158,9 @@ function ChatTurnAccordion({
                   ) : null}
                   <Badge variant="outline">Decay score: {decayScore}</Badge>
                   {turn.timestamp ? (
-                    <Badge variant="outline">{turn.timestamp}</Badge>
+                    <Badge variant="outline">
+                      {formatEducatorTimestamp(turn.timestamp)}
+                    </Badge>
                   ) : null}
                 </div>
                 <div>
@@ -226,6 +246,55 @@ export function StudentDeepDive({
     masteryAvg < 0.5 &&
     profile.engagement_average_last_10 >= 0.7;
 
+  const metrics = useMemo(
+    () => [
+      {
+        label: "Attempts",
+        value: profile?.assessment_insights?.attempts_count ?? 0,
+        tone: "default" as const,
+      },
+      {
+        label: "Frustration",
+        value:
+          profile?.engagement_metrics?.average_frustration_cue !== null &&
+          profile?.engagement_metrics?.average_frustration_cue !== undefined
+            ? profile.engagement_metrics.average_frustration_cue.toFixed(2)
+            : "N/A",
+        tone: "default" as const,
+      },
+      {
+        label: "Mastered",
+        value: rowBands.mastered,
+        tone: "default" as const,
+      },
+      {
+        label: "Learning",
+        value: rowBands.learning,
+        tone: "default" as const,
+      },
+      {
+        label: "At risk",
+        value: rowBands.atRisk,
+        tone: "danger" as const,
+      },
+      {
+        label: "Engagement",
+        value:
+          profile?.engagement_average_last_10 !== null &&
+          profile?.engagement_average_last_10 !== undefined
+            ? `${Math.round(profile.engagement_average_last_10 * 100)}%`
+            : "N/A",
+        tone: "special" as const,
+      },
+      {
+        label: "Confusion",
+        value: profile?.critical_confusion_turns?.length ?? 0,
+        tone: "danger" as const,
+      },
+    ],
+    [profile, rowBands]
+  );
+
   return (
     <section
       aria-label="Student diagnostic deep dive"
@@ -279,39 +348,15 @@ export function StudentDeepDive({
         </Card>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricPill
-          label="Assessment attempts"
-          value={profile?.assessment_insights?.attempts_count ?? 0}
-        />
-        <MetricPill
-          label="Avg frustration cue"
-          value={
-            profile?.engagement_metrics?.average_frustration_cue !== null &&
-            profile?.engagement_metrics?.average_frustration_cue !== undefined
-              ? profile.engagement_metrics.average_frustration_cue.toFixed(2)
-              : "N/A"
-          }
-        />
-        <MetricPill label="Topics mastered" value={rowBands.mastered} />
-        <MetricPill label="Topics learning" value={rowBands.learning} />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MetricPill label="Topics at risk" value={rowBands.atRisk} />
-        <MetricPill
-          label="Engagement avg (last 10)"
-          value={
-            profile?.engagement_average_last_10 !== null &&
-            profile?.engagement_average_last_10 !== undefined
-              ? `${Math.round(profile.engagement_average_last_10 * 100)}%`
-              : "N/A"
-          }
-        />
-        <MetricPill
-          label="Critical confusion turns"
-          value={profile?.critical_confusion_turns?.length ?? 0}
-        />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {metrics.map((metric) => (
+          <MetricPill
+            key={metric.label}
+            label={metric.label}
+            value={metric.value}
+            tone={metric.tone}
+          />
+        ))}
       </div>
 
       <Card className="border-brand-surface">
@@ -402,15 +447,16 @@ export function StudentDeepDive({
                 <BarChart
                   data={misconceptionData}
                   layout="vertical"
-                  margin={{ left: 12, right: 12 }}
+                  margin={{ top: 8, right: 16, bottom: 8, left: 24 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" />
                   <XAxis type="number" tick={{ fontSize: 12 }} />
                   <YAxis
                     type="category"
                     dataKey="tag"
-                    width={120}
+                    width={168}
                     tick={{ fontSize: 11 }}
+                    interval={0}
                   />
                   <Tooltip />
                   <Bar dataKey="count" fill="#FF6B35" radius={[0, 6, 6, 0]} />

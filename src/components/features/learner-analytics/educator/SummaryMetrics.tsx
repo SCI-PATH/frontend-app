@@ -16,9 +16,10 @@ interface SummaryMetricsProps {
   bands: MatrixBandCounts;
 }
 
-function pct(count: number, total: number) {
-  if (total <= 0) return "0%";
-  return `${Math.round((count / total) * 100)}%`;
+function shareLabel(count: number, total: number) {
+  if (total <= 0) return "No learner–skill data yet";
+  const pct = Math.round((count / total) * 100);
+  return `${pct}% of all learner–skill combinations in the grid`;
 }
 
 export function SummaryMetrics({
@@ -26,34 +27,40 @@ export function SummaryMetrics({
   topicCount,
   bands,
 }: SummaryMetricsProps) {
+  const gridLabel = `${studentCount} learner${studentCount === 1 ? "" : "s"} × ${topicCount} skill${topicCount === 1 ? "" : "s"}`;
+
   const cards = [
     {
-      title: "Total Coverage",
-      value: `${studentCount} Students × ${topicCount} Skills`,
-      description: "Live learners and topics loaded from the analytics data store.",
+      title: "Classroom grid",
+      count: bands.total.toLocaleString(),
+      share: gridLabel,
+      description: "Total learner–skill combinations shown in the mastery matrix.",
       className: "border-brand-surface bg-white",
-      valueClassName: "text-brand-primary",
+      countClassName: "text-brand-primary",
     },
     {
-      title: "Mastered Cells",
-      value: `${bands.mastered.toLocaleString()} · ${pct(bands.mastered, bands.total)}`,
-      description: "P(L) ≥ 80% across the mastery matrix.",
+      title: "Mastered",
+      count: bands.mastered.toLocaleString(),
+      share: shareLabel(bands.mastered, bands.total),
+      description: "Estimated mastery at 80% or higher — ready to extend or review lightly.",
       className: "border-brand-secondary/35 bg-brand-secondary/10",
-      valueClassName: "text-brand-secondary",
+      countClassName: "text-brand-secondary",
     },
     {
-      title: "Learning Cells",
-      value: `${bands.learning.toLocaleString()} · ${pct(bands.learning, bands.total)}`,
-      description: "50% ≤ P(L) < 80% — learners still progressing.",
+      title: "Still learning",
+      count: bands.learning.toLocaleString(),
+      share: shareLabel(bands.learning, bands.total),
+      description: "Estimated mastery between 50% and 79% — learners are progressing.",
       className: "border-brand-primary/30 bg-brand-primary/10",
-      valueClassName: "text-brand-primary",
+      countClassName: "text-brand-primary",
     },
     {
-      title: "At-Risk Cells",
-      value: `${bands.atRisk.toLocaleString()} · ${pct(bands.atRisk, bands.total)}`,
-      description: "P(L) < 50% — priority intervention candidates.",
+      title: "Needs support",
+      count: bands.atRisk.toLocaleString(),
+      share: shareLabel(bands.atRisk, bands.total),
+      description: "Estimated mastery below 50% — consider intervention for these combinations.",
       className: `${EDUCATOR_AT_RISK.metricBorder} ${EDUCATOR_AT_RISK.metricBg}`,
-      valueClassName: EDUCATOR_AT_RISK.textStrong,
+      countClassName: EDUCATOR_AT_RISK.textStrong,
     },
   ] as const;
 
@@ -69,13 +76,16 @@ export function SummaryMetrics({
               {card.title}
             </CardDescription>
             <CardTitle
-              className={`text-xl font-bold tracking-tight ${card.valueClassName}`}
+              className={`text-3xl font-bold tracking-tight ${card.countClassName}`}
             >
-              {card.value}
+              {card.count}
             </CardTitle>
+            <p className="text-sm font-medium text-brand-text/60">{card.share}</p>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-brand-text/65">{card.description}</p>
+            <p className="text-sm leading-relaxed text-brand-text/65">
+              {card.description}
+            </p>
           </CardContent>
         </Card>
       ))}

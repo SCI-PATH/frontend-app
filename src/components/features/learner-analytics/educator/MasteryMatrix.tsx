@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getCurriculumTitle,
   getCurriculumTopic,
@@ -18,9 +19,22 @@ import {
   masteryCellClassName,
   masteryPercent,
 } from "@/lib/educator/bkt";
-import { cn } from "@/lib/utils";
-import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
 import { getStudentDisplayName } from "@/lib/educator/students";
+import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
+import {
+  cellMatchesStatusFilter,
+  countCellsByStatus,
+  filterStudentIdsByStatus,
+  MATRIX_STATUS_FILTERS,
+  type MatrixStatusFilter,
+} from "@/lib/educator/matrixFilters";
+import {
+  compactTopicLabel,
+  filterTopicIdsByGrade,
+  MATRIX_GRADE_FILTERS,
+  type MatrixGradeFilter,
+} from "@/lib/educator/topicGrade";
+import { cn } from "@/lib/utils";
 import type { ClassroomStudentMeta, ClassroomTopicMeta } from "@/types/educator";
 
 interface MasteryMatrixProps {
@@ -51,10 +65,39 @@ export function MasteryMatrix({
   showHeader = true,
 }: MasteryMatrixProps) {
   const [hover, setHover] = useState<HoverState | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<MatrixGradeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<MatrixStatusFilter>("all");
 
   const catalogById = useMemo(
     () => new Map(topicCatalog.map((topic) => [topic.topicId, topic])),
     [topicCatalog]
+  );
+
+  const visibleTopicIds = useMemo(
+    () => filterTopicIdsByGrade(topicIds, gradeFilter),
+    [topicIds, gradeFilter]
+  );
+
+  const visibleStudentIds = useMemo(
+    () =>
+      filterStudentIdsByStatus(
+        matrix,
+        studentIds,
+        visibleTopicIds,
+        statusFilter
+      ),
+    [matrix, studentIds, visibleTopicIds, statusFilter]
+  );
+
+  const matchingCellCount = useMemo(
+    () =>
+      countCellsByStatus(
+        matrix,
+        visibleStudentIds,
+        visibleTopicIds,
+        statusFilter
+      ),
+    [matrix, visibleStudentIds, visibleTopicIds, statusFilter]
   );
 
   const resolveTitle = (topicId: string) =>
@@ -85,7 +128,7 @@ export function MasteryMatrix({
               Classroom Mastery Matrix
             </h2>
             <p className="text-sm text-brand-text/65">
-              Scroll horizontally to inspect all curriculum columns.
+              Filter by grade or scroll horizontally within a grade band.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -100,15 +143,72 @@ export function MasteryMatrix({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2 pb-1">
-          <Badge className={EDUCATOR_AT_RISK.badge}>At Risk &lt; 50%</Badge>
+          <Badge className={EDUCATOR_AT_RISK.badge}>Needs support &lt; 50%</Badge>
           <Badge className="bg-brand-primary text-white hover:bg-brand-primary">
-            Learning 50–79%
+            Still learning 50–79%
           </Badge>
           <Badge className="bg-brand-secondary text-brand-text hover:bg-brand-secondary">
             Mastered ≥ 80%
           </Badge>
         </div>
       )}
+
+      <Tabs
+        value={gradeFilter}
+        onValueChange={(value) => setGradeFilter(value as MatrixGradeFilter)}
+      >
+        <TabsList className="h-auto flex-wrap gap-1 bg-brand-background p-1">
+          {MATRIX_GRADE_FILTERS.map(({ value, label }) => {
+            const count =
+              value === "all"
+                ? topicIds.length
+                : filterTopicIdsByGrade(topicIds, value).length;
+            return (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="gap-1.5 data-[state=active]:bg-brand-primary data-[state=active]:text-white"
+              >
+                {label}
+                <span className="rounded-full bg-brand-text/10 px-1.5 py-0.5 text-[0.65rem] tabular-nums">
+                  {count}
+                </span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+
+      <Tabs
+        value={statusFilter}
+        onValueChange={(value) => setStatusFilter(value as MatrixStatusFilter)}
+      >
+        <TabsList className="h-auto flex-wrap gap-1 bg-brand-background p-1">
+          {MATRIX_STATUS_FILTERS.map(({ value, label }) => {
+            const count =
+              value === "all"
+                ? studentIds.length * visibleTopicIds.length
+                : countCellsByStatus(
+                    matrix,
+                    studentIds,
+                    visibleTopicIds,
+                    value
+                  );
+            return (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="gap-1.5 data-[state=active]:bg-brand-text data-[state=active]:text-white"
+              >
+                {label}
+                <span className="rounded-full bg-brand-text/10 px-1.5 py-0.5 text-[0.65rem] tabular-nums">
+                  {count}
+                </span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
 
       {unknownTopicIds.length > 0 ? (
         <Card className="border-red-200 bg-red-50">
@@ -122,103 +222,134 @@ export function MasteryMatrix({
       <Card className="overflow-hidden border-brand-surface bg-white">
         <CardHeader className="border-b border-brand-surface pb-4">
           <CardTitle className="text-base text-brand-text">
-            Mastery grid · {topicIds.length} topics · {studentIds.length}{" "}
-            learners
+            Mastery grid · {visibleTopicIds.length} skills ·{" "}
+            {visibleStudentIds.length} learner
+            {visibleStudentIds.length === 1 ? "" : "s"}
+            {statusFilter !== "all"
+              ? ` · ${matchingCellCount} matching cells`
+              : null}
           </CardTitle>
           <CardDescription>
-            Hover a cell for curriculum title and fitted guess/slip parameters.
+            Combine grade and learning-status filters. Non-matching cells are
+            dimmed when a status filter is active. Hover for full skill title.
           </CardDescription>
         </CardHeader>
         <CardContent className="relative p-0">
-          <div className="overflow-x-auto">
-            <table className="min-w-max border-separate border-spacing-1 text-xs">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-20 min-w-[9rem] bg-brand-background px-3 py-2 text-left font-semibold text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
-                    Student
-                  </th>
-                  {topicIds.map((topicId) => (
-                    <th
-                      key={topicId}
-                      className="min-w-[3.25rem] max-w-[3.25rem] bg-brand-background px-1 py-2 text-center align-bottom font-medium text-brand-text/70"
-                    >
-                      <span
-                        className="inline-block max-h-28 overflow-hidden text-[0.62rem] leading-tight [writing-mode:vertical-rl] [transform:rotate(180deg)]"
-                        title={resolveTitle(topicId)}
+          {visibleTopicIds.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-brand-text/60">
+              No topics match this grade filter.
+            </p>
+          ) : visibleStudentIds.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-brand-text/60">
+              No learners have skills in this grade + status combination.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-max border-separate border-spacing-1 text-xs">
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 z-20 min-w-[9rem] bg-brand-background px-3 py-2 text-left font-semibold text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
+                      Student
+                    </th>
+                    {visibleTopicIds.map((topicId) => (
+                      <th
+                        key={topicId}
+                        className="h-[5.5rem] min-w-[2.6rem] max-w-[2.6rem] bg-brand-background px-0.5 align-bottom"
                       >
-                        {topicId}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {studentIds.map((studentId) => (
-                  <tr key={studentId}>
-                    <th className="sticky left-0 z-10 max-w-[11rem] bg-white px-3 py-1 text-left font-medium text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.08)]">
-                      <span className="block truncate">
-                        {getStudentDisplayName(studentId, students)}
-                      </span>
-                      <span className="block truncate font-mono text-[0.62rem] font-normal text-brand-text/45">
-                        {studentId}
-                      </span>
-                    </th>
-                    {topicIds.map((topicId) => {
-                      const probability = matrix[studentId]?.[topicId] ?? null;
-                      const percent = masteryPercent(probability);
-                      return (
-                        <td key={`${studentId}-${topicId}`} className="p-0">
-                          <button
-                            type="button"
-                            className={cn(
-                              "flex h-8 w-full min-w-[3.1rem] items-center justify-center rounded-md text-[0.72rem] font-semibold transition",
-                              masteryCellClassName(probability)
-                            )}
-                            onMouseEnter={(event) =>
-                              setHover({
-                                studentId,
-                                topicId,
-                                probability,
-                                x: event.clientX,
-                                y: event.clientY,
-                              })
-                            }
-                            onMouseMove={(event) =>
-                              setHover((current) =>
-                                current
-                                  ? {
-                                      ...current,
+                        <div className="flex h-full items-end justify-start pb-2 pl-3">
+                          <span
+                            className="inline-block max-w-[6.5rem] origin-bottom-left -rotate-45 cursor-default truncate font-mono text-[0.62rem] font-semibold leading-none text-brand-primary"
+                            title={`${topicId}\n${resolveTitle(topicId)}`}
+                          >
+                            {compactTopicLabel(topicId)}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleStudentIds.map((studentId) => (
+                    <tr key={studentId}>
+                      <th className="sticky left-0 z-10 max-w-[11rem] bg-white px-3 py-1 text-left font-medium text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.08)]">
+                        <span className="block truncate">
+                          {getStudentDisplayName(studentId, students)}
+                        </span>
+                        <span className="block truncate font-mono text-[0.62rem] font-normal text-brand-text/45">
+                          {studentId}
+                        </span>
+                      </th>
+                      {visibleTopicIds.map((topicId) => {
+                        const probability =
+                          matrix[studentId]?.[topicId] ?? null;
+                        const percent = masteryPercent(probability);
+                        const matchesStatus = cellMatchesStatusFilter(
+                          probability,
+                          statusFilter
+                        );
+                        const showValue =
+                          statusFilter === "all" || matchesStatus;
+                        return (
+                          <td key={`${studentId}-${topicId}`} className="p-0">
+                            <button
+                              type="button"
+                              className={cn(
+                                "flex h-8 w-full min-w-[2.5rem] items-center justify-center rounded-md text-[0.72rem] font-semibold transition",
+                                showValue
+                                  ? masteryCellClassName(probability)
+                                  : "bg-brand-surface/70 text-brand-text/25"
+                              )}
+                              onMouseEnter={(event) =>
+                                showValue
+                                  ? setHover({
+                                      studentId,
+                                      topicId,
+                                      probability,
                                       x: event.clientX,
                                       y: event.clientY,
-                                    }
+                                    })
                                   : null
-                              )
-                            }
-                            onMouseLeave={() => setHover(null)}
-                            onFocus={(event) => {
-                              const rect =
-                                event.currentTarget.getBoundingClientRect();
-                              setHover({
-                                studentId,
-                                topicId,
-                                probability,
-                                x: rect.left + rect.width / 2,
-                                y: rect.top,
-                              });
-                            }}
-                            onBlur={() => setHover(null)}
-                            aria-label={`${studentId} ${topicId} mastery ${percent ?? "unknown"} percent`}
-                          >
-                            {percent ?? "—"}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                              }
+                              onMouseMove={(event) =>
+                                showValue
+                                  ? setHover((current) =>
+                                      current
+                                        ? {
+                                            ...current,
+                                            x: event.clientX,
+                                            y: event.clientY,
+                                          }
+                                        : null
+                                    )
+                                  : null
+                              }
+                              onMouseLeave={() => setHover(null)}
+                              onFocus={(event) => {
+                                if (!showValue) return;
+                                const rect =
+                                  event.currentTarget.getBoundingClientRect();
+                                setHover({
+                                  studentId,
+                                  topicId,
+                                  probability,
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.top,
+                                });
+                              }}
+                              onBlur={() => setHover(null)}
+                              aria-label={`${studentId} ${topicId} estimated mastery ${showValue ? (percent ?? "unknown") : "filtered out"} percent`}
+                            >
+                              {showValue ? (percent ?? "—") : "·"}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {tooltip && hover ? (
             <div
@@ -242,7 +373,7 @@ export function MasteryMatrix({
               <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-lg bg-brand-background px-2 py-1">
                   <p className="text-[0.62rem] uppercase text-brand-text/50">
-                    P(L)
+                    Mastery
                   </p>
                   <p className="font-bold text-brand-text">
                     {tooltip.mastery ?? "—"}%

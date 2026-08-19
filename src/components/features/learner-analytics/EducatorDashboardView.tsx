@@ -5,7 +5,6 @@ import { Loader2 } from "lucide-react";
 
 import { AtRiskFeed } from "@/components/features/learner-analytics/educator/AtRiskFeed";
 import { CollapsibleSection } from "@/components/features/learner-analytics/educator/CollapsibleSection";
-import { CurriculumReference } from "@/components/features/learner-analytics/educator/CurriculumReference";
 import { DashboardHeader } from "@/components/features/learner-analytics/educator/DashboardHeader";
 import { MasteryMatrix } from "@/components/features/learner-analytics/educator/MasteryMatrix";
 import { StudentDeepDive } from "@/components/features/learner-analytics/educator/StudentDeepDive";
@@ -137,23 +136,9 @@ export function EducatorDashboardView() {
                   showHeader={false}
                 />
               </CollapsibleSection>
-
-              <CollapsibleSection
-                title="Curriculum Mapping & BKT Parameters"
-                description="Topic IDs, curriculum titles, and fitted guess/slip parameters from Postgres."
-                badge={topicCatalog.length}
-                defaultOpen={false}
-                accent="special"
-              >
-                <CurriculumReference
-                  topics={topicCatalog}
-                  profileParameters={studentProfile?.bkt_parameters}
-                  embedded
-                />
-              </CollapsibleSection>
             </div>
 
-            <aside className="xl:sticky xl:top-6 xl:self-start">
+            <aside className="xl:sticky xl:top-6 xl:max-h-[92vh] xl:self-start xl:overflow-y-auto">
               <StudentDeepDive
                 studentIds={studentIds}
                 students={students}
