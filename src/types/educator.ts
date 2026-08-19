@@ -20,6 +20,22 @@ export interface ClassroomStudentMeta {
   displayName: string;
 }
 
+export interface TeacherClass {
+  class_code: string;
+  class_name: string;
+  grade_level: number;
+  subject?: string;
+  teacher_id?: string;
+  is_active?: boolean;
+}
+
+export interface ClassScopeMeta {
+  classCode: string;
+  className: string;
+  gradeLevel: number;
+  subject?: string;
+}
+
 export interface ClassroomSliceResponse {
   success: boolean;
   source: "postgres" | "analytics_api" | "error";
@@ -28,27 +44,45 @@ export interface ClassroomSliceResponse {
   students: ClassroomStudentMeta[];
   topicIds: string[];
   topics: ClassroomTopicMeta[];
+  /** Quiz attempt counts per learner × topic (sparse; missing pairs = 0 attempts). */
+  attemptMatrix?: Record<string, Record<string, number>>;
+  classCode?: string;
+  className?: string;
+  gradeLevel?: number;
+  subject?: string;
   learnerCount: number;
   topicCount: number;
   error?: string;
 }
 
 export interface MasteryMatrixRequest {
-  student_ids: string[];
-  topic_ids: string[];
+  class_code?: string;
+  student_ids?: string[];
+  topic_ids?: string[];
 }
 
-export interface MasteryMatrixResponse {
+export interface AnalyticsClassScopeFields {
+  class_code?: string;
+  class_name?: string;
+  grade_level?: number;
+  subject?: string;
+  teacher_id?: string;
+}
+
+export interface MasteryMatrixResponse extends AnalyticsClassScopeFields {
   success: boolean;
   mode: "live_state";
   student_ids: string[];
   topic_ids: string[];
   unknown_topic_ids?: string[];
   mastery_matrix: Record<string, Record<string, number | null>>;
+  roster_count?: number;
+  topic_count?: number;
   error?: string;
 }
 
 export interface AtRiskStudentsRequest {
+  class_code?: string;
   student_ids?: string[];
   topic_ids?: string[];
 }
@@ -71,11 +105,13 @@ export interface AtRiskStudentAlert {
   reason: string;
 }
 
-export interface AtRiskStudentsResponse {
+export interface AtRiskStudentsResponse extends AnalyticsClassScopeFields {
   success: boolean;
   mode: "live_state";
   count: number;
   students: AtRiskStudentAlert[];
+  student_ids?: string[];
+  topic_ids?: string[];
   error?: string;
 }
 
@@ -122,12 +158,23 @@ export interface BktParameterRow {
   learn?: number;
 }
 
+export interface TimeOnTaskTrend {
+  topic_id: string;
+  avg_time_on_task_s?: number | null;
+  last_10_time_on_task_s?: number[];
+  trend?: "increasing" | "decreasing" | "stable" | string;
+}
+
+export interface StudentFocusArea extends AtRiskStudentAlert {}
+
 export interface StudentProfileResponse {
   success: boolean;
   mode: "live_state";
   user_id: string;
   topics_covered_count?: number;
   bkt_parameters: BktParameterRow[];
+  focus_areas?: StudentFocusArea[];
+  focus_areas_count?: number;
   assessment_insights?: {
     attempts_count?: number;
     live_attempts_count?: number;
@@ -136,6 +183,7 @@ export interface StudentProfileResponse {
   engagement_metrics?: {
     average_frustration_cue?: number | null;
     frustration_samples?: number;
+    time_on_task_trends?: TimeOnTaskTrend[];
   };
   mastery_timeline_last_10_attempts?: MasteryTimelinePoint[];
   engagement_timeline_last_10_turns?: EngagementTimelinePoint[];

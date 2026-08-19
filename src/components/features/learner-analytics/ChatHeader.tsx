@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, MessageSquarePlus, Zap } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Maximize2, MessageSquarePlus, X, Zap } from "lucide-react";
 
 import { LessonLockToggle } from "@/components/features/learner-analytics/LessonLockToggle";
 import { SocratesAvatar } from "@/components/features/learner-analytics/SocratesAvatar";
@@ -29,6 +30,9 @@ interface ChatHeaderProps {
   topicLocked: boolean;
   metadata: TutorTurnMetadata;
   canStartNew?: boolean;
+  compact?: boolean;
+  expandHref?: string;
+  onClose?: () => void;
   onPersonaChange: (personaId: TutorPersonaId) => void;
   onTopicLockedChange: (locked: boolean) => void;
   onNewConversation: () => void;
@@ -40,6 +44,9 @@ export function ChatHeader({
   topicLocked,
   metadata,
   canStartNew = true,
+  compact = false,
+  expandHref,
+  onClose,
   onPersonaChange,
   onTopicLockedChange,
   onNewConversation,
@@ -54,7 +61,14 @@ export function ChatHeader({
 
   return (
     <header className="border-b border-brand-surface bg-white">
-      <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div
+        className={cn(
+          "flex flex-col gap-3 px-4 py-3 sm:px-5",
+          compact
+            ? "gap-2"
+            : "sm:flex-row sm:items-center sm:justify-between"
+        )}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <SocratesAvatar showStatus />
           <div className="min-w-0">
@@ -120,10 +134,43 @@ export function ChatHeader({
           >
             <MessageSquarePlus className="size-3.5" aria-hidden />
           </Button>
+
+          {expandHref ? (
+            <Button
+              asChild
+              variant="outline"
+              size="icon-sm"
+              title="Open full tutor"
+              className="size-7 border-brand-surface bg-white text-brand-text hover:border-brand-special/30 hover:bg-brand-special/10 hover:text-brand-special"
+            >
+              <Link href={expandHref} aria-label="Expand Socrates to full screen">
+                <Maximize2 className="size-3.5" aria-hidden />
+              </Link>
+            </Button>
+          ) : null}
+
+          {onClose ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label="Close chat"
+              title="Close chat"
+              className="size-7 border-brand-surface bg-white text-brand-text hover:border-brand-special/30 hover:bg-brand-special/10 hover:text-brand-special"
+            >
+              <X className="size-3.5" aria-hidden />
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-brand-surface/80 bg-brand-background/40 px-4 py-2 sm:px-5">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 border-t border-brand-surface/80 bg-brand-background/40 px-4 py-2 sm:px-5",
+          compact && "hidden"
+        )}
+      >
         <Badge
           title={activeTopicId ?? undefined}
           className={cn(

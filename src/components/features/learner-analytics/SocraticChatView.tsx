@@ -8,9 +8,17 @@ import { LessonSwitchNotice } from "@/components/features/learner-analytics/Less
 import { MessageBubble } from "@/components/features/learner-analytics/MessageBubble";
 import { SuggestionChips } from "@/components/features/learner-analytics/SuggestionChips";
 import { TypingIndicator } from "@/components/features/learner-analytics/TypingIndicator";
+import { cn } from "@/lib/utils";
 import { useTutorStore } from "@/store/useTutorStore";
 
-export function SocraticChatView() {
+export function SocraticChatView({
+  variant = "full",
+  onClose,
+}: {
+  variant?: "full" | "compact";
+  onClose?: () => void;
+}) {
+  const compact = variant === "compact";
   const messages = useTutorStore((state) => state.messages);
   const personaId = useTutorStore((state) => state.personaId);
   const activeTopicId = useTutorStore((state) => state.activeTopicId);
@@ -40,7 +48,12 @@ export function SocraticChatView() {
 
   return (
     <section
-      className="flex h-[min(52rem,calc(100dvh-4rem))] w-full flex-col overflow-hidden rounded-2xl border border-brand-surface bg-white shadow-[0_18px_50px_-32px_rgba(114,9,183,0.35)]"
+      className={cn(
+        "flex w-full flex-col overflow-hidden bg-white",
+        compact
+          ? "h-full"
+          : "h-[min(52rem,calc(100dvh-4rem))] rounded-2xl border border-brand-surface shadow-[0_18px_50px_-32px_rgba(114,9,183,0.35)]"
+      )}
       aria-label="Socratic tutor chat"
     >
       <ChatHeader
@@ -49,6 +62,9 @@ export function SocraticChatView() {
         topicLocked={topicLocked}
         metadata={metadata}
         canStartNew={!isSending && messages.length > 1}
+        compact={compact}
+        expandHref={compact ? "/tutor" : undefined}
+        onClose={onClose}
         onPersonaChange={setPersonaId}
         onTopicLockedChange={setTopicLocked}
         onNewConversation={resetConversation}
@@ -74,7 +90,12 @@ export function SocraticChatView() {
         <div ref={bottomRef} />
       </div>
 
-      <footer className="space-y-3 border-t border-brand-surface bg-white px-4 py-3 sm:px-5">
+      <footer
+        className={cn(
+          "space-y-3 border-t border-brand-surface bg-white px-4 py-3 sm:px-5",
+          compact && "space-y-2 px-3 py-2.5 sm:px-3"
+        )}
+      >
         {error ? (
           <p
             className="rounded-lg border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent"

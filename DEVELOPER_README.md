@@ -130,7 +130,11 @@ Example:
 src/app/(auth)/login/page.tsx          → URL: /login
 src/app/(auth)/register/page.tsx       → URL: /register
 src/app/(student)/tutor/page.tsx       → URL: /tutor
-src/app/(educator)/matrix/page.tsx     → URL: /matrix
+src/app/(educator)/educator-home/page.tsx      → URL: /educator-home
+src/app/(educator)/educator-analytics/page.tsx → URL: /educator-analytics
+src/app/(educator)/classrooms/page.tsx         → URL: /classrooms
+src/app/(educator)/classroom/page.tsx          → URL: /classroom (redirect → /classrooms)
+src/app/(educator)/matrix/page.tsx             → URL: /matrix (redirect → /educator-analytics)
 ```
 
 ---

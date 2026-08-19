@@ -11,8 +11,6 @@ import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
 import type { MatrixBandCounts } from "@/types/educator";
 
 interface SummaryMetricsProps {
-  studentCount: number;
-  topicCount: number;
   bands: MatrixBandCounts;
 }
 
@@ -22,22 +20,8 @@ function shareLabel(count: number, total: number) {
   return `${pct}% of all learner–skill combinations in the grid`;
 }
 
-export function SummaryMetrics({
-  studentCount,
-  topicCount,
-  bands,
-}: SummaryMetricsProps) {
-  const gridLabel = `${studentCount} learner${studentCount === 1 ? "" : "s"} × ${topicCount} skill${topicCount === 1 ? "" : "s"}`;
-
+export function SummaryMetrics({ bands }: SummaryMetricsProps) {
   const cards = [
-    {
-      title: "Classroom grid",
-      count: bands.total.toLocaleString(),
-      share: gridLabel,
-      description: "Total learner–skill combinations shown in the mastery matrix.",
-      className: "border-brand-surface bg-white",
-      countClassName: "text-brand-primary",
-    },
     {
       title: "Mastered",
       count: bands.mastered.toLocaleString(),
@@ -67,7 +51,7 @@ export function SummaryMetrics({
   return (
     <section
       aria-label="Summary metrics"
-      className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
     >
       {cards.map((card) => (
         <Card key={card.title} className={card.className}>

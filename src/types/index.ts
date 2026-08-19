@@ -6,6 +6,7 @@ export type {
   AtRiskStudentsResponse,
   BktParameterRow,
   ChatHistoryTurn,
+  ClassScopeMeta,
   ClassroomSliceResponse,
   ClassroomStudentMeta,
   ClassroomTopicMeta,
@@ -17,7 +18,10 @@ export type {
   MasteryTimelinePoint,
   MatrixBandCounts,
   RiskTierId,
+  StudentFocusArea,
   StudentProfileResponse,
+  TeacherClass,
+  TimeOnTaskTrend,
 } from "./educator";
 
 export {

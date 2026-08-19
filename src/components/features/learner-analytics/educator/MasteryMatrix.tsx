@@ -16,6 +16,7 @@ import {
   getCurriculumTopic,
 } from "@/lib/curriculum/topics";
 import {
+  getCellAttemptCount,
   masteryCellClassName,
   masteryPercent,
 } from "@/lib/educator/bkt";
@@ -39,6 +40,7 @@ import type { ClassroomStudentMeta, ClassroomTopicMeta } from "@/types/educator"
 
 interface MasteryMatrixProps {
   matrix: Record<string, Record<string, number | null>>;
+  attemptMatrix?: Record<string, Record<string, number>>;
   studentIds: readonly string[];
   students: readonly ClassroomStudentMeta[];
   topicIds: readonly string[];
@@ -57,6 +59,7 @@ interface HoverState {
 
 export function MasteryMatrix({
   matrix,
+  attemptMatrix,
   studentIds,
   students = [],
   topicIds,
@@ -139,6 +142,9 @@ export function MasteryMatrix({
             <Badge className="bg-brand-secondary text-brand-text hover:bg-brand-secondary">
               Mastered ≥ 80%
             </Badge>
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
+              Not attempted
+            </Badge>
           </div>
         </div>
       ) : (
@@ -149,6 +155,9 @@ export function MasteryMatrix({
           </Badge>
           <Badge className="bg-brand-secondary text-brand-text hover:bg-brand-secondary">
             Mastered ≥ 80%
+          </Badge>
+          <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
+            Not attempted
           </Badge>
         </div>
       )}
@@ -248,17 +257,17 @@ export function MasteryMatrix({
               <table className="min-w-max border-separate border-spacing-1 text-xs">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 z-20 min-w-[9rem] bg-brand-background px-3 py-2 text-left font-semibold text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
+                    <th className="sticky left-0 z-20 min-w-[9rem] bg-white px-3 py-2 text-left font-semibold text-brand-text shadow-sm">
                       Student
                     </th>
                     {visibleTopicIds.map((topicId) => (
                       <th
                         key={topicId}
-                        className="h-[5.5rem] min-w-[2.6rem] max-w-[2.6rem] bg-brand-background px-0.5 align-bottom"
+                        className="h-[6rem] min-w-[3.25rem] bg-brand-background px-0.5 align-bottom"
                       >
-                        <div className="flex h-full items-end justify-start pb-2 pl-3">
+                        <div className="flex h-full items-end justify-start pb-2 pl-2">
                           <span
-                            className="inline-block max-w-[6.5rem] origin-bottom-left -rotate-45 cursor-default truncate font-mono text-[0.62rem] font-semibold leading-none text-brand-primary"
+                            className="inline-block origin-bottom-left -rotate-45 cursor-default whitespace-nowrap font-mono text-[0.58rem] font-semibold leading-none text-brand-primary"
                             title={`${topicId}\n${resolveTitle(topicId)}`}
                           >
                             {compactTopicLabel(topicId)}
@@ -271,7 +280,7 @@ export function MasteryMatrix({
                 <tbody>
                   {visibleStudentIds.map((studentId) => (
                     <tr key={studentId}>
-                      <th className="sticky left-0 z-10 max-w-[11rem] bg-white px-3 py-1 text-left font-medium text-brand-text shadow-[4px_0_8px_-4px_rgba(0,0,0,0.08)]">
+                      <th className="sticky left-0 z-20 max-w-[11rem] bg-white px-3 py-1 text-left font-medium text-brand-text shadow-sm">
                         <span className="block truncate">
                           {getStudentDisplayName(studentId, students)}
                         </span>
@@ -282,6 +291,13 @@ export function MasteryMatrix({
                       {visibleTopicIds.map((topicId) => {
                         const probability =
                           matrix[studentId]?.[topicId] ?? null;
+                        const pL0 =
+                          catalogById.get(topicId)?.pL0 ?? 0.25;
+                        const attempts = getCellAttemptCount(
+                          attemptMatrix,
+                          studentId,
+                          topicId
+                        );
                         const percent = masteryPercent(probability);
                         const matchesStatus = cellMatchesStatusFilter(
                           probability,
@@ -294,9 +310,12 @@ export function MasteryMatrix({
                             <button
                               type="button"
                               className={cn(
-                                "flex h-8 w-full min-w-[2.5rem] items-center justify-center rounded-md text-[0.72rem] font-semibold transition",
+                                "flex h-8 w-full min-w-[3.25rem] items-center justify-center rounded-md text-[0.72rem] font-semibold transition",
                                 showValue
-                                  ? masteryCellClassName(probability)
+                                  ? masteryCellClassName(probability, {
+                                      pL0,
+                                      attempts,
+                                    })
                                   : "bg-brand-surface/70 text-brand-text/25"
                               )}
                               onMouseEnter={(event) =>

@@ -67,11 +67,8 @@ function AlertCard({
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={cn("text-[0.65rem]", tier.pillClass)}>
-              {tier.label}
+              {tier.label} · Risk {alert.risk_score}%
             </Badge>
-            <span className={cn("text-xs font-semibold", EDUCATOR_AT_RISK.text)}>
-              Score {alert.risk_score} · {tier.scoreRange}
-            </span>
           </div>
 
           <div>
@@ -206,6 +203,12 @@ export function AtRiskFeed({
           </p>
         </div>
       ) : null}
+
+      <p className="rounded-lg border border-brand-surface bg-brand-background/70 px-3 py-2 text-xs leading-relaxed text-brand-text/65">
+        One alert per learner (most recent skill). See{" "}
+        <span className="font-medium text-brand-text">Student Deep-Dive</span>{" "}
+        for all flagged skills on a learner.
+      </p>
 
       {alerts.length > 0 ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

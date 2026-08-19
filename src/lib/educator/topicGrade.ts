@@ -26,10 +26,7 @@ export function filterTopicIdsByGrade(
   return topicIds.filter((topicId) => topicMatchesGrade(topicId, filter));
 }
 
+/** Short skill code for matrix headers — drops grade prefix (e.g. G6_C1_ORG → C1_ORG). */
 export function compactTopicLabel(topicId: string): string {
-  const parts = topicId.split("_");
-  if (parts.length >= 2) {
-    return `${parts[0]}_${parts[1]}`;
-  }
-  return topicId.length > 10 ? `${topicId.slice(0, 10)}…` : topicId;
+  return topicId.replace(/^G\d+_/, "");
 }

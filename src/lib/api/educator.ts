@@ -145,8 +145,13 @@ async function getAppJson<T>(
   }
 }
 
-export async function fetchClassroomSlice(): Promise<ClassroomSliceResponse> {
-  const payload = await getAppJson<ClassroomSliceResponse>(CLASSROOM_SLICE_PATH);
+export async function fetchClassroomSlice(
+  classCode: string
+): Promise<ClassroomSliceResponse> {
+  const code = classCode.trim().toUpperCase();
+  const payload = await getAppJson<ClassroomSliceResponse>(
+    `${CLASSROOM_SLICE_PATH}?class_code=${encodeURIComponent(code)}`
+  );
   if (payload.success === false) {
     throw new Error(payload.error ?? "Could not load classroom slice.");
   }
@@ -162,9 +167,16 @@ export async function fetchClassroomSlice(): Promise<ClassroomSliceResponse> {
 export async function fetchMasteryMatrix(
   request: MasteryMatrixRequest
 ): Promise<MasteryMatrixResponse> {
+  const body = request.class_code
+    ? { class_code: request.class_code.trim().toUpperCase() }
+    : {
+        student_ids: request.student_ids ?? [],
+        topic_ids: request.topic_ids ?? [],
+      };
+
   const payload = await postJson<MasteryMatrixResponse>(
     MASTERY_MATRIX_PATH,
-    request
+    body
   );
   if (payload.success === false) {
     throw new Error(payload.error ?? "Mastery matrix request failed.");
@@ -175,7 +187,14 @@ export async function fetchMasteryMatrix(
 export async function fetchAtRiskStudents(
   request: AtRiskStudentsRequest = {}
 ): Promise<AtRiskStudentsResponse> {
-  const payload = await postJson<AtRiskStudentsResponse>(AT_RISK_PATH, request);
+  const body = request.class_code
+    ? { class_code: request.class_code.trim().toUpperCase() }
+    : {
+        student_ids: request.student_ids,
+        topic_ids: request.topic_ids,
+      };
+
+  const payload = await postJson<AtRiskStudentsResponse>(AT_RISK_PATH, body);
   if (payload.success === false) {
     throw new Error(payload.error ?? "At-risk analytics request failed.");
   }
@@ -183,10 +202,14 @@ export async function fetchAtRiskStudents(
 }
 
 export async function fetchStudentProfile(
-  userId: string
+  userId: string,
+  classCode?: string
 ): Promise<StudentProfileResponse> {
+  const query = classCode
+    ? `?class_code=${encodeURIComponent(classCode.trim().toUpperCase())}`
+    : "";
   const payload = await getAnalyticsJson<StudentProfileResponse>(
-    `${STUDENT_PROFILE_PATH}/${encodeURIComponent(userId)}`
+    `${STUDENT_PROFILE_PATH}/${encodeURIComponent(userId)}${query}`
   );
   if (payload.success === false) {
     throw new Error(payload.error ?? "Student profile request failed.");

@@ -4,41 +4,30 @@ import { API_BASE_URL } from "@/lib/api/config";
 import { CURRICULUM_TOPIC_IDS, getCurriculumTopic } from "@/lib/curriculum/topics";
 import { postgresConfigured, queryRows } from "@/lib/db/postgres";
 import type {
-  AtRiskStudentsResponse,
   ClassroomSliceResponse,
   ClassroomStudentMeta,
   ClassroomTopicMeta,
-  StudentProfileResponse,
+  MasteryMatrixResponse,
 } from "@/types/educator";
 import { buildStudentCatalog } from "@/lib/educator/students";
 
-const LEARNER_CATALOG_SQL = `
-  SELECT
-    ids.learner_id,
-    COALESCE(NULLIF(TRIM(l.display_name), ''), ids.learner_id) AS display_name
-  FROM (
-    SELECT DISTINCT learner_id
-    FROM (
-      SELECT learner_id FROM learner_analytics.assessment_attempts
-      UNION
-      SELECT learner_id FROM learner_analytics.bkt_mastery
-      UNION
-      SELECT learner_id FROM learner_analytics.tutor_turns
-    ) AS activity_ids
-  ) AS ids
-  LEFT JOIN shared.learners l ON l.learner_id = ids.learner_id
-  ORDER BY ids.learner_id
+const CLASS_META_SQL = `
+  SELECT class_code, class_name, grade_level, subject, teacher_id
+  FROM shared.classes
+  WHERE class_code = $1 AND is_active = true
 `;
 
-const LEARNER_ROSTER_SQL = `
+const CLASS_ROSTER_SQL = `
   SELECT
-    learner_id,
-    COALESCE(NULLIF(TRIM(display_name), ''), learner_id) AS display_name
-  FROM shared.learners
-  ORDER BY learner_id
+    e.learner_id,
+    COALESCE(NULLIF(TRIM(l.display_name), ''), e.learner_id) AS display_name
+  FROM shared.class_enrollments e
+  LEFT JOIN shared.learners l ON l.learner_id = e.learner_id
+  WHERE e.class_code = $1
+  ORDER BY e.learner_id
 `;
 
-const TOPIC_CATALOG_SQL = `
+const GRADE_TOPIC_CATALOG_SQL = `
   SELECT
     t.topic_id,
     COALESCE(t.curriculum_reference, t.skill_label, t.topic_id) AS curriculum_title,
@@ -48,10 +37,11 @@ const TOPIC_CATALOG_SQL = `
     b.slip_p
   FROM shared.topics t
   INNER JOIN learner_analytics.bkt_skill_params b ON b.topic_id = t.topic_id
+  WHERE t.topic_id LIKE $1
   ORDER BY t.topic_id
 `;
 
-const TOPIC_PARAMS_ONLY_SQL = `
+const GRADE_TOPIC_PARAMS_ONLY_SQL = `
   SELECT
     topic_id,
     topic_id AS curriculum_title,
@@ -60,7 +50,16 @@ const TOPIC_PARAMS_ONLY_SQL = `
     guess_p,
     slip_p
   FROM learner_analytics.bkt_skill_params
+  WHERE topic_id LIKE $1
   ORDER BY topic_id
+`;
+
+const CLASS_ATTEMPT_MATRIX_SQL = `
+  SELECT bm.learner_id, bm.topic_id, bm.attempts
+  FROM learner_analytics.bkt_mastery bm
+  INNER JOIN shared.class_enrollments e
+    ON e.learner_id = bm.learner_id AND e.class_code = $1
+  WHERE bm.attempts > 0
 `;
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
@@ -105,18 +104,21 @@ function mapTopicRow(row: Record<string, unknown>): ClassroomTopicMeta {
   };
 }
 
-function fallbackTopicCatalog(): ClassroomTopicMeta[] {
-  return CURRICULUM_TOPIC_IDS.map((topicId) => {
-    const topic = getCurriculumTopic(topicId);
-    return {
-      topicId,
-      curriculumTitle: topic?.curriculumTitle ?? topicId,
-      pL0: topic?.pL0 ?? 0.25,
-      pT: topic?.pT ?? 0.15,
-      pG: topic?.pG ?? 0.2,
-      pS: topic?.pS ?? 0.1,
-    };
-  });
+function fallbackTopicCatalogForGrade(gradeLevel: number): ClassroomTopicMeta[] {
+  const prefix = `G${gradeLevel}_`;
+  return CURRICULUM_TOPIC_IDS.filter((topicId) => topicId.startsWith(prefix)).map(
+    (topicId) => {
+      const topic = getCurriculumTopic(topicId);
+      return {
+        topicId,
+        curriculumTitle: topic?.curriculumTitle ?? topicId,
+        pL0: topic?.pL0 ?? 0.25,
+        pT: topic?.pT ?? 0.15,
+        pG: topic?.pG ?? 0.2,
+        pS: topic?.pS ?? 0.1,
+      };
+    }
+  );
 }
 
 function mapStudentRow(row: Record<string, unknown>): ClassroomStudentMeta {
@@ -126,123 +128,190 @@ function mapStudentRow(row: Record<string, unknown>): ClassroomStudentMeta {
   };
 }
 
-async function loadLearnerRoster(): Promise<ClassroomStudentMeta[]> {
-  try {
-    const rows = await queryRows(LEARNER_ROSTER_SQL);
-    return rows.map(mapStudentRow);
-  } catch (error) {
-    console.error("[classroom-slice] Could not load shared.learners roster:", error);
-    return [];
+function buildAttemptMatrix(
+  rows: readonly Record<string, unknown>[]
+): Record<string, Record<string, number>> {
+  const matrix: Record<string, Record<string, number>> = {};
+  for (const row of rows) {
+    const learnerId = String(row.learner_id ?? "");
+    const topicId = String(row.topic_id ?? "");
+    const attempts = Number(row.attempts ?? 0);
+    if (!learnerId || !topicId || attempts <= 0) continue;
+    matrix[learnerId] ??= {};
+    matrix[learnerId][topicId] = attempts;
   }
+  return matrix;
 }
 
-async function loadStudentCatalogFromPostgres(): Promise<ClassroomStudentMeta[]> {
-  try {
-    const rows = await queryRows(LEARNER_CATALOG_SQL);
-    return rows.map(mapStudentRow);
-  } catch (error) {
-    console.error("[classroom-slice] Could not load learner catalog join:", error);
-    return [];
+async function loadSliceForClassFromPostgres(
+  classCode: string
+): Promise<ClassroomSliceResponse> {
+  const metaRows = await queryRows<Record<string, unknown>>(CLASS_META_SQL, [
+    classCode,
+  ]);
+  if (metaRows.length === 0) {
+    return {
+      success: false,
+      source: "error",
+      mode: "live_state",
+      studentIds: [],
+      students: [],
+      topicIds: [],
+      topics: [],
+      learnerCount: 0,
+      topicCount: 0,
+      error: `Unknown or inactive class code: ${classCode}`,
+    };
   }
-}
 
-async function loadSliceFromPostgres(): Promise<ClassroomSliceResponse> {
+  const meta = metaRows[0];
+  const gradeLevel = Number(meta.grade_level ?? 0);
+  const gradePrefix = `G${gradeLevel}_%`;
+
   let topicRows: Record<string, unknown>[] = [];
   try {
-    topicRows = await queryRows(TOPIC_CATALOG_SQL);
+    topicRows = await queryRows(GRADE_TOPIC_CATALOG_SQL, [gradePrefix]);
   } catch {
-    topicRows = await queryRows(TOPIC_PARAMS_ONLY_SQL);
+    topicRows = await queryRows(GRADE_TOPIC_PARAMS_ONLY_SQL, [gradePrefix]);
   }
 
-  const students = await loadStudentCatalogFromPostgres();
+  if (topicRows.length === 0) {
+    const fallbackTopics = fallbackTopicCatalogForGrade(gradeLevel);
+    topicRows = fallbackTopics.map((topic) => ({
+      topic_id: topic.topicId,
+      curriculum_title: topic.curriculumTitle,
+      prior_p: topic.pL0,
+      learn_p: topic.pT,
+      guess_p: topic.pG,
+      slip_p: topic.pS,
+    }));
+  }
+
+  const rosterRows = await queryRows(CLASS_ROSTER_SQL, [classCode]);
+  const students = rosterRows.map(mapStudentRow);
   const studentIds = students.map((student) => student.learnerId);
   const topics = topicRows.map(mapTopicRow);
+
+  let attemptMatrix: Record<string, Record<string, number>> = {};
+  try {
+    const attemptRows = await queryRows(CLASS_ATTEMPT_MATRIX_SQL, [classCode]);
+    attemptMatrix = buildAttemptMatrix(attemptRows);
+  } catch (error) {
+    console.error("[classroom-slice] Could not load class attempt matrix:", error);
+  }
 
   return {
     success: true,
     source: "postgres",
     mode: "live_state",
+    classCode: String(meta.class_code ?? classCode),
+    className: String(meta.class_name ?? classCode),
+    gradeLevel,
+    subject: meta.subject ? String(meta.subject) : undefined,
     studentIds,
     students,
     topicIds: topics.map((topic) => topic.topicId),
     topics,
+    attemptMatrix,
     learnerCount: studentIds.length,
     topicCount: topics.length,
   };
 }
 
-async function loadSliceFromAnalyticsApi(): Promise<ClassroomSliceResponse> {
-  const atRisk = await postJson<AtRiskStudentsResponse>(
-    "/api/v1/analytics/at-risk-students",
-    {}
+async function loadSliceForClassFromAnalyticsApi(
+  classCode: string
+): Promise<ClassroomSliceResponse> {
+  const matrixPayload = await postJson<MasteryMatrixResponse>(
+    "/api/v1/mastery/matrix",
+    { class_code: classCode }
   );
 
-  const learnerIds = new Set<string>();
-  const topicIds = new Set<string>();
-
-  for (const alert of atRisk.students ?? []) {
-    learnerIds.add(alert.student_id);
-    topicIds.add(alert.topic_id);
+  if (!matrixPayload.success) {
+    return {
+      success: false,
+      source: "error",
+      mode: "live_state",
+      studentIds: [],
+      students: [],
+      topicIds: [],
+      topics: [],
+      learnerCount: 0,
+      topicCount: 0,
+      error: matrixPayload.error ?? `Could not resolve class ${classCode}.`,
+    };
   }
 
-  const profiles = await Promise.all(
-    [...learnerIds].map((studentId) =>
-      getJson<StudentProfileResponse>(
-        `/api/v1/analytics/student-profile/${encodeURIComponent(studentId)}`
-      ).catch(() => null)
-    )
-  );
-
-  for (const profile of profiles) {
-    if (!profile?.success) continue;
-    learnerIds.add(profile.user_id);
-    for (const row of profile.bkt_parameters ?? []) {
-      topicIds.add(row.topic_id);
-    }
-    for (const row of profile.mastery_timeline_last_10_attempts ?? []) {
-      if (row.topic_id) topicIds.add(row.topic_id);
-    }
-  }
-
-  const catalog = fallbackTopicCatalog();
+  const studentIds = matrixPayload.student_ids ?? [];
+  const topicIds = matrixPayload.topic_ids ?? [];
+  const gradeLevel = matrixPayload.grade_level;
+  const catalog =
+    typeof gradeLevel === "number"
+      ? fallbackTopicCatalogForGrade(gradeLevel)
+      : [];
   const catalogById = new Map(catalog.map((topic) => [topic.topicId, topic]));
-  const sortedTopicIds = [...topicIds].sort((a, b) => {
-    const ai = catalogById.has(a) ? catalog.findIndex((t) => t.topicId === a) : 9999;
-    const bi = catalogById.has(b) ? catalog.findIndex((t) => t.topicId === b) : 9999;
-    return ai - bi || a.localeCompare(b);
-  });
 
-  const sortedStudentIds = [...learnerIds].sort();
-  const roster = postgresConfigured() ? await loadLearnerRoster() : [];
-  const students = buildStudentCatalog(sortedStudentIds, roster);
+  const students = buildStudentCatalog(studentIds);
 
   return {
     success: true,
     source: "analytics_api",
     mode: "live_state",
-    studentIds: sortedStudentIds,
+    classCode: matrixPayload.class_code ?? classCode,
+    className: matrixPayload.class_name,
+    gradeLevel: matrixPayload.grade_level,
+    subject: matrixPayload.subject,
+    studentIds,
     students,
-    topicIds: sortedTopicIds,
-    topics: sortedTopicIds.map(
-      (topicId) => catalogById.get(topicId) ?? {
-        topicId,
-        curriculumTitle: topicId,
-        pL0: 0.25,
-        pT: 0.15,
-        pG: 0.2,
-        pS: 0.1,
-      }
+    topicIds,
+    topics: topicIds.map(
+      (topicId) =>
+        catalogById.get(topicId) ?? {
+          topicId,
+          curriculumTitle: topicId,
+          pL0: 0.25,
+          pT: 0.15,
+          pG: 0.2,
+          pS: 0.1,
+        }
     ),
-    learnerCount: learnerIds.size,
-    topicCount: sortedTopicIds.length,
+    attemptMatrix: {},
+    learnerCount: studentIds.length,
+    topicCount: topicIds.length,
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const classCode = new URL(request.url).searchParams
+    .get("class_code")
+    ?.trim()
+    .toUpperCase();
+
+  if (!classCode) {
+    return NextResponse.json(
+      {
+        success: false,
+        source: "error",
+        mode: "live_state",
+        studentIds: [],
+        students: [],
+        topicIds: [],
+        topics: [],
+        learnerCount: 0,
+        topicCount: 0,
+        error: "class_code query parameter is required.",
+      } satisfies ClassroomSliceResponse,
+      { status: 400 }
+    );
+  }
+
   try {
     const slice = postgresConfigured()
-      ? await loadSliceFromPostgres()
-      : await loadSliceFromAnalyticsApi();
+      ? await loadSliceForClassFromPostgres(classCode)
+      : await loadSliceForClassFromAnalyticsApi(classCode);
+
+    if (!slice.success) {
+      return NextResponse.json(slice, { status: slice.error ? 404 : 500 });
+    }
 
     return NextResponse.json(slice);
   } catch (caught) {

@@ -1,4 +1,4 @@
-import type { GradeLevel, User, UserRole } from "@/types";
+import type { GradeLevel, TeacherClass, User, UserRole } from "@/types";
 
 type ApiStudentProfile = {
   grade: number;
@@ -33,11 +33,16 @@ type SessionResponse = {
   user?: ApiUser | null;
 };
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestJson<T>(
+  path: string,
+  init?: RequestInit,
+  token?: string
+): Promise<T> {
   const response = await fetch(`/user-api${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -121,11 +126,64 @@ export async function signupTeacher(input: {
 }
 
 export async function checkUserSession(token: string) {
-  const response = await requestJson<SessionResponse>("/auth/session", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await requestJson<SessionResponse>(
+    "/auth/session",
+    { method: "GET" },
+    token
+  );
   return {
     authenticated: response.authenticated,
     user: response.user ? userFromApi(response.user) : null,
   };
+}
+
+function normalizeTeacherClass(row: Record<string, unknown>): TeacherClass {
+  return {
+    class_code: String(row.class_code ?? "").trim().toUpperCase(),
+    class_name: String(row.class_name ?? "Class"),
+    grade_level: Number(row.grade_level ?? 0),
+    subject: row.subject ? String(row.subject) : undefined,
+    teacher_id: row.teacher_id ? String(row.teacher_id) : undefined,
+    is_active:
+      row.is_active === undefined ? true : Boolean(row.is_active),
+  };
+}
+
+/** Teacher creates a class; User Management returns the generated class code. */
+export async function createTeacherClass(
+  token: string,
+  input: { className: string; gradeLevel: number; subject?: string }
+): Promise<TeacherClass> {
+  const response = await requestJson<TeacherClass>(
+    "/classes",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        class_name: input.className.trim(),
+        grade_level: input.gradeLevel,
+        subject: input.subject?.trim() || "Science",
+      }),
+    },
+    token
+  );
+  return normalizeTeacherClass(response as unknown as Record<string, unknown>);
+}
+
+/** Classes owned by the logged-in teacher (User Management API). */
+export async function fetchTeacherClasses(token: string): Promise<TeacherClass[]> {
+  const response = await requestJson<TeacherClass[] | { classes?: TeacherClass[] }>(
+    "/classes/mine",
+    { method: "GET" },
+    token
+  );
+  const rows = Array.isArray(response)
+    ? response
+    : Array.isArray(response.classes)
+      ? response.classes
+      : [];
+  return rows
+    .map((row) =>
+      normalizeTeacherClass(row as unknown as Record<string, unknown>)
+    )
+    .filter((row) => row.class_code.length > 0);
 }
