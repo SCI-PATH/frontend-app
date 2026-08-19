@@ -8,8 +8,8 @@ import { GraduationCap, School } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useUserStore } from "@/store/useUserStore";
-import type { GradeLevel, User, UserRole } from "@/types";
+import { signupStudent, signupTeacher } from "@/lib/user-management";
+import type { GradeLevel, UserRole } from "@/types";
 
 const GRADE_OPTIONS: GradeLevel[] = [
   "Grade 6",
@@ -21,13 +21,8 @@ const GRADE_OPTIONS: GradeLevel[] = [
 const fieldClassName =
   "h-10 border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
 
-function createMockToken(): string {
-  return `mock-jwt.${btoa(`sci-path:${Date.now()}`)}.token`;
-}
-
 export function SignupForm() {
   const router = useRouter();
-  const login = useUserStore((state) => state.login);
 
   const [role, setRole] = useState<UserRole>("student");
   const [fullName, setFullName] = useState("");
@@ -56,18 +51,13 @@ export function SignupForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     if (!acceptedTerms) {
       setError("Please accept the Terms and Conditions.");
-      return;
-    }
-
-    if (role === "student" && !classCode.trim()) {
-      setError("Please enter your class code.");
       return;
     }
 
@@ -77,23 +67,28 @@ export function SignupForm() {
     }
 
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    const userData: User = {
-      id: `user_${Date.now()}`,
-      name: fullName.trim(),
-      email: email.trim(),
-      role,
-      ...(role === "student"
-        ? { grade, classCode: classCode.trim() }
-        : {
-            schoolName: schoolName.trim(),
-            sectionName: sectionName.trim(),
-          }),
-    };
-
-    login(userData, createMockToken());
-    router.push(role === "educator" ? "/matrix" : "/dashboard");
+    try {
+      const session =
+        role === "student"
+          ? await signupStudent({
+              fullName: fullName.trim(),
+              email: email.trim(),
+              password,
+              grade: Number(grade.replace(/\D/g, "")),
+              classCode: classCode.trim() || undefined,
+            })
+          : await signupTeacher({
+              fullName: fullName.trim(),
+              email: email.trim(),
+              password,
+              sectionName: sectionName.trim(),
+            });
+      void session;
+      router.push("/login?registered=1");
+    } catch (signupError) {
+      setError(signupError instanceof Error ? signupError.message : "Could not create account.");
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -266,12 +261,12 @@ export function SignupForm() {
               htmlFor="signup-class-code"
               className="text-sm font-medium text-brand-text"
             >
-              Class Code
+              Class Code <span className="font-normal text-brand-text/50">(optional)</span>
             </label>
             <Input
               id="signup-class-code"
               type="text"
-              placeholder="6-digit Class Code"
+              placeholder="SCI-G7-A4K9 — leave blank for self-study"
               value={classCode}
               onChange={(event) => setClassCode(event.target.value)}
               className={fieldClassName}

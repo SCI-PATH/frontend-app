@@ -60,3 +60,11 @@ export interface User {
   /** Present for educators */
   sectionName?: string;
 }
+
+export type {
+  CurriculumLesson,
+  CurriculumResponse,
+  LearnerProfile,
+  LessonResponse,
+  StudentSummary,
+} from "./learning-path";
