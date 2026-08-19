@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 
+import { RedirectToHomeIfAuthenticated } from "@/components/common/auth/RedirectToHomeIfAuthenticated";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { homePathForRole, REGISTER_PATH } from "@/lib/auth-routes";
 import { loginUser } from "@/lib/user-management";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -36,7 +38,7 @@ export function LoginForm({ registrationComplete = false }: { registrationComple
     try {
       const session = await loginUser(identifier.trim(), password);
       login(session.user, session.token);
-      router.push(session.user.role === "educator" ? "/matrix" : "/dashboard");
+      router.replace(homePathForRole(session.user.role));
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Could not sign in.");
       setIsSubmitting(false);
@@ -45,6 +47,7 @@ export function LoginForm({ registrationComplete = false }: { registrationComple
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <RedirectToHomeIfAuthenticated />
       <div className="rounded-xl border border-brand-primary/15 bg-brand-primary/5 px-3 py-2.5">
         <p className="flex items-center gap-2 text-sm font-medium text-brand-text">
           <Sparkles className="size-4 text-brand-accent" aria-hidden />
@@ -150,7 +153,7 @@ export function LoginForm({ registrationComplete = false }: { registrationComple
         <p className="pt-4 text-sm text-brand-text/70">
           Don&apos;t have an account?{" "}
           <Link
-            href="/signup"
+            href={REGISTER_PATH}
             className="font-semibold text-brand-primary transition-colors hover:text-brand-special hover:underline"
           >
             Sign up

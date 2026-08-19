@@ -18,6 +18,8 @@ type UserStore = {
   role: UserRole | null;
   grade: number | null;
   accessToken: string | null;
+  /** Selected classroom for educator analytics (persisted). */
+  activeClassCode: string | null;
   hasHydrated: boolean;
   login: (userData: User, token: string) => void;
   logout: () => void;
@@ -32,6 +34,7 @@ type UserStore = {
     accessToken?: string | null;
   }) => void;
   clearSession: () => void;
+  setActiveClassCode: (classCode: string | null) => void;
   setHasHydrated: (hydrated: boolean) => void;
 };
 
@@ -61,10 +64,12 @@ export const useUserStore = create<UserStore>()(
   persist(
     (set) => ({
       ...emptySession,
+      activeClassCode: null,
       hasHydrated: false,
       login: (userData, token) =>
         set({ ...sessionFromUser(userData, token), hasHydrated: true }),
-      logout: () => set({ ...emptySession, hasHydrated: true }),
+      logout: () =>
+        set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
       setSession: (partial) =>
         set((state) => {
       const nextUser =
@@ -100,7 +105,10 @@ export const useUserStore = create<UserStore>()(
         ...(partial.accessToken !== undefined ? { accessToken: partial.accessToken } : {}),
       };
         }),
-      clearSession: () => set({ ...emptySession, hasHydrated: true }),
+      clearSession: () =>
+        set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
+      setActiveClassCode: (classCode) =>
+        set({ activeClassCode: classCode?.trim().toUpperCase() ?? null }),
       setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
     }),
     {
@@ -115,6 +123,7 @@ export const useUserStore = create<UserStore>()(
         role: state.role,
         grade: state.grade,
         accessToken: state.accessToken,
+        activeClassCode: state.activeClassCode,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

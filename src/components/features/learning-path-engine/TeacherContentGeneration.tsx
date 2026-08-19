@@ -22,8 +22,8 @@ export default function TeacherContentGeneration() {
         onBack={undefined}
         backSlot={
           <Link
-            href="/matrix"
-            className="m-0 inline-flex w-auto items-center rounded-full border border-white/50 bg-white px-4 py-2 text-sm font-semibold text-brand-primary no-underline hover:bg-brand-background"
+            href="/educator-home"
+            className="inline-flex h-7 items-center rounded-lg border border-brand-surface bg-white px-2.5 text-sm text-brand-text hover:bg-brand-surface/60"
           >
             Back to teacher home
           </Link>

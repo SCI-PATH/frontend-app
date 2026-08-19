@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { GraduationCap, School } from "lucide-react";
 
+import { RedirectToHomeIfAuthenticated } from "@/components/common/auth/RedirectToHomeIfAuthenticated";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LOGIN_PATH } from "@/lib/auth-routes";
 import { cn } from "@/lib/utils";
 import { signupStudent, signupTeacher } from "@/lib/user-management";
 import type { GradeLevel, UserRole } from "@/types";
@@ -84,7 +86,7 @@ export function SignupForm() {
               sectionName: sectionName.trim(),
             });
       void session;
-      router.push("/login?registered=1");
+      router.push(`${LOGIN_PATH}?registered=1`);
     } catch (signupError) {
       setError(signupError instanceof Error ? signupError.message : "Could not create account.");
       setIsSubmitting(false);
@@ -96,6 +98,7 @@ export function SignupForm() {
       onSubmit={handleSubmit}
       className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
     >
+      <RedirectToHomeIfAuthenticated />
       <div
         className="grid grid-cols-2 gap-1 rounded-xl bg-brand-surface p-1"
         role="tablist"
@@ -361,7 +364,7 @@ export function SignupForm() {
         <p className="pt-4 text-sm text-brand-text/70">
           Already have an account?{" "}
           <Link
-            href="/login"
+            href={LOGIN_PATH}
             className="font-semibold text-brand-primary transition-colors hover:text-brand-special hover:underline"
           >
             Log in

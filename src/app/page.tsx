@@ -4,6 +4,7 @@
 import { FlaskConical } from "lucide-react";
 import Link from "next/link";
 
+import { RedirectToHomeIfAuthenticated } from "@/components/common/auth/RedirectToHomeIfAuthenticated";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center bg-brand-background px-6 py-16 sm:px-10">
+      <RedirectToHomeIfAuthenticated />
       <Card className="w-full max-w-lg border-brand-surface bg-white shadow-none">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-14 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary">
