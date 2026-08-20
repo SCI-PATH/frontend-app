@@ -187,3 +187,31 @@ export async function fetchTeacherClasses(token: string): Promise<TeacherClass[]
     )
     .filter((row) => row.class_code.length > 0);
 }
+
+type ClassJoinApiResponse = {
+  message: string;
+  class_info: TeacherClass;
+};
+
+/** Learner enrolls with a teacher-issued class code (User Management `POST /classes/join`). */
+export async function joinClass(
+  token: string,
+  classCode: string
+): Promise<{ message: string; classInfo: TeacherClass }> {
+  const response = await requestJson<ClassJoinApiResponse>(
+    "/classes/join",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        class_code: classCode.trim().toUpperCase(),
+      }),
+    },
+    token
+  );
+  return {
+    message: response.message,
+    classInfo: normalizeTeacherClass(
+      response.class_info as unknown as Record<string, unknown>
+    ),
+  };
+}

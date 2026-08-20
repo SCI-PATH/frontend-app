@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, Trophy } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LOGIN_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 
 function initials(name: string) {
@@ -19,9 +21,16 @@ function initials(name: string) {
 }
 
 export function Navbar() {
+  const router = useRouter();
   const user = useUserStore((s) => s.user);
+  const logout = useUserStore((s) => s.logout);
   const displayName = user?.name || "Alex Rivera";
   const grade = user?.grade || "Grade 7";
+
+  function handleLogout() {
+    logout();
+    router.replace(LOGIN_PATH);
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-brand-surface bg-white/95 backdrop-blur-sm">
@@ -71,6 +80,16 @@ export function Navbar() {
               </AvatarFallback>
             </Avatar>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="h-9 border-brand-surface text-brand-text hover:bg-brand-background"
+          >
+            <LogOut className="size-4" aria-hidden />
+            <span className="hidden sm:inline">Log out</span>
+          </Button>
         </div>
       </div>
     </header>
