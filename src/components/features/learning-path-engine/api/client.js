@@ -108,7 +108,7 @@ export function getAnalyticsProfile(userId) {
   return fetchJson(`/analytics/profile/${encodeURIComponent(userId)}`);
 }
 
-/** @deprecated Prefer postAnalyticsProfile with weak|average|strong|smart */
+/** @deprecated Prefer postAnalyticsProfile with basic|intermediate|advanced */
 export function postAnalyticsMastery({ user_id, mastery_score, source, lesson_id } = {}) {
   return fetchJson("/analytics/mastery", {
     method: "POST",

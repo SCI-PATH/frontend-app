@@ -3,11 +3,15 @@ import type { GradeLevel, TeacherClass, User, UserRole } from "@/types";
 type ApiStudentProfile = {
   grade: number;
   prev_year_science_marks?: number | null;
+  learner_id?: string | null;
+  class_code?: string | null;
+  class_codes?: string[];
 };
 
 type ApiTeacherProfile = {
   grades_taught?: number[];
   class_sections?: string[];
+  school_name?: string | null;
 };
 
 type ApiUser = {
@@ -49,10 +53,18 @@ async function requestJson<T>(
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = payload?.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : detail?.message || "User Management could not complete this request.";
+    let message = "User Management could not complete this request.";
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+      message = detail.message || detail.code || message;
+    } else if (Array.isArray(detail) && detail.length) {
+      const first = detail[0];
+      message =
+        typeof first === "string"
+          ? first
+          : first?.msg || first?.message || message;
+    }
     throw new Error(message);
   }
   return payload as T;
@@ -64,15 +76,23 @@ function gradeLabel(grade?: number | null): GradeLevel | undefined {
 
 export function userFromApi(apiUser: ApiUser): User {
   const role: UserRole = apiUser.role === "teacher" ? "educator" : "student";
+  const classCode =
+    apiUser.student?.class_code ||
+    apiUser.student?.class_codes?.[0] ||
+    undefined;
   return {
     id: apiUser.student_id || apiUser.id,
     name: apiUser.full_name,
     email: apiUser.email,
     role,
     ...(role === "student"
-      ? { grade: gradeLabel(apiUser.student?.grade) }
+      ? {
+          grade: gradeLabel(apiUser.student?.grade),
+          ...(classCode ? { classCode } : {}),
+        }
       : {
           sectionName: apiUser.teacher?.class_sections?.join(", ") || undefined,
+          schoolName: apiUser.teacher?.school_name || undefined,
         }),
   };
 }
@@ -111,6 +131,8 @@ export async function signupTeacher(input: {
   email: string;
   password: string;
   sectionName?: string;
+  schoolName?: string;
+  gradesTaught?: number[];
 }) {
   const response = await requestJson<TokenResponse>("/auth/signup/teacher", {
     method: "POST",
@@ -118,8 +140,9 @@ export async function signupTeacher(input: {
       full_name: input.fullName,
       email: input.email,
       password: input.password,
-      grades_taught: [],
+      grades_taught: input.gradesTaught ?? [],
       class_sections: input.sectionName ? [input.sectionName] : [],
+      school_name: input.schoolName?.trim() || null,
     }),
   });
   return { user: userFromApi(response.user), token: response.access_token };

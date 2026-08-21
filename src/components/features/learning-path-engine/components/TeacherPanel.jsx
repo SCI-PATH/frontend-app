@@ -39,9 +39,14 @@ import MindmapGraphic from "./MindmapGraphic.jsx";
 
 const GRADE_OPTIONS = [6, 7, 8, 9];
 const PROFILE_LABEL = {
-  weak: "Weak",
-  average: "Average",
-  strong: "Smart",
+  basic: "Basic",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  // Legacy aliases still shown if stored
+  weak: "Basic",
+  average: "Intermediate",
+  strong: "Advanced",
+  smart: "Advanced",
 };
 
 const EVENT = "lesson_start";
@@ -54,7 +59,7 @@ const TABS = [
 export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlot }) {
   const [teacherId] = useState(teacherIdProp || "");
   const [grade, setGrade] = useState(7);
-  const [profile, setProfile] = useState("weak");
+  const [profile, setProfile] = useState("basic");
   const [lessonId, setLessonId] = useState("");
   const [curriculum, setCurriculum] = useState(null);
   const [tab, setTab] = useState("content");
@@ -287,7 +292,11 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
           lesson_text: editText,
           teacher_id: teacherId,
           presentation_mode:
-            profile === "strong" ? "continuous" : profile === "weak" ? "stepped" : "sectioned",
+            profile === "advanced" || profile === "strong" || profile === "smart"
+              ? "continuous"
+              : profile === "basic" || profile === "weak"
+                ? "stepped"
+                : "sectioned",
           chunk_ids: [],
         });
         applyRow(
@@ -594,9 +603,9 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
                   clearEditor();
                 }}
               >
-                <option value="weak">Weak</option>
-                <option value="average">Average</option>
-                <option value="strong">Smart</option>
+                <option value="basic">Basic</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
               </select>
             </label>
             <label className="m-0 text-sm font-semibold" htmlFor="tLesson">

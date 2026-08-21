@@ -28,7 +28,7 @@ export default function LessonStage({
   lessonTitle,
   event,
   isFinalLesson = false,
-  profile = "weak",
+  profile = "basic",
   presentationMode: presentationModeProp,
   initialStep = 0,
   loadingNextLesson = false,

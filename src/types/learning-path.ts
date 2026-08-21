@@ -1,6 +1,6 @@
 /** Shared payload shapes for Learning Path Engine ↔ frontend. */
 
-export type LearnerProfile = "weak" | "average" | "strong" | "smart";
+export type LearnerProfile = "basic" | "intermediate" | "advanced" | "weak" | "average" | "strong" | "smart";
 
 export type CurriculumLesson = {
   lesson_id: string;
