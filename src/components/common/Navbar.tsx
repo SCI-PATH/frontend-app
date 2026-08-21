@@ -8,7 +8,7 @@ import { LogOut, Trophy } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LOGIN_PATH } from "@/lib/auth-routes";
+import { BASE_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 
 function initials(name: string) {
@@ -29,7 +29,7 @@ export function Navbar() {
 
   function handleLogout() {
     logout();
-    router.replace(LOGIN_PATH);
+    router.replace(BASE_PATH);
   }
 
   return (
