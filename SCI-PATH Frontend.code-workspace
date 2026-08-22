@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "name": "SCI-PATH : Frontend",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "window.title": "SCI-PATH : Frontend${separator}${activeEditorShort}${separator}${dirty}"
+  }
+}
