@@ -5,7 +5,8 @@ import { AssessmentApiError } from "../types";
  * Do NOT call Component 4 (`assessment-submit` / `bkt-snapshot`) from the browser —
  * Component 2 owns those outbound calls after grading.
  */
-const DEFAULT_BASE = "http://localhost:8001";
+/** Local IAE default — User Management (auth) typically uses 8001. */
+const DEFAULT_BASE = "http://localhost:8004";
 
 /** Canonical Component 2 API prefix from FRONTEND_INTEGRATION.md */
 export const API_PREFIX = "/api/v1/assessment-engine";
@@ -52,7 +53,7 @@ export async function assessmentFetch<T>(
     throw new AssessmentApiError(
       0,
       err instanceof Error
-        ? `Cannot reach Assessment API at ${getAssessmentApiBase()}. Is Component 2 running on port 8001?`
+        ? `Cannot reach Assessment API at ${getAssessmentApiBase()}. Is Component 2 (IAE) running? Check NEXT_PUBLIC_IAE_API_BASE — do not use the auth service port.`
         : "Network error talking to Assessment API"
     );
   }

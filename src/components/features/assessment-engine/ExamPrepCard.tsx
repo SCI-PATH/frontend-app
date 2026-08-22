@@ -39,7 +39,7 @@ export function ExamPrepCard() {
         asChild
         className="mt-auto w-full bg-brand-accent text-base text-white hover:bg-brand-accent/90"
       >
-        <Link href="/assessment/session">
+        <Link href="/assessment/custom-quiz">
           Configure &amp; Start
           <Flag className="size-4" aria-hidden />
         </Link>

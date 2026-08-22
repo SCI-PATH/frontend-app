@@ -21,8 +21,8 @@ export const EDUCATOR_CLASSROOMS_PATH = "/classrooms";
 /** Educator content-generation library. */
 export const EDUCATOR_CONTENT_GENERATION_PATH = "/content-generation";
 
-/** Educator question-generation placeholder. */
-export const EDUCATOR_QUESTION_GENERATION_PATH = "/question-generation";
+/** Educator question bank (Component 2 approve / reject / generate). */
+export const EDUCATOR_QUESTION_GENERATION_PATH = "/assessment/question-bank";
 
 const PUBLIC_PATHS = new Set([BASE_PATH, LOGIN_PATH, REGISTER_PATH]);
 

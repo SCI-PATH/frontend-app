@@ -19,7 +19,7 @@ import {
   fetchSessionDetail,
   fetchStudentSessions,
 } from "../api/history";
-import { useActiveMockUser } from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
   AnalyzeResponse,
   SessionAnswerItem,
@@ -27,15 +27,22 @@ import type {
   SessionSummary,
 } from "../types";
 import { AssessmentApiError } from "../types";
+import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 
 export function HistoryListScreen() {
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!user.userId) {
+      setError("Sign in to view quiz history.");
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -61,6 +68,8 @@ export function HistoryListScreen() {
       title="Your quiz history"
       subtitle={`Sessions for ${user.displayName}`}
       maxWidth="3xl"
+      backHref={STUDENT_HOME_PATH}
+      backLabel="Home"
       actions={
         <Button
           variant="outline"
@@ -137,7 +146,7 @@ export function HistoryListScreen() {
 export function HistoryDetailScreen() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params.sessionId;
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [loading, setLoading] = useState(true);

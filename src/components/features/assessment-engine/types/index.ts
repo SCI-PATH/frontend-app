@@ -16,16 +16,6 @@ export type RejectReason =
 
 export type QuestionStatus = "pending" | "approved" | "rejected";
 
-export type MockUserRole = "student" | "teacher";
-
-export interface MockUser {
-  userId: string;
-  displayName: string;
-  role: MockUserRole;
-  grade?: number;
-  classCode?: string;
-}
-
 export interface ChapterOption {
   id: string;
   label: string;
