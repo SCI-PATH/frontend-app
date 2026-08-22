@@ -6,12 +6,26 @@ Team peer/C4 handshake summary: see also root [`INTEGRATION_README.md`](../INTEG
 
 | | |
 |--|--|
-| **Base URL (local)** | `http://localhost:8001` |
+| **Base URL (local IAE)** | `http://localhost:8002` via `NEXT_PUBLIC_IAE_API_BASE` |
 | **API prefix** | `/api/v1/assessment-engine` |
-| **Swagger (live contract)** | `http://localhost:8001/docs` |
-| **OpenAPI JSON** | `http://localhost:8001/openapi.json` |
-| **Auth** | none (research phase) |
+| **Swagger (live contract)** | `{IAE_BASE}/docs` (title must be Assessment Engine, not User Management) |
+| **OpenAPI JSON** | `{IAE_BASE}/openapi.json` |
+| **Auth (C2)** | none (research phase) — pass real auth `userId` as `student_id` / `user_id` |
 | **Headers** | `Content-Type: application/json` · `Accept: application/json` |
+
+### Env split (frontend monorepo)
+
+User Management (login/signup) and Component 2 are **separate services**. Do not point assessment calls at the auth port.
+
+```env
+# User Management — proxied as /user-api (typically port 8001)
+USER_API_PROXY_TARGET=http://127.0.0.1:8001
+
+# Component 2 Assessment Engine — browser calls via NEXT_PUBLIC_IAE_API_BASE
+NEXT_PUBLIC_IAE_API_BASE=http://localhost:8002
+```
+
+Restart `npm run dev` after changing env vars.
 
 Errors: FastAPI `{ "detail": string | object }`.  
 Pass mark on graded items: `is_correct` when `accuracy_score >= 0.8`.
@@ -32,13 +46,18 @@ Peer hosts live in backend `src/iae/config/peers.py` only.
 | `features/teacher/` | Topic list, generate, review/approve/reject bank |
 | `features/dev-hub/` | Temporary buttons for all flows (optional) |
 
-Mock users (seeded):
+### Identity (production frontend)
 
-| `user_id` / `student_id` | Role | `class_code` |
-|--------------------------|------|--------------|
-| `mock-student-unassigned` | student | — |
-| `mock-student-class-a` | student | `CLASS-A` |
-| `mock-teacher-1` | teacher | `CLASS-A` |
+Use the logged-in session from shared auth (`useUserStore` → `useAssessmentUser` in this feature):
+
+| Field | C2 usage |
+|-------|----------|
+| `userId` | `student_id`, `user_id`, path `{student_id}` |
+| `role` | FE-only gating (`student` / `educator`) |
+| `grade` | Amplitude / quiz filters when profile has grade |
+| `classCode` | Teacher bank filter `class_code` (educator `activeClassCode` or student join code) |
+
+C2 accepts any non-empty id string (no JWT on C2 today). A user may exist in auth before first Amplitude run → `GET .../initial-category` returns **404** until placement completes.
 
 ---
 
@@ -405,9 +424,12 @@ Engagement (C3) → may terminate an active session
 ## Local smoke for FE developers
 
 ```powershell
-# Backend running:
-uvicorn iae.api.main:app --reload --port 8001
-# Open http://localhost:8001/docs
+# Component 2 (IAE) — separate from User Management on 8001:
+uvicorn iae.api.main:app --reload --port 8002
+# Open http://localhost:8002/docs — verify title is Assessment Engine
+
+# Frontend .env.local:
+# NEXT_PUBLIC_IAE_API_BASE=http://localhost:8002
 ```
 
-Use Try-it-out with `mock-student-class-a` / grade `7` for Amplitude after the placement bank exists for that grade.
+Use Try-it-out with a real auth `student_id` and grade `7` for Amplitude after the placement bank exists for that grade.

@@ -1,5 +1,7 @@
 import type { GradeLevel, TeacherClass, User, UserRole } from "@/types";
 
+import { getAuthApiBase } from "@/lib/api/auth-config";
+
 type ApiStudentProfile = {
   grade: number;
   prev_year_science_marks?: number | null;

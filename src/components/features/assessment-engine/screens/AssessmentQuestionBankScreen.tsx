@@ -36,7 +36,7 @@ import {
   generateTeacherQuestions,
   rejectTeacherQuestion,
 } from "../api/teacher";
-import { useActiveMockUser } from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
   QuestionType,
   RejectReason,
@@ -66,12 +66,12 @@ const Q_TYPES: QuestionType[] = [
 ];
 
 export function AssessmentQuestionBankScreen() {
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [grade, setGrade] = useState(7);
   const [status, setStatus] = useState("pending");
   const [dok, setDok] = useState<string>("");
   const [qType, setQType] = useState<string>("");
-  const [classCode, setClassCode] = useState(user.classCode ?? "CLASS-A");
+  const [classCode, setClassCode] = useState(user.classCode ?? "");
   const [questions, setQuestions] = useState<TeacherQuestion[]>([]);
   const [topics, setTopics] = useState<TeacherTopic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +96,10 @@ export function AssessmentQuestionBankScreen() {
   const [addAnswer, setAddAnswer] = useState("");
   const [addType, setAddType] = useState<QuestionType>("MCQ");
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    setClassCode(user.classCode ?? "");
+  }, [user.classCode]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -230,14 +234,18 @@ export function AssessmentQuestionBankScreen() {
     }
   }
 
-  if (user.role !== "teacher") {
+  if (user.role !== "educator") {
     return (
-      <AssessmentShell title="Teacher dashboard" subtitle="Educator tools">
+      <AssessmentShell
+        title="Question bank"
+        subtitle="Educator tools"
+        backHref="/educator-home"
+        backLabel="Educator home"
+      >
         <Card className="border-brand-surface bg-white">
           <CardContent className="py-10 text-center text-sm text-brand-text/70">
-            Switch the Dev Hub mock user to{" "}
-            <strong className="text-brand-special">User 3 · Teacher</strong> to
-            review the question bank.
+            Sign in with an educator account to review and manage the question
+            bank.
           </CardContent>
         </Card>
       </AssessmentShell>
@@ -249,6 +257,8 @@ export function AssessmentQuestionBankScreen() {
       title="Assessment question bank"
       subtitle="Component 2 review · approve / reject / generate — not the classroom matrix"
       maxWidth="5xl"
+      backHref="/educator-home"
+      backLabel="Educator home"
       actions={
         <>
           <Button

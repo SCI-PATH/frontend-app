@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { triggerPostLessonQuiz } from "../api/quizzes";
-import { useActiveMockUser } from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import { AssessmentApiError } from "../types";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizPlayer } from "../components/QuizPlayer";
@@ -20,7 +20,7 @@ import { QuizPlayer } from "../components/QuizPlayer";
  */
 export function PostLessonScreen() {
   const searchParams = useSearchParams();
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const chapterId = searchParams.get("chapter_id") ?? "G6_C8";
   const gradeParam = searchParams.get("grade");
   const grade = gradeParam ? Number(gradeParam) : user.grade ?? 6;
@@ -38,8 +38,13 @@ export function PostLessonScreen() {
     async function boot() {
       setLoading(true);
       setError(null);
-      if (user.role === "teacher") {
-        setError("Switch to a student mock user for post-lesson quizzes.");
+      if (user.role !== "student") {
+        setError("Post-lesson quizzes are available to student accounts.");
+        setLoading(false);
+        return;
+      }
+      if (!user.userId) {
+        setError("Sign in to start a post-lesson quiz.");
         setLoading(false);
         return;
       }

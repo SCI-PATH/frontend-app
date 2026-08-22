@@ -20,7 +20,7 @@ import {
   fetchInitialCategory,
   submitAmplitudeSurvey,
 } from "../api/amplitude";
-import { useActiveMockUser } from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
   AmplitudeCategory,
   AmplitudeChapter,
@@ -68,7 +68,7 @@ const CATEGORY_STYLE: Record<
 };
 
 export function AmplitudeScreen() {
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [grade, setGrade] = useState(user.grade ?? 7);
   const [chapters, setChapters] = useState<AmplitudeChapter[]>([]);
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
@@ -137,8 +137,12 @@ export function AmplitudeScreen() {
   }
 
   async function startQuiz() {
-    if (user.role === "teacher") {
-      setError("Switch to a student mock user for the amplitude test.");
+    if (user.role !== "student") {
+      setError("The amplitude placement test is available to student accounts.");
+      return;
+    }
+    if (!user.userId) {
+      setError("Sign in to start the placement test.");
       return;
     }
     setBusy(true);
@@ -234,6 +238,8 @@ export function AmplitudeScreen() {
       title="Amplitude placement"
       subtitle="Find your starting science pathway (BASIC · INTERMEDIATE · ADVANCED)"
       maxWidth="2xl"
+      backHref="/dashboard"
+      backLabel="Home"
     >
       {error ? (
         <p

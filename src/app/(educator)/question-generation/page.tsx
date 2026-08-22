@@ -1,11 +1,8 @@
-import { QuestionGenerationPlaceholder } from "@/components/features/assessment-engine/QuestionGenerationPlaceholder";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Question Generation | SCI-PATH",
-  description:
-    "Placeholder workspace for teacher question generation from the assessment engine.",
-};
+import { EDUCATOR_QUESTION_GENERATION_PATH } from "@/lib/auth-routes";
 
+/** Legacy URL — question bank lives under assessment routes. */
 export default function QuestionGenerationPage() {
-  return <QuestionGenerationPlaceholder />;
+  redirect(EDUCATOR_QUESTION_GENERATION_PATH);
 }

@@ -59,14 +59,13 @@ const TOOLS = [
   },
   {
     href: EDUCATOR_QUESTION_GENERATION_PATH,
-    title: "Question Generation",
+    title: "Question Bank",
     kicker: "Assessment",
     description:
-      "Generate quiz items aligned to skills and misconceptions. Coming soon.",
+      "Generate quiz items, review pending questions, and approve or reject for your classes.",
     icon: ClipboardList,
     accent: "accent",
-    cta: "Preview workspace",
-    comingSoon: true,
+    cta: "Open question bank",
   },
 ] as const;
 

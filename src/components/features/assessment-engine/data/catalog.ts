@@ -1,28 +1,4 @@
-import type { ChapterOption, MockUser } from "../types";
-
-export const MOCK_USERS: MockUser[] = [
-  {
-    userId: "mock-student-unassigned",
-    displayName: "User 1 · Student",
-    role: "student",
-    grade: 7,
-  },
-  {
-    userId: "mock-student-class-a",
-    displayName: "User 2 · Student w/ Class",
-    role: "student",
-    grade: 6,
-    classCode: "CLASS-A",
-  },
-  {
-    userId: "mock-teacher-1",
-    displayName: "User 3 · Teacher",
-    role: "teacher",
-    classCode: "CLASS-A",
-  },
-];
-
-export const DEFAULT_MOCK_USER_ID = MOCK_USERS[1].userId;
+import type { ChapterOption } from "../types";
 
 /**
  * Static chapter catalog using Component 2 IDs (`G{grade}_C{n}`).

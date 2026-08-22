@@ -19,7 +19,7 @@ import {
   fetchSessionDetail,
   fetchStudentSessions,
 } from "../api/history";
-import { useActiveMockUser } from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
   AnalyzeResponse,
   SessionAnswerItem,
@@ -30,12 +30,18 @@ import { AssessmentApiError } from "../types";
 import { AssessmentShell } from "../components/AssessmentShell";
 
 export function HistoryListScreen() {
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!user.userId) {
+      setError("Sign in to view quiz history.");
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -137,7 +143,7 @@ export function HistoryListScreen() {
 export function HistoryDetailScreen() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params.sessionId;
-  const user = useActiveMockUser();
+  const user = useAssessmentUser();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [loading, setLoading] = useState(true);
