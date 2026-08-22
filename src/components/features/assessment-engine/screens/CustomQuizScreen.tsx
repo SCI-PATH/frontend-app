@@ -19,6 +19,7 @@ import { chaptersForGrade } from "../data/catalog";
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import type { AmplitudeChapter, QuestionType } from "../types";
 import { AssessmentApiError } from "../types";
+import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizPlayer } from "../components/QuizPlayer";
 import { cn } from "@/lib/utils";
@@ -140,8 +141,8 @@ export function CustomQuizScreen() {
         title="Custom Quiz"
         subtitle="Adaptive practice in progress"
         maxWidth="2xl"
-        backHref="/dashboard"
-        backLabel="Dashboard"
+        backHref={STUDENT_HOME_PATH}
+        backLabel="Home"
       >
         <QuizPlayer
           sessionId={sessionId}
@@ -158,8 +159,8 @@ export function CustomQuizScreen() {
       title="Build your quiz"
       subtitle="Choose grade, chapters, length, and question styles — then dive in."
       maxWidth="3xl"
-      backHref="/dashboard"
-      backLabel="Dashboard"
+      backHref={STUDENT_HOME_PATH}
+      backLabel="Home"
     >
       <Card className="overflow-hidden border-brand-surface bg-white/95 shadow-[0_18px_50px_-28px_rgba(0,168,232,0.4)] ring-0">
         <div

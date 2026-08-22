@@ -6,7 +6,7 @@ Team peer/C4 handshake summary: see also root [`INTEGRATION_README.md`](../INTEG
 
 | | |
 |--|--|
-| **Base URL (local IAE)** | `http://localhost:8002` via `NEXT_PUBLIC_IAE_API_BASE` |
+| **Base URL (local IAE)** | `http://localhost:8004` via `NEXT_PUBLIC_IAE_API_BASE` |
 | **API prefix** | `/api/v1/assessment-engine` |
 | **Swagger (live contract)** | `{IAE_BASE}/docs` (title must be Assessment Engine, not User Management) |
 | **OpenAPI JSON** | `{IAE_BASE}/openapi.json` |
@@ -22,7 +22,7 @@ User Management (login/signup) and Component 2 are **separate services**. Do not
 USER_API_PROXY_TARGET=http://127.0.0.1:8001
 
 # Component 2 Assessment Engine — browser calls via NEXT_PUBLIC_IAE_API_BASE
-NEXT_PUBLIC_IAE_API_BASE=http://localhost:8002
+NEXT_PUBLIC_IAE_API_BASE=http://localhost:8004
 ```
 
 Restart `npm run dev` after changing env vars.
@@ -425,11 +425,11 @@ Engagement (C3) → may terminate an active session
 
 ```powershell
 # Component 2 (IAE) — separate from User Management on 8001:
-uvicorn iae.api.main:app --reload --port 8002
-# Open http://localhost:8002/docs — verify title is Assessment Engine
+uvicorn iae.api.main:app --reload --port 8004
+# Open http://localhost:8004/docs — verify title is Assessment Engine
 
 # Frontend .env.local:
-# NEXT_PUBLIC_IAE_API_BASE=http://localhost:8002
+# NEXT_PUBLIC_IAE_API_BASE=http://localhost:8004
 ```
 
 Use Try-it-out with a real auth `student_id` and grade `7` for Amplitude after the placement bank exists for that grade.

@@ -44,6 +44,7 @@ import type {
   TeacherTopic,
 } from "../types";
 import { AssessmentApiError } from "../types";
+import { EDUCATOR_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { normalizeOptions } from "../components/QuestionRenderer";
 import { cn } from "@/lib/utils";
@@ -239,8 +240,8 @@ export function AssessmentQuestionBankScreen() {
       <AssessmentShell
         title="Question bank"
         subtitle="Educator tools"
-        backHref="/educator-home"
-        backLabel="Educator home"
+        backHref={EDUCATOR_HOME_PATH}
+        backLabel="Teacher home"
       >
         <Card className="border-brand-surface bg-white">
           <CardContent className="py-10 text-center text-sm text-brand-text/70">
@@ -257,8 +258,8 @@ export function AssessmentQuestionBankScreen() {
       title="Assessment question bank"
       subtitle="Component 2 review · approve / reject / generate — not the classroom matrix"
       maxWidth="5xl"
-      backHref="/educator-home"
-      backLabel="Educator home"
+      backHref={EDUCATOR_HOME_PATH}
+      backLabel="Teacher home"
       actions={
         <>
           <Button

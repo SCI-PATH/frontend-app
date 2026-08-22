@@ -6,7 +6,7 @@ import { AssessmentApiError } from "../types";
  * Component 2 owns those outbound calls after grading.
  */
 /** Local IAE default — User Management (auth) typically uses 8001. */
-const DEFAULT_BASE = "http://localhost:8002";
+const DEFAULT_BASE = "http://localhost:8004";
 
 /** Canonical Component 2 API prefix from FRONTEND_INTEGRATION.md */
 export const API_PREFIX = "/api/v1/assessment-engine";

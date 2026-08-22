@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { triggerPostLessonQuiz } from "../api/quizzes";
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import { AssessmentApiError } from "../types";
+import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizPlayer } from "../components/QuizPlayer";
 
@@ -102,6 +103,8 @@ export function PostLessonScreen() {
       title="Post-lesson check-in"
       subtitle={`Chapter ${chapterId} · Grade ${grade} · up to 15 questions`}
       maxWidth="2xl"
+      backHref={STUDENT_HOME_PATH}
+      backLabel="Home"
     >
       {loading ? (
         <Card className="border-brand-surface bg-white">

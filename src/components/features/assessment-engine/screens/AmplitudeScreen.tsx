@@ -29,6 +29,7 @@ import type {
   PastGradeMarksRange,
 } from "../types";
 import { AssessmentApiError } from "../types";
+import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { hasAnswer, QuestionRenderer } from "../components/QuestionRenderer";
 import { cn } from "@/lib/utils";
@@ -238,7 +239,7 @@ export function AmplitudeScreen() {
       title="Amplitude placement"
       subtitle="Find your starting science pathway (BASIC · INTERMEDIATE · ADVANCED)"
       maxWidth="2xl"
-      backHref="/dashboard"
+      backHref={STUDENT_HOME_PATH}
       backLabel="Home"
     >
       {error ? (
