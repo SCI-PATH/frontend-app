@@ -35,6 +35,7 @@ import {
   getCurrentStudent,
   logoutStudent,
 } from './data/mockStudents.js';
+import { resolvePlatformLaunch } from './data/platformLaunch.js';
 import {
   syncStudentLogin,
   syncStudentLogout,
@@ -43,6 +44,9 @@ import {
 
 // One-time wipe when progress generation bumps — all students start fresh
 ensureFreshStudentProgress();
+
+const platformLaunchRef =
+  typeof window !== 'undefined' ? resolvePlatformLaunch() : null;
 
 const DEFAULT_LEVEL = getFarmLevel(1);
 const DEFAULT_TIME_TARGET_MS = DDA_CONFIG.midTargetMs;
@@ -98,9 +102,17 @@ function createInitialFarm() {
  * Phaser canvas stays clean — all HUD lives in React overlays.
  */
 export default function App() {
-  const [student, setStudent] = useState(() => getCurrentStudent());
+  const [student, setStudent] = useState(
+    () => platformLaunchRef?.student || getCurrentStudent(),
+  );
 
   useEffect(() => {
+    if (platformLaunchRef?.student?.id) {
+      syncStudentLogin(platformLaunchRef.student, {
+        sessionId: platformLaunchRef.sessionId || undefined,
+      });
+      return;
+    }
     const existing = getCurrentStudent();
     if (existing?.id) syncStudentLogin(existing);
   }, []);
