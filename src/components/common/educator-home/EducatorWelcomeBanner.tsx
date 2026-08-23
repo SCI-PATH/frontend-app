@@ -2,8 +2,7 @@
 
 import { GraduationCap, Sparkles } from "lucide-react";
 
-import { AppLogo } from "@/components/common/AppLogo";
-
+import { RoleAvatar } from "@/components/common/RoleAvatar";
 import { useUserStore } from "@/store/useUserStore";
 
 export function EducatorWelcomeBanner() {
@@ -23,8 +22,8 @@ export function EducatorWelcomeBanner() {
       />
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4 sm:gap-5">
-          <div className="rounded-full bg-white p-1.5 ring-4 ring-white/40">
-            <AppLogo size="xl" className="size-20 sm:size-24" priority />
+          <div className="rounded-full bg-white p-1.5">
+            <RoleAvatar role="educator" size="xl" showRing />
           </div>
           <div className="space-y-1.5">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">

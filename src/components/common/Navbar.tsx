@@ -4,22 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Trophy } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "@/components/common/BrandLockup";
+import { RoleAvatar } from "@/components/common/RoleAvatar";
 import { STUDENT_PROFILE_PATH } from "@/lib/auth-routes";
 import { BASE_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function Navbar() {
   const router = useRouter();
@@ -55,18 +46,18 @@ export function Navbar() {
             <Trophy className="size-4" aria-hidden />
             1,250 XP
           </Badge>
-            <Link href={STUDENT_PROFILE_PATH} className="flex items-center gap-2 pl-1">
+            <Link
+              href={STUDENT_PROFILE_PATH}
+              className="flex items-center gap-2 pl-1"
+              aria-label={`${displayName} profile`}
+            >
               <div className="hidden text-right sm:block">
                 <p className="text-base font-semibold leading-tight text-brand-text">
                   {displayName}
                 </p>
                 <p className="text-sm text-brand-text/50">{grade}</p>
               </div>
-              <Avatar>
-                <AvatarFallback className="bg-brand-primary/15 text-sm font-semibold text-brand-primary">
-                  {initials(displayName) || "AR"}
-                </AvatarFallback>
-              </Avatar>
+              <RoleAvatar role="student" size="sm" />
             </Link>
           <Button
             type="button"
