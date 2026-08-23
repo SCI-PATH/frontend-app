@@ -16,7 +16,7 @@ export async function fetchSessionDetail(studentId: string, sessionId: string) {
 
 export async function analyzeSession(studentId: string, sessionId: string) {
   return assessmentFetch<AnalyzeResponse>(
-    `${API_PREFIX}/students/${encodeURIComponent(studentId)}/sessions/${encodeURIComponent(sessionId)}/analyze`,
+    `${API_PREFIX}/student/${encodeURIComponent(studentId)}/sessions/${encodeURIComponent(sessionId)}/analyze`,
     { method: "POST" }
   );
 }

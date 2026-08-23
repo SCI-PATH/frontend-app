@@ -30,6 +30,9 @@ function friendlyFromHttp(status, rawText, data) {
   if (/Chroma collection missing|ingest\.py/i.test(candidate || rawText || "")) {
     return "Lesson content is not available yet. Ask your teacher to check setup.";
   }
+  if (/Empty completion from model|rate-limited/i.test(candidate || rawText || "")) {
+    return "Generation did not finish — Groq may be busy. Wait a minute and try Generate again.";
+  }
   if (/GROQ_API_KEY|XAI_API_KEY|GROK_API_KEY|API key/i.test(candidate || rawText || "")) {
     return "Generation is not available right now. Ask your teacher to check setup.";
   }
@@ -49,16 +52,23 @@ function friendlyFromHttp(status, rawText, data) {
   return "Something went wrong. Please try again.";
 }
 
-async function fetchJson(path, options) {
+async function fetchJson(path, options, { timeoutMs = 0 } = {}) {
   const url = `${apiBase}${path}`;
   let res;
+  const fetchOptions = { ...options };
+  if (timeoutMs > 0 && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+    fetchOptions.signal = AbortSignal.timeout(timeoutMs);
+  }
   try {
-    res = await fetch(url, options);
+    res = await fetch(url, fetchOptions);
   } catch (err) {
+    const timedOut = err?.name === "TimeoutError" || err?.name === "AbortError";
     const e = new Error(
-      isOfflineError(err)
-        ? "We could not reach the learning service. Check your connection and that the server is running, then try again."
-        : "Something went wrong. Please try again.",
+      timedOut
+        ? "That took too long. The server may still be working — wait a moment and refresh."
+        : isOfflineError(err)
+          ? "We could not reach the learning service. Check your connection and that the server is running, then try again."
+          : "Something went wrong. Please try again.",
     );
     e.cause = err;
     e.status = 0;
@@ -136,19 +146,27 @@ export function postLesson(body) {
 }
 
 export function teacherGenerate(body) {
-  return fetchJson("/teacher/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return fetchJson(
+    "/teacher/generate",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    { timeoutMs: 240_000 },
+  );
 }
 
 export function teacherPublish(body) {
-  return fetchJson("/teacher/library", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return fetchJson(
+    "/teacher/library",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    { timeoutMs: 240_000 },
+  );
 }
 
 export function getTeacherLibrary({ grade, profile, lesson_id, event } = {}) {
@@ -162,11 +180,15 @@ export function getTeacherLibrary({ grade, profile, lesson_id, event } = {}) {
 }
 
 export function updateTeacherLibrary(contentId, body) {
-  return fetchJson(`/teacher/library/${encodeURIComponent(contentId)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return fetchJson(
+    `/teacher/library/${encodeURIComponent(contentId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    { timeoutMs: 240_000 },
+  );
 }
 
 export function deleteTeacherLibrary(contentId) {
@@ -177,9 +199,11 @@ export function deleteTeacherLibrary(contentId) {
 
 export function regenerateTeacherLibrary(contentId, teacherId = "teacher-1") {
   const q = new URLSearchParams({ teacher_id: teacherId });
-  return fetchJson(`/teacher/library/${encodeURIComponent(contentId)}/regenerate?${q}`, {
-    method: "POST",
-  });
+  return fetchJson(
+    `/teacher/library/${encodeURIComponent(contentId)}/regenerate?${q}`,
+    { method: "POST" },
+    { timeoutMs: 240_000 },
+  );
 }
 
 export function getCurriculum(grade) {
@@ -249,6 +273,15 @@ export function getLessonMedia(lessonId, { preview = false } = {}) {
   return fetchJson(`/lesson/${encodeURIComponent(lessonId)}/media${q}`);
 }
 
+export function getLessonCheatsheet(lessonId, { force = false } = {}) {
+  const q = force ? "?force=true" : "";
+  return fetchJson(
+    `/lesson/${encodeURIComponent(lessonId)}/cheatsheet${q}`,
+    {},
+    { timeoutMs: 240_000 },
+  );
+}
+
 export function getTeacherLessonMedia(lessonId) {
   return fetchJson(`/teacher/media/${encodeURIComponent(lessonId)}`);
 }
@@ -259,6 +292,18 @@ export function putTeacherLessonYoutube(lessonId, { youtube_url, teacher_id = "t
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ youtube_url: youtube_url || "", teacher_id }),
   });
+}
+
+export function putTeacherLessonLinks(lessonId, { links, teacher_id = "teacher-1" } = {}) {
+  return fetchJson(
+    `/teacher/media/${encodeURIComponent(lessonId)}/links`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ links: Array.isArray(links) ? links : [], teacher_id }),
+    },
+    { timeoutMs: 240_000 },
+  );
 }
 
 export function putTeacherLessonVideos(lessonId, { videos, teacher_id = "teacher-1" } = {}) {

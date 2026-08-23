@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchPlacementStatus } from "../api/amplitude";
 import type { AmplitudeCategory } from "../types";
 import { useAssessmentUser } from "./useAssessmentUser";
+import { useUserStore } from "@/store/useUserStore";
 
 export type PlacementState =
   | { status: "idle" | "loading" }
@@ -14,36 +15,61 @@ export type PlacementState =
       category: AmplitudeCategory | null;
     };
 
+/** True when Amplitude placement is finished (student has an IAE category). */
+export function isPlacementComplete(state: PlacementState): boolean {
+  return state.status === "ready" && !state.needsAmplitude;
+}
+
 /**
- * Checks C2 initial-category for the logged-in student.
- * Fail-open: API errors → treat as needs Amplitude (home card stays usable).
+ * Checks IAE initial-category for the logged-in student.
+ * New / unknown students → needsAmplitude until IAE returns a category.
  */
 export function usePlacementStatus(): PlacementState {
-  const { userId, role } = useAssessmentUser();
+  const { userId, role, isAuthenticated } = useAssessmentUser();
+  const hasHydrated = useUserStore((s) => s.hasHydrated);
   const [state, setState] = useState<PlacementState>({ status: "idle" });
 
   useEffect(() => {
-    if (role !== "student" || !userId) {
+    if (!hasHydrated) {
+      setState({ status: "loading" });
+      return;
+    }
+
+    if (role !== "student" || !isAuthenticated) {
       setState({ status: "ready", needsAmplitude: false, category: null });
       return;
     }
 
-    let cancelled = false;
-    setState({ status: "loading" });
+    if (!userId) {
+      setState({ status: "ready", needsAmplitude: true, category: null });
+      return;
+    }
 
-    void fetchPlacementStatus(userId).then((result) => {
+    let cancelled = false;
+
+    async function load() {
+      setState({ status: "loading" });
+      const result = await fetchPlacementStatus(userId);
       if (cancelled) return;
       setState({
         status: "ready",
         needsAmplitude: !result.completed,
         category: result.category,
       });
-    });
+    }
+
+    void load();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [role, userId]);
+  }, [role, userId, hasHydrated, isAuthenticated]);
 
   return state;
 }

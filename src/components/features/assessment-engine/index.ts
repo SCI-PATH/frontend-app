@@ -10,6 +10,7 @@ export { HistoryListScreen, HistoryDetailScreen } from "./screens/HistoryScreen"
 export { AssessmentQuestionBankScreen } from "./screens/AssessmentQuestionBankScreen";
 export { QuizPlayer } from "./components/QuizPlayer";
 export { ExamPrepCard } from "./ExamPrepCard";
+export { AmplitudePlacementCard } from "./AmplitudePlacementCard";
 export { PlacementCourseCard } from "./PlacementCourseCard";
 export { useAssessmentUser } from "./store/useAssessmentUser";
 export { usePlacementStatus } from "./store/usePlacementStatus";

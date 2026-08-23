@@ -2719,6 +2719,260 @@ pre.lesson {
   font-size: 0.82rem;
 }
 
+.lesson-explore-video {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 320px;
+}
+
+.lesson-explore-video__player {
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid #dbe4ee;
+  background: #000;
+}
+
+.lesson-explore-video__iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.lesson-explore-video__playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lesson-explore-video__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lesson-explore-video__item.is-active {
+  border-color: #8338ec;
+  background: #f5f0ff;
+}
+
+.lesson-explore-video__item strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.lesson-explore-video__item small {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.lesson-materials-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.lesson-materials-list a {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.lesson-materials-list a:hover {
+  border-color: #8338ec;
+  background: #faf8ff;
+}
+
+.lesson-materials-list strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.lesson-materials-list small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.lesson-static--placeholder .lesson-static__placeholder--reserved {
+  display: grid;
+  place-content: center;
+  gap: 0.65rem;
+  min-height: 220px;
+  text-align: center;
+  color: #64748b;
+}
+
+.lesson-static--cheatsheet {
+  min-width: 0;
+}
+
+.lesson-static__cheatsheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.lesson-static__cheatsheet-intro h4 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--brand-ink);
+}
+
+.lesson-static__cheatsheet-intro p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.lesson-static__cheatsheet-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: min(42vh, 420px);
+  overflow: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.lesson-static__cheatsheet-section h5 {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-focus);
+}
+
+.lesson-static__cheatsheet-section ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.lesson-static__cheatsheet-section li {
+  margin: 0.2rem 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.lesson-static__cheatsheet-terms dl {
+  margin: 0;
+}
+
+.lesson-static__cheatsheet-term {
+  margin-bottom: 0.45rem;
+}
+
+.lesson-static__cheatsheet-term dt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brand-ink);
+}
+
+.lesson-static__cheatsheet-term dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #475569;
+}
+
+.lesson-static__cheatsheet-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--brand-focus) 0%, var(--brand-focus-dark) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-static__cheatsheet-download:hover,
+.lesson-static__cheatsheet-download:focus-visible {
+  filter: brightness(1.05);
+}
+
+.lesson-static__cheatsheet-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(0, 134, 184, 0.14), rgba(255, 183, 3, 0.12));
+  color: var(--brand-focus);
+}
+
+.lesson-static__cheatsheet-thumb small {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  max-width: 4rem;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.lesson-static__cheatsheet-thumb-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.lesson-static__cheatsheet-thumb-caption strong {
+  font-size: 0.82rem;
+  color: var(--brand-ink);
+}
+
+.lesson-static__cheatsheet-thumb-caption small {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #64748b;
+}
+
+.lesson-static__collapsed-preview--cheatsheet {
+  align-items: center;
+  gap: 0.65rem;
+}
+
 /* Teacher multi-video editor */
 .teacher-video-editor {
   display: flex;
@@ -2892,6 +3146,22 @@ pre.lesson {
 
 .user-error-modal__ok:hover {
   filter: brightness(1.05);
+}
+
+.test-knowledge-modal__panel {
+  max-width: 24rem;
+}
+
+.test-knowledge-modal__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(0, 134, 184, 0.15), rgba(124, 17, 41, 0.12));
+  color: var(--brand-focus);
 }
 
 .error-boundary-fallback {

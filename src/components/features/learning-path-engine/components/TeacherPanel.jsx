@@ -6,28 +6,22 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Link2,
-  Network,
   RefreshCw,
   Save,
-  Sparkles,
   Trash2,
   Upload,
   Video,
 } from "lucide-react";
 import {
   addTeacherLessonImage,
-  approveTeacherLessonSummary,
-  deleteTeacherAr,
   deleteTeacherLessonImage,
   deleteTeacherLibrary,
-  generateTeacherLessonSummary,
   getCurriculum,
-  getLessonAr,
   getTeacherLessonMedia,
   getTeacherLibrary,
-  putTeacherAr,
+  putTeacherLessonLinks,
   putTeacherLessonVideos,
-  regenerateTeacherAr,
+  regenerateTeacherLibrary,
   teacherGenerate,
   teacherPublish,
   updateTeacherLibrary,
@@ -35,7 +29,6 @@ import {
 } from "../api/client.js";
 import { notifyUserFacingError } from "../errors.js";
 import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
-import MindmapGraphic from "./MindmapGraphic.jsx";
 
 const GRADE_OPTIONS = [6, 7, 8, 9];
 const PROFILE_LABEL = {
@@ -53,7 +46,7 @@ const EVENT = "lesson_start";
 const TABS = [
   { id: "content", label: "Lesson content", icon: BookOpen },
   { id: "media", label: "Videos & images", icon: Video },
-  { id: "mindmap", label: "Mind map", icon: Network },
+  { id: "materials", label: "Additional material", icon: Link2 },
 ];
 
 export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlot }) {
@@ -67,23 +60,17 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
   const [contentId, setContentId] = useState(null);
   const [editText, setEditText] = useState("");
   const [meta, setMeta] = useState(null);
+  const [previewMeta, setPreviewMeta] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [statusNote, setStatusNote] = useState("");
 
-  const [arModelUrl, setArModelUrl] = useState("");
-  const [arCaption, setArCaption] = useState("");
-  const [arAvailable, setArAvailable] = useState(false);
-  const [arNote, setArNote] = useState("");
-  const [arBusy, setArBusy] = useState(false);
-
   const [mediaVideos, setMediaVideos] = useState([{ title: "", url: "" }]);
-  const [mediaSummary, setMediaSummary] = useState(null);
-  const [mediaImageUrl, setMediaImageUrl] = useState("");
-  const [mediaApproved, setMediaApproved] = useState(false);
+  const [materialLinks, setMaterialLinks] = useState([{ title: "", url: "" }]);
   const [mediaEmbed, setMediaEmbed] = useState("");
   const [mediaNote, setMediaNote] = useState("");
+  const [materialsNote, setMaterialsNote] = useState("");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [galleryImages, setGalleryImages] = useState([]);
   const [imageCaption, setImageCaption] = useState("");
@@ -144,38 +131,13 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     }
   }, [grade, profile, lessonId]);
 
-  const loadAr = useCallback(async () => {
-    if (!lessonId) {
-      setArModelUrl("");
-      setArCaption("");
-      setArAvailable(false);
-      setArNote("");
-      return;
-    }
-    try {
-      const data = await getLessonAr(lessonId, { generate: false });
-      setArAvailable(Boolean(data.available));
-      setArModelUrl(data.model_url || "");
-      setArCaption(data.caption || "");
-      const nScenes = data.payload?.scenes?.length || 0;
-      setArNote(
-        nScenes
-          ? `Diagram pack: ${nScenes} scene(s)${data.cached ? " (saved)" : ""}.`
-          : data.message || "No diagram pack yet — optional regenerate below.",
-      );
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-ar-load", { offline: false });
-    }
-  }, [lessonId]);
-
   const loadMedia = useCallback(async () => {
     if (!lessonId) {
       setMediaVideos([{ title: "", url: "" }]);
-      setMediaSummary(null);
-      setMediaImageUrl("");
-      setMediaApproved(false);
+      setMaterialLinks([{ title: "", url: "" }]);
       setMediaEmbed("");
       setMediaNote("");
+      setMaterialsNote("");
       setGalleryImages([]);
       return;
     }
@@ -186,17 +148,25 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
           ? data.videos.map((video) => ({ title: video.title || "", url: video.url || "" }))
           : [{ title: "", url: data.youtube_url || "" }],
       );
+      setMaterialLinks(
+        data.additional_materials?.length
+          ? data.additional_materials.map((link) => ({
+              title: link.title || "",
+              url: link.url || "",
+            }))
+          : [{ title: "", url: "" }],
+      );
       setMediaEmbed(data.youtube_embed_url || "");
-      setMediaSummary(data.summary || null);
-      setMediaImageUrl(data.summary_image_url || "");
-      setMediaApproved(Boolean(data.summary_approved));
       setGalleryImages(Array.isArray(data.gallery_images) ? data.gallery_images : []);
       setMediaNote(
-        data.summary_approved
-          ? "Summary approved — students will see it next to the video."
-          : data.summary
-            ? "Draft summary generated — review then Approve for students."
-            : "No summary yet. Generate after publishing lesson text.",
+        data.videos?.length
+          ? `${data.videos.length} video${data.videos.length === 1 ? "" : "s"} saved.`
+          : "No videos saved yet.",
+      );
+      setMaterialsNote(
+        data.additional_materials?.length
+          ? `${data.additional_materials.length} link${data.additional_materials.length === 1 ? "" : "s"} saved.`
+          : "Add website URLs for extra reading or reference.",
       );
     } catch (err) {
       notifyUserFacingError(err, "teacher-media-load", { offline: false });
@@ -210,13 +180,10 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
   }, [loadLibrary, lessonId, tab]);
 
   useEffect(() => {
-    if (tab !== "media" && tab !== "mindmap") return;
-    const timer = window.setTimeout(() => {
-      if (tab === "media") void loadAr();
-      void loadMedia();
-    }, 0);
+    if (tab !== "media" && tab !== "materials") return;
+    const timer = window.setTimeout(() => void loadMedia(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadAr, loadMedia, tab]);
+  }, [loadMedia, tab]);
 
   function applyRow(row, note = "") {
     setContentId(row.content_id);
@@ -234,6 +201,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     setContentId(null);
     setEditText("");
     setMeta(null);
+    setPreviewMeta(null);
     setStatusNote(note);
   }
 
@@ -241,33 +209,33 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     e.preventDefault();
     if (!lessonId) return;
     setGenerating(true);
-    setStatusNote("Generating…");
+    setStatusNote("Generating preview from textbook RAG…");
     try {
-      const data = await teacherGenerate({
-        lesson_id: lessonId,
-        profile,
-        event: EVENT,
-        teacher_id: teacherId,
-      });
-      const saved = await teacherPublish({
-        lesson_id: data.lesson_id,
-        profile: data.profile,
-        event: EVENT,
-        lesson_text: data.lesson_text,
+      const data = contentId
+        ? await regenerateTeacherLibrary(contentId, teacherId)
+        : await teacherGenerate({
+            lesson_id: lessonId,
+            profile,
+            event: EVENT,
+            teacher_id: teacherId,
+          });
+      setEditText(data.lesson_text || "");
+      setPreviewMeta({
+        lesson_id: data.lesson_id || lessonId,
+        profile: data.profile || profile,
         topic_id: data.topic_id,
         minion_state: data.minion_state,
         presentation_mode: data.presentation_mode,
         chunk_ids: data.chunk_ids || [],
-        teacher_id: teacherId,
       });
-      applyRow(
-        saved,
-        `Saved for Grade ${grade} · ${PROFILE_LABEL[profile] || profile}. Students at this level can load it now.`,
+      setStatusNote(
+        contentId
+          ? `Preview ready for ${PROFILE_LABEL[profile] || profile}. Review, edit if needed, then Save changes.`
+          : `Preview ready (${PROFILE_LABEL[profile] || profile}). Review, then Save changes to publish for students.`,
       );
-      await loadLibrary();
     } catch (err) {
       notifyUserFacingError(err, "teacher-generate", { offline: false });
-      setStatusNote("Could not generate — check backend and try again.");
+      setStatusNote("Could not generate — check Chroma ingest and backend logs.");
     } finally {
       setGenerating(false);
     }
@@ -277,37 +245,51 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     if (!editText.trim()) return;
     setBusy(true);
     try {
-      if (contentId) {
-        const saved = await updateTeacherLibrary(contentId, {
-          lesson_text: editText,
-          teacher_id: teacherId,
-        });
-        applyRow(saved, "Updated. Students will see the new text on next load.");
-      } else if (lessonId) {
-        const lessonMeta = lessons.find((l) => l.lesson_id === lessonId);
+      const publishPayload = {
+        lesson_id: previewMeta?.lesson_id || lessonId,
+        profile: previewMeta?.profile || profile,
+        event: EVENT,
+        lesson_text: editText,
+        teacher_id: teacherId,
+        topic_id: previewMeta?.topic_id,
+        minion_state: previewMeta?.minion_state,
+        presentation_mode: previewMeta?.presentation_mode,
+        chunk_ids: previewMeta?.chunk_ids || [],
+      };
+      if (previewMeta || !contentId) {
+        const lessonMeta = lessons.find((l) => l.lesson_id === (previewMeta?.lesson_id || lessonId));
         const saved = await teacherPublish({
-          lesson_id: lessonId,
-          profile,
-          event: EVENT,
-          lesson_text: editText,
-          teacher_id: teacherId,
+          ...publishPayload,
           presentation_mode:
-            profile === "advanced" || profile === "strong" || profile === "smart"
+            publishPayload.presentation_mode ||
+            (profile === "advanced" || profile === "strong" || profile === "smart"
               ? "continuous"
               : profile === "basic" || profile === "weak"
                 ? "stepped"
-                : "sectioned",
-          chunk_ids: [],
+                : "sectioned"),
         });
         applyRow(
           {
             ...saved,
             lesson_title: saved.lesson_title || lessonMeta?.display_title || lessonMeta?.title,
           },
-          "Saved to library.",
+          contentId
+            ? `Regenerated and saved for ${PROFILE_LABEL[profile] || profile}.`
+            : `Saved for Grade ${grade} · ${PROFILE_LABEL[profile] || profile}. Students at this level can load it now.`,
         );
+        setPreviewMeta(null);
+      } else if (contentId) {
+        const saved = await updateTeacherLibrary(contentId, {
+          lesson_text: editText,
+          teacher_id: teacherId,
+        });
+        applyRow(saved, "Updated. Students will see the new text on next load.");
       }
-      await loadLibrary();
+      try {
+        await loadLibrary();
+      } catch (loadErr) {
+        console.warn("[TeacherPanel] library refresh failed after save", loadErr);
+      }
     } catch (err) {
       notifyUserFacingError(err, "teacher-update", { offline: false });
       setStatusNote("Save failed.");
@@ -333,66 +315,6 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
       notifyUserFacingError(err, "teacher-delete", { offline: false });
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function onSaveAr() {
-    if (!lessonId || !arModelUrl.trim()) return;
-    setArBusy(true);
-    try {
-      const lessonMeta = lessons.find((l) => l.lesson_id === lessonId);
-      await putTeacherAr(lessonId, {
-        model_url: arModelUrl.trim(),
-        caption: arCaption,
-        title: lessonMeta?.title,
-        grade,
-      });
-      setArNote("Optional model saved for this chapter.");
-      setArAvailable(true);
-      await loadAr();
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-ar-save", { offline: false });
-    } finally {
-      setArBusy(false);
-    }
-  }
-
-  async function onClearAr() {
-    if (!lessonId || !arAvailable) return;
-    if (!window.confirm("Remove the diagram package for this chapter?")) return;
-    setArBusy(true);
-    try {
-      await deleteTeacherAr(lessonId);
-      setArModelUrl("");
-      setArCaption("");
-      setArAvailable(false);
-      setArNote("Diagram package cleared.");
-      await loadAr();
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-ar-delete", { offline: false });
-    } finally {
-      setArBusy(false);
-    }
-  }
-
-  async function onGenerateAr() {
-    if (!lessonId) return;
-    setArBusy(true);
-    try {
-      const data = await regenerateTeacherAr(lessonId);
-      setArAvailable(Boolean(data.available));
-      setArCaption(data.caption || "");
-      const n = data.payload?.scenes?.length || 0;
-      setArNote(
-        data.available
-          ? `Generated ${n} diagram scene(s) from published lesson text.`
-          : data.message || "Could not generate — publish lesson text in Content first.",
-      );
-      await loadAr();
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-ar-generate", { offline: false });
-    } finally {
-      setArBusy(false);
     }
   }
 
@@ -428,37 +350,35 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     }
   }
 
-  async function onGenerateSummary() {
+  async function onSaveMaterials() {
     if (!lessonId) return;
     setMediaBusy(true);
     try {
-      const data = await generateTeacherLessonSummary(lessonId, teacherId);
-      setMediaSummary(data.summary || null);
-      setMediaImageUrl(data.summary_image_url || "");
-      setMediaApproved(Boolean(data.summary_approved));
-      setMediaNote(
-        data.summary_image_url
-          ? "Draft summary + image ready — Approve so students see the mindmap."
-          : "Draft summary ready (image service optional). Approve so students see the mindmap.",
+      const links = materialLinks
+        .map((link, index) => ({
+          title: link.title.trim() || `Resource ${index + 1}`,
+          url: link.url.trim(),
+        }))
+        .filter((link) => link.url);
+      const data = await putTeacherLessonLinks(lessonId, {
+        links,
+        teacher_id: teacherId,
+      });
+      setMaterialLinks(
+        data.additional_materials?.length
+          ? data.additional_materials.map((link) => ({
+              title: link.title || "",
+              url: link.url || "",
+            }))
+          : [{ title: "", url: "" }],
+      );
+      setMaterialsNote(
+        data.additional_materials?.length
+          ? `${data.additional_materials.length} link${data.additional_materials.length === 1 ? "" : "s"} saved.`
+          : "Additional material cleared.",
       );
     } catch (err) {
-      notifyUserFacingError(err, "teacher-summary-generate", { offline: false });
-    } finally {
-      setMediaBusy(false);
-    }
-  }
-
-  async function onApproveSummary() {
-    if (!lessonId) return;
-    setMediaBusy(true);
-    try {
-      const data = await approveTeacherLessonSummary(lessonId, teacherId);
-      setMediaSummary(data.summary || null);
-      setMediaImageUrl(data.summary_image_url || "");
-      setMediaApproved(Boolean(data.summary_approved));
-      setMediaNote("Summary approved — students will see it.");
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-summary-approve", { offline: false });
+      notifyUserFacingError(err, "teacher-materials-save", { offline: false });
     } finally {
       setMediaBusy(false);
     }
@@ -933,149 +853,103 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
                   No images saved for this chapter yet.
                 </p>
               )}
-
-              <details className="mt-6 rounded-2xl border border-brand-surface bg-brand-background p-4">
-                <summary className="cursor-pointer text-sm font-bold text-brand-text">
-                  Optional 3D model (.glb)
-                </summary>
-                <label className="mt-4 block text-sm font-semibold" htmlFor="arModelUrl">
-                  Hosted model URL
-                  <input
-                    id="arModelUrl"
-                    className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-white px-3 outline-none focus:border-brand-special"
-                    value={arModelUrl}
-                    onChange={(e) => setArModelUrl(e.target.value)}
-                    placeholder="https://…/model.glb"
-                    disabled={!lessonId}
-                  />
-                </label>
-                <label className="mt-4 block text-sm font-semibold" htmlFor="arCaption">
-                  Caption
-                  <input
-                    id="arCaption"
-                    className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-white px-3 outline-none focus:border-brand-special"
-                    value={arCaption}
-                    onChange={(e) => setArCaption(e.target.value)}
-                    placeholder="Short model hint"
-                    disabled={!lessonId}
-                  />
-                </label>
-                {arNote ? <p className="m-0 mt-3 text-sm text-brand-text/60">{arNote}</p> : null}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="m-0 w-auto rounded-xl border-0 bg-brand-special px-4 py-2.5 text-sm font-bold text-white"
-                    disabled={arBusy || !lessonId}
-                    onClick={() => void onGenerateAr()}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Sparkles className="size-4" aria-hidden />
-                      {arBusy ? "Generating…" : "Generate diagrams"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="m-0 w-auto rounded-xl border-0 bg-brand-primary px-4 py-2.5 text-sm font-bold text-white"
-                    disabled={arBusy || !lessonId || !arModelUrl.trim()}
-                    onClick={() => void onSaveAr()}
-                  >
-                    Save model
-                  </button>
-                  <button
-                    type="button"
-                    className="m-0 w-auto rounded-xl border border-brand-accent bg-white px-4 py-2.5 text-sm font-bold text-brand-accent"
-                    disabled={arBusy || !lessonId || !arAvailable}
-                    onClick={() => void onClearAr()}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </details>
             </section>
           </div>
         ) : null}
 
-        {tab === "mindmap" ? (
+        {tab === "materials" ? (
           <section className="rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-7">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
-                  <Network className="size-5 text-brand-special" aria-hidden />
-                  Chapter mind map
-                </h2>
-                <p className="m-0 mt-1 text-sm text-brand-text/60">
-                  Generate from the saved lesson, review the result, then approve it for students.
-                </p>
-              </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  mediaApproved
-                    ? "bg-brand-secondary/15 text-brand-text"
-                    : mediaSummary
-                      ? "bg-brand-accent/15 text-brand-accent"
-                      : "bg-brand-surface text-brand-text/60"
-                }`}
-              >
-                {mediaApproved ? "Approved" : mediaSummary ? "Draft" : "Not generated"}
-              </span>
-            </div>
+            <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
+              <Link2 className="size-5 text-brand-primary" aria-hidden />
+              Additional material
+            </h2>
+            <p className="m-0 mt-1 text-sm text-brand-text/60">
+              Add links to websites, articles, or reference pages students can open while studying.
+            </p>
 
-            <div className="mt-6 min-h-[420px] rounded-2xl border border-brand-surface bg-brand-background p-4 sm:p-6">
-              {mediaSummary ? (
-                <div className="mx-auto max-w-4xl">
-                  <div className="mb-5 text-center">
-                    <h3 className="m-0 text-lg font-bold">{mediaSummary.title || "Summary"}</h3>
-                    {mediaSummary.headline ? (
-                      <p className="m-0 mt-1 text-sm text-brand-text/60">{mediaSummary.headline}</p>
-                    ) : null}
-                  </div>
-                  <MindmapGraphic summary={mediaSummary} title={mediaSummary.title} />
-                  {mediaImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      className="mx-auto mt-6 block max-h-[420px] max-w-full rounded-2xl border border-brand-surface bg-white object-contain"
-                      src={mediaImageUrl}
-                      alt="Generated lesson summary infographic"
+            <div className="mt-5 space-y-3">
+              {materialLinks.map((link, index) => (
+                <div
+                  className="grid gap-3 rounded-2xl border border-brand-surface bg-brand-background p-4 md:grid-cols-[minmax(150px,0.65fr)_minmax(240px,1.35fr)_auto]"
+                  key={index}
+                >
+                  <label className="m-0 text-sm font-semibold">
+                    Label
+                    <input
+                      className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-white px-3 outline-none focus:border-brand-primary"
+                      value={link.title}
+                      onChange={(e) =>
+                        setMaterialLinks((current) =>
+                          current.map((item, i) =>
+                            i === index ? { ...item, title: e.target.value } : item,
+                          ),
+                        )
+                      }
+                      placeholder={`Resource ${index + 1}`}
+                      disabled={!lessonId || mediaBusy}
                     />
-                  ) : null}
+                  </label>
+                  <label className="m-0 text-sm font-semibold">
+                    Website URL
+                    <input
+                      className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-white px-3 outline-none focus:border-brand-primary"
+                      value={link.url}
+                      onChange={(e) =>
+                        setMaterialLinks((current) =>
+                          current.map((item, i) =>
+                            i === index ? { ...item, url: e.target.value } : item,
+                          ),
+                        )
+                      }
+                      placeholder="https://…"
+                      disabled={!lessonId || mediaBusy}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="m-0 self-end rounded-xl border border-brand-accent bg-white px-4 py-3 text-sm font-bold text-brand-accent hover:bg-brand-accent hover:text-white"
+                    onClick={() =>
+                      setMaterialLinks((current) =>
+                        current.length === 1
+                          ? [{ title: "", url: "" }]
+                          : current.filter((_, i) => i !== index),
+                      )
+                    }
+                    disabled={mediaBusy}
+                  >
+                    Remove
+                  </button>
                 </div>
-              ) : (
-                <div className="grid min-h-[360px] place-content-center text-center">
-                  <Network className="mx-auto size-12 text-brand-special/40" aria-hidden />
-                  <p className="m-0 mt-3 font-bold">No mind map for this chapter yet</p>
-                  <p className="m-0 mt-1 text-sm text-brand-text/55">
-                    Save lesson content first, then generate the mind map.
-                  </p>
-                </div>
-              )}
+              ))}
             </div>
 
-            {mediaNote ? (
-              <p className="m-0 mt-4 rounded-xl bg-brand-primary/10 px-4 py-3 text-sm">
-                {mediaNote}
-              </p>
-            ) : null}
-
-            <div className="mt-5 flex flex-col gap-3 border-t border-brand-surface pt-5 sm:flex-row sm:justify-end">
+            <div className="mt-4 flex flex-wrap gap-3">
               <button
                 type="button"
-                className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-special bg-white px-5 py-3 font-bold text-brand-special hover:bg-brand-special/10 sm:w-auto"
+                className="m-0 w-auto rounded-xl border border-brand-primary bg-white px-4 py-2.5 text-sm font-bold text-brand-primary hover:bg-brand-primary/10"
+                onClick={() =>
+                  setMaterialLinks((current) => [...current, { title: "", url: "" }])
+                }
+                disabled={mediaBusy || materialLinks.length >= 20}
+              >
+                + Add link
+              </button>
+              <button
+                type="button"
+                className="m-0 w-auto rounded-xl border-0 bg-brand-primary px-5 py-2.5 text-sm font-bold text-white"
                 disabled={mediaBusy || !lessonId}
-                onClick={() => void onGenerateSummary()}
+                onClick={() => void onSaveMaterials()}
               >
-                <RefreshCw className={`size-4 ${mediaBusy ? "animate-spin" : ""}`} aria-hidden />
-                {mediaBusy ? "Generating…" : mediaSummary ? "Regenerate mind map" : "Generate mind map"}
-              </button>
-              <button
-                type="button"
-                className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-brand-secondary px-5 py-3 font-bold text-brand-text disabled:opacity-50 sm:w-auto"
-                disabled={mediaBusy || !lessonId || !mediaSummary || mediaApproved}
-                onClick={() => void onApproveSummary()}
-              >
-                <CheckCircle2 className="size-4" aria-hidden />
-                {mediaApproved ? "Approved" : "Approve for students"}
+                <span className="inline-flex items-center gap-2">
+                  <Save className="size-4" aria-hidden />
+                  {mediaBusy ? "Saving…" : "Save additional material"}
+                </span>
               </button>
             </div>
+
+            {materialsNote ? (
+              <p className="m-0 mt-4 rounded-xl bg-brand-primary/10 px-4 py-3 text-sm">{materialsNote}</p>
+            ) : null}
           </section>
         ) : null}
       </div>

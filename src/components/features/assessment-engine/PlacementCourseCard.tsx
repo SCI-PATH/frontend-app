@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Compass, Loader2, Sparkles } from "lucide-react";
+import { Compass, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { AmplitudePlacementCard } from "./AmplitudePlacementCard";
 import { usePlacementStatus } from "./store/usePlacementStatus";
 import { useAssessmentUser } from "./store/useAssessmentUser";
+import { useUserStore } from "@/store/useUserStore";
 
 function CardSkeleton() {
   return (
@@ -17,32 +19,6 @@ function CardSkeleton() {
         <Loader2 className="size-4 animate-spin" aria-hidden />
         Checking placement…
       </div>
-    </article>
-  );
-}
-
-function AmplitudePlacementCard() {
-  return (
-    <article className="flex min-h-[20rem] flex-col gap-5 rounded-2xl border border-brand-special/25 bg-white p-7 transition-transform duration-200 hover:-translate-y-0.5">
-      <p className="text-sm font-bold uppercase tracking-wider text-brand-special">
-        Placement
-      </p>
-      <h2 className="text-lg font-semibold text-brand-text">
-        Start Amplitude test
-      </h2>
-      <p className="text-base leading-snug text-brand-text/65">
-        A short survey and quiz so we can place you at the right starting level
-        before you begin lessons.
-      </p>
-      <Button
-        asChild
-        className="mt-auto w-full bg-brand-special text-base text-white hover:bg-brand-special/90"
-      >
-        <Link href="/assessment/amplitude">
-          Begin placement
-          <Sparkles className="size-4" aria-hidden />
-        </Link>
-      </Button>
     </article>
   );
 }
@@ -80,18 +56,22 @@ function TakeCourseCard() {
 }
 
 /**
- * Student home course slot: Amplitude placement until initial-category exists,
- * then the standard Take a Course card.
+ * Slot 1: aptitude test until placement exists, then Browse Pathways.
  */
 export function PlacementCourseCard() {
-  const { role } = useAssessmentUser();
+  const { role, isAuthenticated } = useAssessmentUser();
+  const hasHydrated = useUserStore((s) => s.hasHydrated);
   const placement = usePlacementStatus();
 
-  if (role !== "student") {
-    return null;
+  if (!hasHydrated) {
+    return <CardSkeleton />;
   }
 
-  if (placement.status === "idle" || placement.status === "loading") {
+  if (!isAuthenticated || role !== "student") {
+    return <TakeCourseCard />;
+  }
+
+  if (placement.status !== "ready") {
     return <CardSkeleton />;
   }
 

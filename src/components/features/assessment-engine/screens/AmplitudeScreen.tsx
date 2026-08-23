@@ -95,6 +95,10 @@ export function AmplitudeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (user.grade) setGrade(user.grade);
+  }, [user.grade]);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadChapters() {
       setChaptersLoading(true);
@@ -123,12 +127,11 @@ export function AmplitudeScreen() {
   const surveyBody = {
     user_id: user.userId,
     grade,
+    completed_chapters_count: selectedChapters.length,
     completed_chapter_ids: selectedChapters,
     past_grade_marks_range: marks,
     study_hours_per_week: hours,
     self_confidence: confidence,
-    science_self_efficacy: efficacy,
-    prerequisite_ready_count: prereqCount,
   };
 
   function toggleChapter(id: string) {

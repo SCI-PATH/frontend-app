@@ -32,6 +32,21 @@ export type PlacementStatus = {
   category: AmplitudeCategory | null;
 };
 
+/** IAE expects completed_chapters_count (int), not completed_chapter_ids. */
+function toAmplitudeSurveyPayload(body: AmplitudeSurveyRequest) {
+  return {
+    user_id: body.user_id,
+    grade: body.grade,
+    completed_chapters_count:
+      body.completed_chapters_count ??
+      body.completed_chapter_ids?.length ??
+      0,
+    past_grade_marks_range: body.past_grade_marks_range,
+    study_hours_per_week: body.study_hours_per_week,
+    self_confidence: body.self_confidence,
+  };
+}
+
 /**
  * Returns whether the student finished Amplitude placement.
  * 404 or null category → not completed (fail-open for home card).
@@ -97,7 +112,7 @@ export async function fetchAmplitudeChapters(grade: number) {
 export async function submitAmplitudeSurvey(body: AmplitudeSurveyRequest) {
   return assessmentFetch<unknown>(`${API_PREFIX}/amplitude/survey`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(toAmplitudeSurveyPayload(body)),
   });
 }
 
@@ -129,11 +144,15 @@ export async function fetchAmplitudeQuiz(grade: number) {
 }
 
 export async function evaluateAmplitude(body: AmplitudeEvaluateRequest) {
+  const { answers, ...survey } = body;
   return assessmentFetch<AmplitudeEvaluateResponse>(
     `${API_PREFIX}/amplitude/evaluate`,
     {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        ...toAmplitudeSurveyPayload(survey),
+        answers,
+      }),
     }
   );
 }

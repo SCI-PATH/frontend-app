@@ -1,5 +1,12 @@
+"use client";
+
 import { CustomQuizScreen } from "@/components/features/assessment-engine/screens/CustomQuizScreen";
+import { RequirePlacement } from "@/components/features/assessment-engine/RequirePlacement";
 
 export default function AssessmentCustomQuizPage() {
-  return <CustomQuizScreen />;
+  return (
+    <RequirePlacement>
+      <CustomQuizScreen />
+    </RequirePlacement>
+  );
 }

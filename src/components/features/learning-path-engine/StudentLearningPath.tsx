@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getStudentInitialCategory } from "@/lib/api/assessment";
 import { useUserStore } from "@/store/useUserStore";
 import type { CurriculumLesson, CurriculumResponse, LessonResponse } from "@/types";
 
@@ -26,11 +27,13 @@ import {
   getCurriculum,
   getHealth,
   getProgress,
+  postAnalyticsProfile,
   postLesson,
   postProgress,
 } from "./api/client.js";
 import LessonStage from "./components/LessonStage.jsx";
 import ScienceExplorer from "./components/ScienceExplorer.jsx";
+import TestKnowledgeModal from "./components/TestKnowledgeModal.jsx";
 import { isOfflineError, notifyUserFacingError, toUserFacingMessage } from "./errors.js";
 import FeatureShell from "./FeatureShell";
 import { useAppStore } from "./store/appStore.js";
@@ -47,6 +50,36 @@ const PROFILE_LABEL: Record<string, string> = {
   strong: "Advanced",
   smart: "Advanced",
 };
+
+/**
+ * Aptitude (IAE Amplitude) is required before any lesson.
+ * Always re-fetch on lesson start so post-game quiz level changes apply.
+ * Never reuse a stale LPE cache alone — no aptitude ⇒ cannot start.
+ */
+async function resolveLearnerProfileForLesson(
+  userId: string,
+  grade: number
+): Promise<{ profile: string | null; reason: "ok" | "no_aptitude" | "assessment_unreachable" }> {
+  try {
+    const fromIae = await getStudentInitialCategory(userId);
+    if (!fromIae.category) {
+      return { profile: null, reason: "no_aptitude" };
+    }
+    await postAnalyticsProfile({
+      user_id: userId,
+      profile: fromIae.category,
+      source: "intelligent_assessment_engine",
+      grade,
+    });
+    return { profile: fromIae.category, reason: "ok" };
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    if (status === 404) {
+      return { profile: null, reason: "no_aptitude" };
+    }
+    return { profile: null, reason: "assessment_unreachable" };
+  }
+}
 
 const selectClassName =
   "h-8 w-full rounded-lg border border-brand-surface bg-white px-2.5 text-sm text-brand-text outline-none focus-visible:border-brand-primary focus-visible:ring-3 focus-visible:ring-brand-primary/30";
@@ -79,6 +112,7 @@ export default function StudentLearningPath() {
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState("");
   const [finishedLessonId, setFinishedLessonId] = useState("");
+  const [testKnowledgeOpen, setTestKnowledgeOpen] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const lastSavedRef = useRef({ lessonId: "", step: -1 });
   const viewRef = useRef(view);
@@ -157,7 +191,7 @@ export default function StudentLearningPath() {
     if (!userId) return undefined;
     let cancelled = false;
     Promise.all([getCurriculum(grade), getProgress(userId)])
-      .then(([c, p]) => {
+      .then(async ([c, p]) => {
         if (cancelled) return;
         setBackendOnline(true);
         setCurriculum(c);
@@ -165,8 +199,11 @@ export default function StudentLearningPath() {
         setCompletedLessonIds(done);
         const lessons = c?.lessons || [];
         const locked = viewRef.current === "chapterChoice" || viewRef.current === "lesson";
+        // Display-only refresh; lesson start always re-fetches (may change after gaming quiz).
+        const resolved = await resolveLearnerProfileForLesson(userId, grade);
+        if (cancelled) return;
         if (locked) {
-          if (p?.derived_profile) setProfile(p.derived_profile);
+          if (resolved.profile) setProfile(resolved.profile);
           return;
         }
         const restored = p?.current_lesson_id;
@@ -177,7 +214,8 @@ export default function StudentLearningPath() {
         if (restoredOk) setLessonId(restored);
         else if (lessons.length) setLessonId(lessons[0].lesson_id);
         else setLessonId("");
-        if (p?.derived_profile) setProfile(p.derived_profile);
+        if (resolved.profile) setProfile(resolved.profile);
+        else setProfile(null);
         setResumeStep(0);
       })
       .catch((err) => {
@@ -241,13 +279,20 @@ export default function StudentLearningPath() {
       setChoiceError(msg);
       return { ok: false as const, error: msg };
     }
-    if (!learnerProgress?.derived_profile) {
+    void learnerProgress;
+
+    // Fresh pull every lesson (aptitude gate + post-game level updates).
+    const resolved = await resolveLearnerProfileForLesson(userId, grade);
+    if (!resolved.profile) {
       const msg =
-        "Complete the aptitude test first. Your result will unlock lessons at the right learning level.";
+        resolved.reason === "assessment_unreachable"
+          ? "Could not reach the aptitude service. Check that the assessment engine is running, then try again."
+          : "Complete the aptitude test first. Your result unlocks lessons at the right learning level.";
       setChoiceError(msg);
+      setProfile(null);
       return { ok: false as const, error: msg };
     }
-    setProfile(learnerProgress.derived_profile);
+    setProfile(resolved.profile);
 
     setResult(null);
     setResumeStep(0);
@@ -266,6 +311,7 @@ export default function StudentLearningPath() {
 
       const data = await postLesson({
         user_id: userId,
+        profile: resolved.profile,
         event: LESSON_EVENT,
         lesson_id: lid,
         use_stored_mastery: true,
@@ -359,27 +405,36 @@ export default function StudentLearningPath() {
   async function onLessonDone() {
     const finishedId = result?.lesson_id || lessonId;
     if (finishedId) {
-      try {
-        const p = await postProgress({
-          user_id: userId,
-          action: "mark_complete",
-          lesson_id: finishedId,
-          grade,
-        });
-        if (Array.isArray(p?.completed_lesson_ids)) {
-          setCompletedLessonIds(p.completed_lesson_ids);
-        } else {
-          setCompletedLessonIds((prev) =>
-            prev.includes(finishedId) ? prev : [...prev, finishedId],
-          );
-        }
-      } catch {
-        setCompletedLessonIds((prev) =>
-          prev.includes(finishedId) ? prev : [...prev, finishedId],
-        );
-      }
+      setFinishedLessonId(finishedId);
+      // Optimistic — home grid + chapter picker show green ✓ immediately on Done.
+      setCompletedLessonIds((prev) =>
+        prev.includes(finishedId) ? prev : [...prev, finishedId],
+      );
     }
-    await openChapterChoice(finishedId);
+    setTestKnowledgeOpen(true);
+
+    if (!finishedId) return;
+
+    try {
+      const p = await postProgress({
+        user_id: userId,
+        action: "mark_complete",
+        lesson_id: finishedId,
+        grade,
+      });
+      if (Array.isArray(p?.completed_lesson_ids)) {
+        setCompletedLessonIds(p.completed_lesson_ids);
+      }
+    } catch {
+      /* Keep optimistic completedLessonIds — popup + highlight already shown */
+    }
+  }
+
+  /** Teammate: replace body with navigation into the gaming service. */
+  function onTestKnowledgeOk() {
+    setTestKnowledgeOpen(false);
+    const finishedId = finishedLessonId || result?.lesson_id || lessonId;
+    void openChapterChoice(finishedId);
   }
 
   const onStepChange = useCallback(
@@ -527,6 +582,11 @@ export default function StudentLearningPath() {
           onStepChange={onStepChange}
           onClose={exitLesson}
           onLessonDone={onLessonDone}
+        />
+        <TestKnowledgeModal
+          open={testKnowledgeOpen}
+          lessonTitle={lessonTitle}
+          onOk={onTestKnowledgeOk}
         />
       </FeatureShell>
     );

@@ -9,7 +9,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import LessonStaticMedia from "./LessonStaticMedia.jsx";
+import LessonCheatSheet from "./LessonCheatSheet.jsx";
 import LessonVisualExplore from "./LessonVisualExplore.jsx";
 import LessonStepContent from "./LessonStepContent.jsx";
 import TutorMascot from "./TutorMascot.jsx";
@@ -17,8 +17,8 @@ import { splitLessonIntoSteps, hintForPresentation, presentationModeForProfile }
 
 /**
  * Two tabs:
- * - Lesson: half content + knight, half YouTube
- * - Explore: full interactive science infographic / map
+ * - Lesson: content + knight + side panel placeholder
+ * - Explore: video library, additional material, gallery, map
  *
  * Read aloud is optional: students turn it on if they want narration.
  */
@@ -413,8 +413,7 @@ export default function LessonStage({
           </div>
 
           {!isWrapUp ? (
-            <LessonStaticMedia
-              key={lessonId}
+            <LessonCheatSheet
               lessonId={lessonId}
               lessonTitle={lessonTitle}
               onCollapsedChange={setMediaCollapsed}

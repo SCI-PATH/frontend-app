@@ -2,18 +2,19 @@ import { AssessmentApiError } from "../types";
 
 /**
  * Component 2 (IAE) HTTP client.
- * Do NOT call Component 4 (`assessment-submit` / `bkt-snapshot`) from the browser —
- * Component 2 owns those outbound calls after grading.
+ * Browser default: same-origin `/assessment-api` (Next rewrite → IAE :8004).
+ * Do NOT call Component 4 from the browser — Component 2 owns those after grading.
  */
-/** Local IAE default — User Management (auth) typically uses 8001. */
-const DEFAULT_BASE = "http://localhost:8004";
+const DEFAULT_BASE = "/assessment-api";
 
-/** Canonical Component 2 API prefix from FRONTEND_INTEGRATION.md */
+/** IAE routes live under /api/v1/assessment-engine. */
 export const API_PREFIX = "/api/v1/assessment-engine";
 
 export function getAssessmentApiBase(): string {
   return (
-    process.env.NEXT_PUBLIC_IAE_API_BASE?.replace(/\/$/, "") || DEFAULT_BASE
+    process.env.NEXT_PUBLIC_IAE_API_BASE?.replace(/\/$/, "") ||
+    process.env.NEXT_PUBLIC_ASSESSMENT_API_BASE?.replace(/\/$/, "") ||
+    DEFAULT_BASE
   );
 }
 
@@ -53,7 +54,7 @@ export async function assessmentFetch<T>(
     throw new AssessmentApiError(
       0,
       err instanceof Error
-        ? `Cannot reach Assessment API at ${getAssessmentApiBase()}. Is Component 2 (IAE) running? Check NEXT_PUBLIC_IAE_API_BASE — do not use the auth service port.`
+        ? `Cannot reach Assessment API at ${getAssessmentApiBase()}. Is IAE running on port 8004? Check NEXT_PUBLIC_IAE_API_BASE — do not use User Management (8001).`
         : "Network error talking to Assessment API"
     );
   }

@@ -94,7 +94,6 @@ export function userFromApi(apiUser: ApiUser): User {
       ? {
           grade: gradeLabel(apiUser.student?.grade),
           classCodes,
-          ...(classCode ? { classCode } : {}),
         }
       : {
           sectionName: apiUser.teacher?.class_sections?.join(", ") || undefined,

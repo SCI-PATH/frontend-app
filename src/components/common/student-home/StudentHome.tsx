@@ -55,7 +55,7 @@ export function StudentHome() {
   }, [userId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-0 sm:gap-10 sm:px-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-24 sm:gap-10 sm:px-5 sm:pb-28">
       <WelcomeBanner enrolledClass={enrolledClasses[0] ?? null} />
       <JoinClassSection
         enrolledClasses={enrolledClasses}

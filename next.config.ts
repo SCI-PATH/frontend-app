@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
+/**
+ * Local service ports (Docker compose):
+ *   8000 LPE | 8001 UM | 8002 Gaming | 8003 Analytics | 8004 IAE
+ */
 const API = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
 const USER_API =
   process.env.USER_API_PROXY_TARGET || "http://127.0.0.1:8001";
+const ASSESSMENT_API =
+  process.env.ASSESSMENT_API_PROXY_TARGET || "http://127.0.0.1:8004";
 
 const apiPaths = [
   "health",
@@ -18,6 +24,10 @@ const apiPaths = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // LPE generate/save can exceed the default 30s rewrite proxy limit (Neon + LLM).
+  experimental: {
+    proxyTimeout: 240_000,
+  },
   async rewrites() {
     const learningPathRewrites = apiPaths
       .flatMap((p) => [
@@ -28,6 +38,10 @@ const nextConfig: NextConfig = {
       {
         source: "/user-api/:path*",
         destination: `${USER_API}/:path*`,
+      },
+      {
+        source: "/assessment-api/:path*",
+        destination: `${ASSESSMENT_API}/:path*`,
       },
       ...learningPathRewrites,
     ];
