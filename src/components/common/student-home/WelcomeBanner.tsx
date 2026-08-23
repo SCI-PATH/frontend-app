@@ -1,7 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { Flag, Flame, Sparkles } from "lucide-react";
+
+import { AppLogo } from "@/components/common/AppLogo";
 
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
@@ -28,14 +29,9 @@ export function WelcomeBanner({
       />
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4 sm:gap-5">
-          <Image
-            src="/brand/sci-path-mascot.png"
-            alt="SCI-PATH mascot"
-            width={96}
-            height={96}
-            className="size-20 shrink-0 rounded-full object-cover ring-4 ring-white/40 sm:size-24"
-            priority
-          />
+          <div className="rounded-full bg-white p-1.5 ring-4 ring-white/40">
+            <AppLogo size="xl" className="size-20 sm:size-24" priority />
+          </div>
           <div className="space-y-1.5">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
               <Sparkles className="size-4" aria-hidden />

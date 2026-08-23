@@ -1,13 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BrandLockup } from "@/components/common/BrandLockup";
 import { BASE_PATH, EDUCATOR_HOME_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -35,24 +34,11 @@ export function EducatorNavbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-brand-surface bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex h-[4.25rem] w-full max-w-6xl items-center justify-between gap-4 px-3 sm:px-5">
-        <Link href={EDUCATOR_HOME_PATH} className="flex items-center gap-3">
-          <Image
-            src="/brand/sci-path-mark.png"
-            alt="SCI-PATH"
-            width={48}
-            height={48}
-            className="size-12 rounded-xl bg-white object-contain"
-            priority
-          />
-          <span className="flex flex-col leading-tight">
-            <span className="text-xl font-bold tracking-tight text-brand-primary">
-              SCI-PATH
-            </span>
-            <span className="hidden text-sm text-brand-text/55 sm:inline">
-              Teacher workspace
-            </span>
-          </span>
-        </Link>
+        <BrandLockup
+          href={EDUCATOR_HOME_PATH}
+          subtitle="Teacher workspace"
+          priority
+        />
 
         <div className="flex items-center gap-2 sm:gap-3">
           <Badge className="h-8 rounded-full bg-brand-special/10 px-3 text-sm text-brand-special hover:bg-brand-special/10">

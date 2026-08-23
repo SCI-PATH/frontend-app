@@ -1,19 +1,19 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   ChevronRight,
-  FlaskConical,
   GraduationCap,
   Sparkles,
 } from "lucide-react";
 
 import { RedirectToHomeIfAuthenticated } from "@/components/common/auth/RedirectToHomeIfAuthenticated";
+import { AppLogo } from "@/components/common/AppLogo";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
+import { BrandLockup } from "@/components/common/BrandLockup";
 import { FeaturePreviewPanel } from "@/components/common/landing/FeaturePreviewPanel";
 import {
   ACCENT_STYLES,
@@ -31,17 +31,7 @@ function LandingNavbar() {
     <header className="sticky top-0 z-50 border-b border-brand-surface/80 bg-white/90 backdrop-blur-md">
       <BrandGradientBar />
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
-            <FlaskConical className="size-5" aria-hidden />
-          </div>
-          <span className="flex flex-col leading-none">
-            <span className="text-lg font-bold tracking-tight text-brand-primary">
-              SCI-PATH
-            </span>
-            <span className="text-[11px] text-brand-text/50">Grades 6–9 Science</span>
-          </span>
-        </Link>
+        <BrandLockup href="/" subtitle="Grades 6–9 Science" size="sm" priority />
         <nav className="hidden items-center gap-6 text-sm font-medium text-brand-text/70 md:flex">
           <a href="#features" className="transition-colors hover:text-brand-primary">
             Features
@@ -147,20 +137,8 @@ function HeroSection() {
           <div className="relative overflow-hidden rounded-[2rem] border border-brand-surface bg-gradient-to-br from-brand-primary via-brand-special to-brand-accent p-1 shadow-xl shadow-brand-primary/10">
             <div className="rounded-[1.85rem] bg-white p-5 sm:p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="relative size-14 overflow-hidden rounded-2xl bg-brand-background ring-2 ring-brand-primary/20">
-                  <Image
-                    src="/brand/sci-path-mascot.png"
-                    alt=""
-                    width={56}
-                    height={56}
-                    className="size-full object-cover"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center text-brand-primary">
-                    <FlaskConical className="size-7" aria-hidden />
-                  </div>
+                <div className="rounded-2xl bg-brand-background p-1.5 ring-2 ring-brand-primary/20">
+                  <AppLogo size="lg" />
                 </div>
                 <div>
                   <p className="font-semibold text-brand-text">Meet your science stack</p>
@@ -455,8 +433,8 @@ function LandingFooter() {
     <footer className="border-t border-brand-surface bg-white px-4 py-8 sm:px-6">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
         <div className="flex items-center gap-2 text-brand-text">
-          <FlaskConical className="size-5 text-brand-primary" aria-hidden />
-          <span className="font-semibold">SCI-PATH</span>
+          <AppLogo size="sm" />
+          <span className="font-semibold">SCI PATH</span>
           <span className="text-brand-text/40">·</span>
           <span className="text-sm text-brand-text/55">System for Science Pathways</span>
         </div>

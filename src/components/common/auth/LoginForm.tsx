@@ -54,7 +54,7 @@ export function LoginForm({ registrationComplete = false }: { registrationComple
           Welcome back
         </p>
         <p className="mt-0.5 text-xs text-brand-text/60">
-          Sign in with your SCI-PATH student or teacher account.
+          Sign in with your SCI PATH student or teacher account.
         </p>
       </div>
 

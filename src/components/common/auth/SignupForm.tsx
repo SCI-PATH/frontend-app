@@ -156,7 +156,7 @@ export function SignupForm() {
         ) : (
           <>
             Set up your classroom overview and guide learners with{" "}
-            <span className="font-medium text-brand-special">SCI-PATH</span>{" "}
+            <span className="font-medium text-brand-special">SCI PATH</span>{" "}
             insights.
           </>
         )}

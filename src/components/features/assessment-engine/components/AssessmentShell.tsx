@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, FlaskConical } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+
+import { AppLogo } from "@/components/common/AppLogo";
 
 import { cn } from "@/lib/utils";
 
@@ -65,8 +67,8 @@ export function AssessmentShell({
               </Link>
             ) : null}
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary">
-                <FlaskConical className="size-5" aria-hidden />
+              <div className="rounded-xl bg-white p-1 ring-1 ring-brand-surface">
+                <AppLogo size="md" />
               </div>
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-brand-text sm:text-3xl">

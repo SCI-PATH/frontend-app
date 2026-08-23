@@ -84,9 +84,6 @@ export function userFromApi(apiUser: ApiUser): User {
   const classCode =
     String(apiUser.student?.class_code ?? "").trim().toUpperCase() ||
     classCodes[0] ||
-  const classCode =
-    apiUser.student?.class_code ||
-    apiUser.student?.class_codes?.[0] ||
     undefined;
   return {
     id: apiUser.student_id || apiUser.student?.learner_id || apiUser.id,
@@ -96,7 +93,6 @@ export function userFromApi(apiUser: ApiUser): User {
     ...(role === "student"
       ? {
           grade: gradeLabel(apiUser.student?.grade),
-          classCode,
           classCodes,
           ...(classCode ? { classCode } : {}),
         }
