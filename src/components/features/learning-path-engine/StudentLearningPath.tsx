@@ -39,10 +39,13 @@ const GRADE_OPTIONS = [6, 7, 8, 9];
 const LESSON_EVENT = "lesson_start";
 
 const PROFILE_LABEL: Record<string, string> = {
-  weak: "Weak",
-  average: "Average",
-  strong: "Smart",
-  smart: "Smart",
+  basic: "Basic",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  weak: "Basic",
+  average: "Intermediate",
+  strong: "Advanced",
+  smart: "Advanced",
 };
 
 const selectClassName =

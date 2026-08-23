@@ -4,6 +4,9 @@
  */
 
 const PROFILE_CONFIG = {
+  basic: { mode: "stepped" },
+  intermediate: { mode: "stepped" },
+  advanced: { mode: "stepped" },
   weak: { mode: "stepped" },
   average: { mode: "stepped" },
   strong: { mode: "stepped" },
@@ -13,16 +16,16 @@ const GO_DEEPER_RE = /^go deeper\s*$/i;
 const RECAP_HEADING_RE =
   /^(?:recap|quick recap|summary|key takeaways|things to remember|remember)\s*:?\s*$/i;
 
-/** @param {string} [profile] weak | average | strong | smart */
+/** @param {string} [profile] basic | intermediate | advanced (legacy: weak | average | strong | smart) */
 export function stepLimitsForProfile(profile) {
-  const key = (profile || "weak").toLowerCase();
-  if (key === "strong" || key === "smart" || key === "advanced") {
-    return { ...PROFILE_CONFIG.strong };
+  const key = (profile || "basic").toLowerCase();
+  if (key === "advanced" || key === "strong" || key === "smart") {
+    return { ...PROFILE_CONFIG.advanced };
   }
-  if (key === "average" || key === "typical") {
-    return { ...PROFILE_CONFIG.average };
+  if (key === "intermediate" || key === "average" || key === "typical") {
+    return { ...PROFILE_CONFIG.intermediate };
   }
-  return { ...PROFILE_CONFIG.weak };
+  return { ...PROFILE_CONFIG.basic };
 }
 
 /** @param {string} [profile] */
@@ -38,7 +41,7 @@ export function hintForPresentation() {
  * @param {string} lessonText
  * @param {string | number} [profileOrMax] profile name (legacy number ignored for length)
  */
-export function splitLessonIntoSteps(lessonText, profileOrMax = "weak") {
+export function splitLessonIntoSteps(lessonText, profileOrMax = "basic") {
   if (!lessonText?.trim()) return [];
 
   let text = lessonText.trim().replace(/\r\n/g, "\n");
@@ -54,14 +57,14 @@ export function splitLessonIntoSteps(lessonText, profileOrMax = "weak") {
 function groupSentencesIntoParagraphs(sentences, profile) {
   if (sentences.length <= 1) return sentences;
 
-  const key = String(profile || "weak").toLowerCase();
+  const key = String(profile || "basic").toLowerCase();
   const targetWords =
-    key === "strong" || key === "smart" || key === "advanced"
+    key === "advanced" || key === "strong" || key === "smart"
       ? 140
-      : key === "average" || key === "typical"
+      : key === "intermediate" || key === "average" || key === "typical"
         ? 120
         : 95;
-  const maxSentences = key === "weak" ? 4 : 5;
+  const maxSentences = key === "basic" || key === "weak" ? 4 : 5;
   const grouped = [];
   let card = [];
   let words = 0;

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ExamPrepCard } from "@/components/features/assessment-engine/ExamPrepCard";
+import { PlacementCourseCard } from "@/components/features/assessment-engine/PlacementCourseCard";
 import { GameArenaCard } from "@/components/features/gaming-service/GameArenaCard";
 import { WeeklyChallenge } from "@/components/features/gaming-service/WeeklyChallenge";
 import { MasteryProfileCard } from "@/components/features/learner-analytics/MasteryProfileCard";
-import { CurriculumHubCard } from "@/components/features/learning-path-engine/CurriculumHubCard";
 import { DailyFactCard } from "@/components/common/student-home/DailyFactCard";
 import { JoinClassSection } from "@/components/common/student-home/JoinClassSection";
 import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
@@ -64,7 +64,7 @@ export function StudentHome() {
       <TodayMissions />
 
       <section className="grid grid-cols-1 items-stretch gap-8 sm:grid-cols-2 sm:gap-10 xl:grid-cols-4">
-        <CurriculumHubCard />
+        <PlacementCourseCard />
         <GameArenaCard />
         <ExamPrepCard />
         <MasteryProfileCard profile={profile} />

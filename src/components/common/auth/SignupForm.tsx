@@ -84,6 +84,7 @@ export function SignupForm() {
               email: email.trim(),
               password,
               sectionName: sectionName.trim(),
+              schoolName: schoolName.trim(),
             });
       void session;
       router.push(`${LOGIN_PATH}?registered=1`);
