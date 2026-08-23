@@ -1,8 +1,6 @@
-import { redirect } from "next/navigation";
+import { NotFoundRedirect } from "@/components/common/NotFoundRedirect";
 
-import { BASE_PATH } from "@/lib/auth-routes";
-
-/** Unknown routes send visitors back to the public landing page. */
+/** Unknown routes — client redirect to landing (avoids dev performance.measure bug). */
 export default function NotFound() {
-  redirect(BASE_PATH);
+  return <NotFoundRedirect />;
 }
