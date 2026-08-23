@@ -28,14 +28,14 @@ export function GameArenaCard() {
       <p className="text-sm font-bold uppercase tracking-wider text-brand-special">
         Gamified Arena
       </p>
-      <h2 className="text-lg font-semibold text-brand-text">SCI_PATH Farm</h2>
+      <h2 className="text-lg font-semibold text-brand-text">Discovery Grove</h2>
       <p className="text-base leading-snug text-brand-text/65">
-        Adaptive farm game with science quizzes, shop, and frustration-aware
+        Adaptive farm adventure with science quizzes, shop, and frustration-aware
         support.
       </p>
       <p className="flex items-center gap-2 rounded-xl bg-brand-special/10 px-3 py-2 text-sm font-medium text-brand-special">
         <Trophy className="size-4 shrink-0" aria-hidden />
-        Farm &amp; Unlock
+        SCI-PATH Game Arena
         <span className="ml-auto text-sm font-semibold">Play</span>
       </p>
       <Button
