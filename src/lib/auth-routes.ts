@@ -32,6 +32,9 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
   return PUBLIC_PATHS.has(pathname);
 }
 
+/** Student mastery / focus-areas profile. */
+export const STUDENT_PROFILE_PATH = "/profile";
+
 export function homePathForRole(role: UserRole | null | undefined): string {
   return role === "educator" ? EDUCATOR_HOME_PATH : STUDENT_HOME_PATH;
 }

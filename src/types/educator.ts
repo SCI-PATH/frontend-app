@@ -122,6 +122,52 @@ export interface MasteryTimelinePoint {
   mastery_probability: number | null;
   distractor_label?: string | null;
   question_type?: string | null;
+  error_category?: string | null;
+  timestamp?: string | null;
+}
+
+export interface RecentAttemptRow {
+  topic_id: string;
+  is_correct: boolean;
+  response_time_s?: number | null;
+  mastery_probability?: number | null;
+  distractor_label?: string | null;
+  question_type?: string | null;
+  error_category?: string | null;
+  timestamp?: string | null;
+}
+
+export interface DiagnosticSkillRow {
+  topic_id: string;
+  p_l?: number | null;
+  mastery_category?: MasteryCategory | string;
+  p_s: number;
+  p_g: number;
+  flag: "high_slip" | "high_guess" | string;
+}
+
+export interface DiagnosticSkillsPayload {
+  high_slip?: DiagnosticSkillRow[];
+  high_guess?: DiagnosticSkillRow[];
+  count?: number;
+  thresholds?: {
+    p_s?: number;
+    p_g?: number;
+  };
+  interpretation?: {
+    high_slip?: string;
+    high_guess?: string;
+  };
+}
+
+export interface EngagementMasteryGapPayload {
+  flagged: boolean;
+  engagement_average?: number | null;
+  mastery_average?: number | null;
+  thresholds?: {
+    engagement_min?: number;
+    mastery_max?: number;
+  };
 }
 
 export interface EngagementTimelinePoint {
@@ -186,6 +232,9 @@ export interface StudentProfileResponse {
     time_on_task_trends?: TimeOnTaskTrend[];
   };
   mastery_timeline_last_10_attempts?: MasteryTimelinePoint[];
+  recent_attempts?: RecentAttemptRow[];
+  diagnostic_skills?: DiagnosticSkillsPayload;
+  engagement_mastery_gap?: EngagementMasteryGapPayload;
   engagement_timeline_last_10_turns?: EngagementTimelinePoint[];
   engagement_average_last_10?: number | null;
   chat_history_last_5?: ChatHistoryTurn[];
@@ -206,4 +255,79 @@ export interface MatrixBandCounts {
   learning: number;
   atRisk: number;
   total: number;
+}
+
+export interface ClassSummarySkillHotspot {
+  topic_id: string;
+  avg_mastery?: number;
+  at_risk_count?: number;
+  at_risk_share?: number;
+  alert_count?: number;
+  avg_risk_score?: number;
+}
+
+export interface ClassSummaryGapLearner {
+  student_id: string;
+  engagement_average?: number | null;
+  mastery_average?: number | null;
+}
+
+export interface ClassDistractorCount extends DistractorTagCount {
+  learner_count?: number;
+}
+
+export interface ClassSummaryResponse extends AnalyticsClassScopeFields {
+  success: boolean;
+  mode: "live_state";
+  roster_count?: number;
+  topic_count?: number;
+  student_ids?: string[];
+  topic_ids?: string[];
+  mastery_bands?: {
+    mastered: number;
+    learning: number;
+    at_risk: number;
+    total: number;
+    thresholds?: Record<string, string>;
+  };
+  hardest_skills?: ClassSummarySkillHotspot[];
+  at_risk_feed?: {
+    count: number;
+    top_skills?: ClassSummarySkillHotspot[];
+  };
+  top_distractors?: ClassDistractorCount[];
+  engagement_mastery_gap?: {
+    count: number;
+    learners?: ClassSummaryGapLearner[];
+    thresholds?: {
+      engagement_min?: number;
+      mastery_max?: number;
+    };
+    note?: string;
+  };
+  frustration?: {
+    class_average?: number | null;
+    samples?: number;
+    elevated_count?: number;
+    elevated_learner_ids?: string[];
+    threshold?: number;
+  };
+  error?: string;
+}
+
+/** Optimized one-pass Classroom Insights payload from Component 4. */
+export interface ClassroomDashboardResponse extends AnalyticsClassScopeFields {
+  success: boolean;
+  mode: "live_state";
+  student_ids?: string[];
+  topic_ids?: string[];
+  unknown_topic_ids?: string[];
+  roster_count?: number;
+  topic_count?: number;
+  mastery_matrix?: Record<string, Record<string, number | null>>;
+  at_risk_students?: AtRiskStudentAlert[];
+  at_risk_count?: number;
+  criteria?: Record<string, unknown>;
+  class_summary?: ClassSummaryResponse;
+  error?: string;
 }

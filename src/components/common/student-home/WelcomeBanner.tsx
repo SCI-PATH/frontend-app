@@ -5,8 +5,13 @@ import { Flag, Flame, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
+import type { TeacherClass } from "@/types";
 
-export function WelcomeBanner() {
+export function WelcomeBanner({
+  enrolledClass,
+}: {
+  enrolledClass?: TeacherClass | null;
+}) {
   const user = useUserStore((s) => s.user);
   const firstName = (user?.name || "Alex").split(" ")[0];
   const grade = user?.grade || "Grade 7";
@@ -34,14 +39,16 @@ export function WelcomeBanner() {
           <div className="space-y-1.5">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
               <Sparkles className="size-4" aria-hidden />
-              {grade} · Grades 6–9 Science
+              {grade}
+              {enrolledClass ? ` · ${enrolledClass.class_name}` : " · Grades 6–9 Science"}
             </p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Welcome back, Explorer {firstName}!
             </h1>
             <p className="max-w-xl text-base leading-snug text-white/90 sm:text-lg">
-              Jump back into Electric Circuits or test your skills in today&apos;s
-              adaptive quiz.
+              {enrolledClass
+                ? `You're enrolled in ${enrolledClass.class_name}. Jump back into your science skills or check your learner profile.`
+                : "Join your teacher's class with a class code, then jump into lessons and quizzes."}
             </p>
             <p className="inline-flex items-center gap-2 text-base font-medium">
               <Flame className="size-5 text-brand-secondary" aria-hidden />
