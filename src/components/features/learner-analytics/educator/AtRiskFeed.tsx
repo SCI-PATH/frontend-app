@@ -65,11 +65,9 @@ function AlertCard({
         aria-expanded={open}
       >
         <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className={cn("text-[0.65rem]", tier.pillClass)}>
-              {tier.label} · Risk {alert.risk_score}%
-            </Badge>
-          </div>
+          <Badge className={cn("text-[0.65rem]", tier.pillClass)}>
+            {tier.label} · Risk {alert.risk_score}%
+          </Badge>
 
           <div>
             <p className="text-sm font-bold text-brand-text">{studentName}</p>
@@ -91,24 +89,24 @@ function AlertCard({
                 EDUCATOR_AT_RISK.text
               )}
             >
-              Skill / chapter
+              Skill needing help
+            </p>
+            <p className={cn("mt-1 text-xs leading-snug", EDUCATOR_PURPLE.text)}>
+              {topicTitle}
             </p>
             <p
               className={cn(
-                "mt-0.5 break-all font-mono text-sm font-bold leading-snug",
+                "mt-0.5 font-mono text-[0.62rem] leading-snug",
                 EDUCATOR_AT_RISK.textStrong
               )}
             >
               {alert.topic_id}
             </p>
-            <p className={cn("mt-1 text-xs leading-snug", EDUCATOR_PURPLE.text)}>
-              {topicTitle}
-            </p>
           </div>
 
           {!open ? (
             <p className="line-clamp-1 text-xs text-brand-text/65">
-              <span className="font-semibold">Signals:</span> {alert.reason}
+              <span className="font-semibold">Why flagged:</span> {alert.reason}
             </p>
           ) : null}
         </div>
@@ -124,7 +122,7 @@ function AlertCard({
         <div className="space-y-3 border-t border-brand-surface px-3 pb-3 pt-2 text-sm">
           <div>
             <p className="text-xs font-semibold uppercase text-brand-text/50">
-              Triggered signals (2-of-3 rule)
+              Why this learner was flagged
             </p>
             <ul className="mt-1.5 space-y-1">
               {reasons.map((reason) => (
@@ -144,7 +142,7 @@ function AlertCard({
           </div>
 
           <p className="text-brand-text/80">
-            <span className="font-semibold">Estimated mastery:</span>{" "}
+            <span className="font-semibold">Current mastery:</span>{" "}
             <span className={cn("font-semibold", EDUCATOR_AT_RISK.textStrong)}>
               {masteryPct}%
             </span>
@@ -185,6 +183,10 @@ export function AtRiskFeed({
     count: tierAlerts.length,
   }));
 
+  // Flat list keeps severity order but renders in one responsive grid so cards
+  // sit side-by-side when space allows (no empty right column for single-tier groups).
+  const orderedAlerts = grouped.flatMap(({ alerts: tierAlerts }) => tierAlerts);
+
   return (
     <div aria-label="Priority at-risk intervention feed" className="space-y-4">
       {showHeader ? (
@@ -194,8 +196,7 @@ export function AtRiskFeed({
               Priority At-Risk Intervention Feed
             </h2>
             <p className="text-sm text-brand-text/65">
-              Flagged when at least 2 of 3 predictive signals fire. Tier labels
-              are based on the API risk score (UI only).
+              Learners who need follow-up soon. Open a card for details and a suggested next step.
             </p>
           </div>
           <p className={cn("text-sm font-semibold", EDUCATOR_AT_RISK.text)}>
@@ -205,9 +206,9 @@ export function AtRiskFeed({
       ) : null}
 
       <p className="rounded-lg border border-brand-surface bg-brand-background/70 px-3 py-2 text-xs leading-relaxed text-brand-text/65">
-        One alert per learner (most recent skill). See{" "}
-        <span className="font-medium text-brand-text">Student Deep-Dive</span>{" "}
-        for all flagged skills on a learner.
+        One alert per learner (their most urgent skill). Use{" "}
+        <span className="font-medium text-brand-text">Learner diagnostics</span>{" "}
+        for a full picture of that student.
       </p>
 
       {alerts.length > 0 ? (
@@ -236,36 +237,20 @@ export function AtRiskFeed({
               No at-risk students detected
             </CardTitle>
             <CardDescription>
-              No learner–skill combinations met the 2-of-3 predictive rule for
-              this classroom slice.
+              Nobody in this class currently meets the follow-up criteria.
             </CardDescription>
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-5">
-          {grouped.map(({ tier, alerts: tierAlerts }) =>
-            tierAlerts.length > 0 ? (
-              <div key={tier.id} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge className={tier.pillClass}>{tier.label}</Badge>
-                  <span className="text-xs text-brand-text/55">
-                    {tierAlerts.length} alert{tierAlerts.length === 1 ? "" : "s"} ·
-                    score {tier.scoreRange}
-                  </span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                  {tierAlerts.map((alert) => (
-                    <AlertCard
-                      key={`${alert.student_id}-${alert.topic_id}`}
-                      alert={alert}
-                      studentName={resolveStudentName(alert.student_id)}
-                      topicTitle={resolveTitle(alert.topic_id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null
-          )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
+          {orderedAlerts.map((alert) => (
+            <AlertCard
+              key={`${alert.student_id}-${alert.topic_id}`}
+              alert={alert}
+              studentName={resolveStudentName(alert.student_id)}
+              topicTitle={resolveTitle(alert.topic_id)}
+            />
+          ))}
         </div>
       )}
     </div>

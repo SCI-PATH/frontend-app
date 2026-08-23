@@ -1,17 +1,26 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { CheckCircle2, KeyRound, Users } from "lucide-react";
+import { BookOpen, CheckCircle2, KeyRound, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { joinClass } from "@/lib/user-management";
 import { useUserStore } from "@/store/useUserStore";
+import type { TeacherClass } from "@/types";
 
 const fieldClassName =
   "h-11 border-brand-surface bg-brand-background/70 font-mono uppercase tracking-wide text-brand-text placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
 
-export function JoinClassSection() {
+interface JoinClassSectionProps {
+  enrolledClasses?: readonly TeacherClass[];
+  onJoined?: () => void;
+}
+
+export function JoinClassSection({
+  enrolledClasses = [],
+  onJoined,
+}: JoinClassSectionProps) {
   const token = useUserStore((state) => state.token);
   const user = useUserStore((state) => state.user);
   const setSession = useUserStore((state) => state.setSession);
@@ -24,8 +33,6 @@ export function JoinClassSection() {
     className: string;
     code: string;
   } | null>(null);
-
-  const joinedCode = success?.code || user?.classCode;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,11 +58,23 @@ export function JoinClassSection() {
         code: result.classInfo.class_code,
       });
       if (user) {
+        const nextCodes = Array.from(
+          new Set(
+            [...(user.classCodes ?? []), result.classInfo.class_code].filter(
+              Boolean
+            )
+          )
+        );
         setSession({
-          user: { ...user, classCode: result.classInfo.class_code },
+          user: {
+            ...user,
+            classCode: result.classInfo.class_code,
+            classCodes: nextCodes,
+          },
         });
       }
       setClassCode("");
+      onJoined?.();
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not join that class."
@@ -67,71 +86,97 @@ export function JoinClassSection() {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-brand-primary/20 bg-gradient-to-r from-brand-primary/8 via-white to-brand-secondary/10 px-6 py-6 sm:px-7">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 space-y-2">
-          <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-brand-primary">
-            <Users className="size-4" aria-hidden />
-            Classroom
-          </p>
-          <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
-            Join your teacher&apos;s class
-          </h2>
-          <p className="max-w-xl text-sm text-brand-text/65 sm:text-base">
-            Ask your teacher for a code like{" "}
-            <span className="font-mono text-brand-primary">SCI-G7-A4K9ZX</span>
-            . Your grade must match the class grade to enrol.
-          </p>
-          {joinedCode ? (
-            <p className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-secondary">
-              <CheckCircle2 className="size-4" aria-hidden />
-              Linked class:{" "}
-              <span className="font-mono text-brand-text">{joinedCode}</span>
-              {success?.className ? (
-                <span className="font-sans font-normal text-brand-text/60">
-                  · {success.className}
-                </span>
-              ) : null}
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-2">
+            <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-brand-primary">
+              <Users className="size-4" aria-hidden />
+              Classroom
             </p>
-          ) : null}
+            <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
+              {enrolledClasses.length > 0
+                ? "Your enrolled class"
+                : "Join your teacher's class"}
+            </h2>
+            <p className="max-w-xl text-sm text-brand-text/65 sm:text-base">
+              {enrolledClasses.length > 0
+                ? "This is the class your teacher created. Analytics and quizzes use this roster."
+                : "Ask your teacher for a code like "}
+              {enrolledClasses.length === 0 ? (
+                <span className="font-mono text-brand-primary">SCI-G7-A4K9ZX</span>
+              ) : null}
+              {enrolledClasses.length === 0
+                ? ". Your grade must match the class grade to enrol."
+                : null}
+            </p>
+          </div>
+
+          <form
+            onSubmit={(event) => void handleSubmit(event)}
+            className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:items-end"
+          >
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <label
+                htmlFor="join-class-code"
+                className="text-sm font-medium text-brand-text"
+              >
+                {enrolledClasses.length > 0 ? "Join another class" : "Class code"}
+              </label>
+              <div className="relative">
+                <KeyRound
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-brand-primary/70"
+                  aria-hidden
+                />
+                <Input
+                  id="join-class-code"
+                  value={classCode}
+                  onChange={(event) =>
+                    setClassCode(event.target.value.toUpperCase())
+                  }
+                  placeholder="SCI-G7-XXXXXX"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${fieldClassName} pl-9`}
+                />
+              </div>
+            </div>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="h-11 shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90 sm:min-w-[7.5rem]"
+            >
+              {isSubmitting ? "Joining..." : "Join class"}
+            </Button>
+          </form>
         </div>
 
-        <form
-          onSubmit={(event) => void handleSubmit(event)}
-          className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:items-end"
-        >
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <label
-              htmlFor="join-class-code"
-              className="text-sm font-medium text-brand-text"
-            >
-              Class code
-            </label>
-            <div className="relative">
-              <KeyRound
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-brand-primary/70"
-                aria-hidden
-              />
-              <Input
-                id="join-class-code"
-                value={classCode}
-                onChange={(event) =>
-                  setClassCode(event.target.value.toUpperCase())
-                }
-                placeholder="SCI-G7-XXXXXX"
-                autoComplete="off"
-                spellCheck={false}
-                className={`${fieldClassName} pl-9`}
-              />
-            </div>
-          </div>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="h-11 shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90 sm:min-w-[7.5rem]"
-          >
-            {isSubmitting ? "Joining..." : "Join class"}
-          </Button>
-        </form>
+        {enrolledClasses.length > 0 ? (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {enrolledClasses.map((row) => (
+              <li
+                key={row.class_code}
+                className="flex items-start gap-3 rounded-xl border border-brand-secondary/30 bg-white px-4 py-3"
+              >
+                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-secondary/20 text-brand-text">
+                  <BookOpen className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 font-semibold text-brand-text">
+                    <CheckCircle2 className="size-4 text-brand-secondary" aria-hidden />
+                    {row.class_name}
+                  </p>
+                  <p className="text-sm text-brand-text/60">
+                    Grade {row.grade_level}
+                    {row.subject ? ` · ${row.subject}` : ""}
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs text-brand-primary">
+                    {row.class_code}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       {error ? (

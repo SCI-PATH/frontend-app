@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, ChevronDown, Target, Timer } from "lucide-react";
+import { AlertTriangle, ChevronDown, Gauge, ListChecks, Target, Timer } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +42,8 @@ import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { cn } from "@/lib/utils";
 import type {
   ClassroomStudentMeta,
+  DiagnosticSkillRow,
+  RecentAttemptRow,
   StudentFocusArea,
   StudentProfileResponse,
   TimeOnTaskTrend,
@@ -192,6 +194,129 @@ function FocusAreaList({ areas }: { areas: StudentFocusArea[] }) {
         );
       })}
     </ul>
+  );
+}
+
+function formatErrorCategory(value?: string | null): string {
+  if (!value) return "—";
+  if (value === "NO_ERROR") return "None";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function RecentAttemptsTable({ attempts }: { attempts: RecentAttemptRow[] }) {
+  if (attempts.length === 0) {
+    return (
+      <p className="text-sm text-brand-text/60">
+        No recent quiz attempts recorded for this learner yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-brand-surface">
+      <table className="w-full min-w-[28rem] text-left text-xs">
+        <thead className="bg-brand-background/80 text-[0.65rem] uppercase tracking-wide text-brand-text/50">
+          <tr>
+            <th className="px-3 py-2 font-medium">Skill</th>
+            <th className="px-3 py-2 font-medium">Result</th>
+            <th className="px-3 py-2 font-medium">Error</th>
+            <th className="px-3 py-2 font-medium">Distractor</th>
+            <th className="px-3 py-2 font-medium">Time</th>
+            <th className="px-3 py-2 font-medium">P(L)</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-brand-surface">
+          {[...attempts].reverse().map((row, index) => {
+            const mastery =
+              typeof row.mastery_probability === "number"
+                ? `${Math.round(row.mastery_probability * 100)}%`
+                : "—";
+            return (
+              <tr key={`${row.topic_id}-${index}`} className="align-top">
+                <td className="px-3 py-2">
+                  <p className="font-medium text-brand-text">
+                    {getCurriculumTitle(row.topic_id)}
+                  </p>
+                  <p className="font-mono text-[0.62rem] text-brand-text/45">
+                    {compactTopicLabel(row.topic_id)}
+                  </p>
+                </td>
+                <td className="px-3 py-2">
+                  <Badge
+                    className={
+                      row.is_correct
+                        ? "bg-brand-secondary/20 text-brand-text hover:bg-brand-secondary/20"
+                        : "bg-red-600 text-white hover:bg-red-600"
+                    }
+                  >
+                    {row.is_correct ? "Correct" : "Incorrect"}
+                  </Badge>
+                </td>
+                <td className="px-3 py-2 text-brand-text/70">
+                  {formatErrorCategory(row.error_category)}
+                </td>
+                <td className="max-w-[8rem] px-3 py-2 text-brand-text/70">
+                  {row.distractor_label || "—"}
+                </td>
+                <td className="px-3 py-2 tabular-nums text-brand-text/70">
+                  {typeof row.response_time_s === "number"
+                    ? `${row.response_time_s.toFixed(1)}s`
+                    : "—"}
+                </td>
+                <td className="px-3 py-2 tabular-nums font-medium text-brand-text">
+                  {mastery}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DiagnosticSkillList({
+  title,
+  rows,
+  emptyLabel,
+  paramKey,
+}: {
+  title: string;
+  rows: DiagnosticSkillRow[];
+  emptyLabel: string;
+  paramKey: "p_s" | "p_g";
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-brand-text/50">
+        {title}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-brand-text/60">{emptyLabel}</p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.slice(0, 5).map((row) => (
+            <li
+              key={`${paramKey}-${row.topic_id}`}
+              className="rounded-xl border border-brand-surface bg-brand-background/40 px-3 py-2.5"
+            >
+              <p className="text-sm font-medium text-brand-text">
+                {getCurriculumTitle(row.topic_id)}
+              </p>
+              <p className="mt-1 font-mono text-[0.62rem] text-brand-text/45">
+                {compactTopicLabel(row.topic_id)} · {paramKey.toUpperCase()}{" "}
+                {row[paramKey].toFixed(2)} · P(L){" "}
+                {typeof row.p_l === "number" ? Math.round(row.p_l * 100) : "—"}%
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -382,13 +507,36 @@ export function StudentDeepDive({
   }, [profile]);
 
   const showEngagementGap =
-    masteryAvg !== null &&
-    typeof profile?.engagement_average_last_10 === "number" &&
-    masteryAvg < 0.5 &&
-    profile.engagement_average_last_10 >= 0.7;
+    profile?.engagement_mastery_gap?.flagged ??
+    (masteryAvg !== null &&
+      typeof profile?.engagement_average_last_10 === "number" &&
+      masteryAvg < 0.5 &&
+      profile.engagement_average_last_10 >= 0.7);
 
   const focusAreas = profile?.focus_areas ?? [];
   const timeOnTaskTrends = profile?.engagement_metrics?.time_on_task_trends ?? [];
+  const recentAttempts: RecentAttemptRow[] =
+    profile?.recent_attempts ??
+    (profile?.mastery_timeline_last_10_attempts ?? []).map((point) => ({
+      topic_id: point.topic_id,
+      is_correct: Boolean(point.is_correct),
+      response_time_s: point.response_time_s,
+      mastery_probability: point.mastery_probability,
+      distractor_label: point.distractor_label,
+      question_type: point.question_type,
+      error_category: point.error_category,
+      timestamp: point.timestamp,
+    }));
+  const highSlipSkills =
+    profile?.diagnostic_skills?.high_slip ??
+    (profile?.bkt_parameters ?? [])
+      .filter((row) => row.p_s > 0.15)
+      .map((row) => ({ ...row, flag: "high_slip" as const }));
+  const highGuessSkills =
+    profile?.diagnostic_skills?.high_guess ??
+    (profile?.bkt_parameters ?? [])
+      .filter((row) => row.p_g > 0.2)
+      .map((row) => ({ ...row, flag: "high_guess" as const }));
 
   const metrics = useMemo(
     () => [
@@ -463,8 +611,7 @@ export function StudentDeepDive({
             Student Deep-Dive
           </h2>
           <p className="mt-1 text-sm text-brand-text/65">
-            Mastery trajectory, misconceptions, and actionable focus areas —
-            without exposing private chat content.
+            A simple view of how this learner is doing — progress, struggle spots, and what to help with next.
           </p>
         </div>
         <DropdownMenu>
@@ -523,10 +670,10 @@ export function StudentDeepDive({
       <Card className="border-brand-surface">
         <CardHeader>
           <CardTitle className="text-base">
-            Mastery Timeline vs Conversational Engagement
+            Quiz progress vs chat activity
           </CardTitle>
           <CardDescription>
-            Official BKT mastery curve compared with chat interaction scores.
+            How well they are learning on quizzes compared with how active they are with the tutor.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -544,8 +691,7 @@ export function StudentDeepDive({
                 <div className="mb-4 flex items-start gap-2 rounded-xl border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                   <p>
-                    Student is participating well in dialogue but struggling with
-                    formal assessments.
+                    This learner chats well with the tutor, but quiz scores are still low.
                   </p>
                 </div>
               ) : null}
@@ -560,7 +706,7 @@ export function StudentDeepDive({
                     <Line
                       type="monotone"
                       dataKey="mastery"
-                      name="Official Mastery (BKT)"
+                      name="Quiz mastery"
                       stroke="#00A8E8"
                       strokeWidth={2.5}
                       dot={{ r: 3 }}
@@ -569,7 +715,7 @@ export function StudentDeepDive({
                     <Line
                       type="monotone"
                       dataKey="engagement"
-                      name="Chat Engagement"
+                      name="Chat activity"
                       stroke="#7209B7"
                       strokeWidth={2.5}
                       strokeDasharray="4 4"
@@ -586,9 +732,28 @@ export function StudentDeepDive({
 
       <Card className="border-brand-surface">
         <CardHeader>
-          <CardTitle className="text-base">Misconception Cloud</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="size-4 text-brand-primary" />
+            Recent Attempts
+          </CardTitle>
           <CardDescription>
-            Most frequent distractor tags selected during incorrect quiz attempts.
+            Latest quiz answers for this learner — what they got right or wrong, and common mistake patterns.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="py-4 text-sm text-brand-text/60">Loading attempts…</p>
+          ) : (
+            <RecentAttemptsTable attempts={recentAttempts} />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-brand-surface">
+        <CardHeader>
+          <CardTitle className="text-base">Common mistakes</CardTitle>
+          <CardDescription>
+            Wrong answers this learner picks most often on quizzes.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-visible">
@@ -642,8 +807,7 @@ export function StudentDeepDive({
             Learner Focus Areas
           </CardTitle>
           <CardDescription>
-            Skills flagged by the analytics engine for this learner (2-of-3 risk
-            rule across all attempted topics).
+            Topics this learner needs help with right now.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -658,12 +822,45 @@ export function StudentDeepDive({
       <Card className="border-brand-surface">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <Gauge className="size-4 text-brand-special" />
+            Tricky skills
+          </CardTitle>
+          <CardDescription>
+            Skills where answers look inconsistent — they may know more (or less) than scores suggest.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <p className="py-4 text-sm text-brand-text/60">
+              Loading BKT diagnostics…
+            </p>
+          ) : (
+            <>
+              <DiagnosticSkillList
+                title="Often slips (knows it, still gets wrong)"
+                rows={highSlipSkills}
+                emptyLabel="No slip-prone skills for this learner."
+                paramKey="p_s"
+              />
+              <DiagnosticSkillList
+                title="Often guesses (may get lucky)"
+                rows={highGuessSkills}
+                emptyLabel="No guess-heavy skills for this learner."
+                paramKey="p_g"
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-brand-surface">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <Timer className="size-4 text-brand-primary" />
             Response Time Trends
           </CardTitle>
           <CardDescription>
-            Average quiz response time per skill — rising times can indicate
-            hesitation or difficulty.
+            How long this learner takes on each skill. Longer times can mean they are unsure.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -677,10 +874,9 @@ export function StudentDeepDive({
 
       <Card className="border-brand-surface">
         <CardHeader>
-          <CardTitle className="text-base">Tutoring Activity Summary</CardTitle>
+          <CardTitle className="text-base">Tutor help summary</CardTitle>
           <CardDescription>
-            Aggregate tutoring signals — topics discussed and confusion flags, no
-            message content.
+            Topics they asked about and whether they seemed confused — private messages are not shown.
           </CardDescription>
         </CardHeader>
         <CardContent>

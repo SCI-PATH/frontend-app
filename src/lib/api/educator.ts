@@ -2,6 +2,8 @@ import { API_BASE_URL } from "@/lib/api/config";
 import type {
   AtRiskStudentsRequest,
   AtRiskStudentsResponse,
+  ClassSummaryResponse,
+  ClassroomDashboardResponse,
   ClassroomSliceResponse,
   MasteryMatrixRequest,
   MasteryMatrixResponse,
@@ -14,6 +16,8 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 const MASTERY_MATRIX_PATH = "/api/v1/mastery/matrix";
 const AT_RISK_PATH = "/api/v1/analytics/at-risk-students";
 const STUDENT_PROFILE_PATH = "/api/v1/analytics/student-profile";
+const CLASS_SUMMARY_PATH = "/api/v1/analytics/class-summary";
+const CLASSROOM_DASHBOARD_PATH = "/api/v1/analytics/classroom-dashboard";
 const CLASSROOM_SLICE_PATH = "/api/educator/classroom-slice";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -213,6 +217,33 @@ export async function fetchStudentProfile(
   );
   if (payload.success === false) {
     throw new Error(payload.error ?? "Student profile request failed.");
+  }
+  return payload;
+}
+
+export async function fetchClassSummary(
+  classCode: string
+): Promise<ClassSummaryResponse> {
+  const code = classCode.trim().toUpperCase();
+  const payload = await getAnalyticsJson<ClassSummaryResponse>(
+    `${CLASS_SUMMARY_PATH}?class_code=${encodeURIComponent(code)}`
+  );
+  if (payload.success === false) {
+    throw new Error(payload.error ?? "Class summary request failed.");
+  }
+  return payload;
+}
+
+/** One-pass matrix + at-risk + class-summary for Classroom Insights. */
+export async function fetchClassroomDashboard(
+  classCode: string
+): Promise<ClassroomDashboardResponse> {
+  const code = classCode.trim().toUpperCase();
+  const payload = await getAnalyticsJson<ClassroomDashboardResponse>(
+    `${CLASSROOM_DASHBOARD_PATH}?class_code=${encodeURIComponent(code)}`
+  );
+  if (payload.success === false) {
+    throw new Error(payload.error ?? "Classroom dashboard request failed.");
   }
   return payload;
 }

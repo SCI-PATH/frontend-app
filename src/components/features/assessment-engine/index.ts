@@ -1,9 +1,5 @@
 /**
  * Assessment Engine (Component 2) — public screens & API surface.
- *
- * // TODO: INTEGRATION - Home team ExamPrepCard currently links to
- * // /assessment/session; retarget to /assessment/custom-quiz or
- * // /assessment/post-lesson at merge time (do not implement ExamPrepCard here).
  */
 
 export { DevHubScreen } from "./screens/DevHubScreen";
@@ -13,5 +9,10 @@ export { PostLessonScreen } from "./screens/PostLessonScreen";
 export { HistoryListScreen, HistoryDetailScreen } from "./screens/HistoryScreen";
 export { AssessmentQuestionBankScreen } from "./screens/AssessmentQuestionBankScreen";
 export { QuizPlayer } from "./components/QuizPlayer";
-export { useMockUserStore, useActiveMockUser } from "./store/useMockUserStore";
+export { ExamPrepCard } from "./ExamPrepCard";
+export { PlacementCourseCard } from "./PlacementCourseCard";
+export { useAssessmentUser } from "./store/useAssessmentUser";
+export { usePlacementStatus } from "./store/usePlacementStatus";
 export { useQuizSessionStore } from "./store/useQuizSessionStore";
+export { fetchPlacementStatus, resolveInitialCategory } from "./api/amplitude";
+export { getAssessmentApiBase, API_PREFIX } from "./api/client";

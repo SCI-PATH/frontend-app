@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BookOpenCheck,
-  ChevronDown,
-  ClipboardList,
   GraduationCap,
   History,
   Loader2,
@@ -23,22 +21,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import type { UserRole } from "@/types";
 import { terminateQuizSession } from "../api/quizzes";
 import { getAssessmentApiBase } from "../api/client";
-import { MOCK_USERS } from "../data/catalog";
-import {
-  useActiveMockUser,
-  useMockUserStore,
-} from "../store/useMockUserStore";
+import { useAssessmentUser } from "../store/useAssessmentUser";
 import { useQuizSessionStore } from "../store/useQuizSessionStore";
 import { AssessmentApiError } from "../types";
 
@@ -48,47 +35,50 @@ const NAV_CARDS = [
     title: "Amplitude Test",
     description: "Survey → 10-item quiz → initial category",
     icon: Sparkles,
-    roles: ["student", "teacher"] as const,
+    roles: ["student"] as const satisfies readonly UserRole[],
     accent: "bg-brand-special/10 text-brand-special",
+    studentOnly: true,
   },
   {
     href: "/assessment/custom-quiz",
     title: "Custom Quiz",
     description: "Pick chapters & question count, then adapt",
     icon: BookOpenCheck,
-    roles: ["student", "teacher"] as const,
+    roles: ["student"] as const satisfies readonly UserRole[],
     accent: "bg-brand-primary/10 text-brand-primary",
+    studentOnly: true,
   },
   {
     href: "/assessment/post-lesson?chapter_id=G6_C8&grade=6",
     title: "Post-Lesson Quiz",
     description: "Starts immediately (simulates lesson handoff)",
     icon: Wand2,
-    roles: ["student", "teacher"] as const,
+    roles: ["student"] as const satisfies readonly UserRole[],
     accent: "bg-brand-secondary/15 text-brand-text",
+    studentOnly: true,
   },
   {
     href: "/assessment/history",
     title: "Student History",
     description: "Past sessions, answers & AI explanations",
     icon: History,
-    roles: ["student", "teacher"] as const,
+    roles: ["student"] as const satisfies readonly UserRole[],
     accent: "bg-brand-accent/10 text-brand-accent",
+    studentOnly: true,
   },
   {
     href: "/assessment/question-bank",
     title: "Question Bank",
     description: "C2 pending questions · approve / reject",
     icon: GraduationCap,
-    roles: ["teacher"] as const,
+    roles: ["educator"] as const satisfies readonly UserRole[],
     accent: "bg-brand-special/10 text-brand-special",
-    teacherOnly: true,
+    educatorOnly: true,
   },
-];
+] as const;
 
 export function DevHubScreen() {
-  const active = useActiveMockUser();
-  const setUserId = useMockUserStore((s) => s.setUserId);
+  const active = useAssessmentUser();
   const lastSessionId = useQuizSessionStore((s) => s.lastSessionId);
   const [sessionId, setSessionId] = useState("");
   const [terminating, setTerminating] = useState(false);
@@ -139,50 +129,19 @@ export function DevHubScreen() {
               Assessment Engine Dev Hub
             </h1>
             <p className="mt-2 max-w-xl text-sm text-brand-text/65">
-              Navigate production assessment routes and mock users before final
-              auth / homepage integration. API:{" "}
+              Navigate assessment routes using your logged-in session. API:{" "}
               <code className="rounded bg-white/80 px-1.5 py-0.5 text-brand-primary">
                 {getAssessmentApiBase()}
               </code>
             </p>
           </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-11 gap-2 border-brand-surface bg-white text-brand-text hover:bg-brand-surface"
-              >
-                <ClipboardList className="size-4 text-brand-primary" aria-hidden />
-                {active.displayName}
-                <ChevronDown className="size-4 opacity-60" aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Active mock user</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {MOCK_USERS.map((u) => (
-                <DropdownMenuItem
-                  key={u.userId}
-                  onClick={() => setUserId(u.userId)}
-                  className="flex flex-col items-start gap-0.5"
-                >
-                  <span className="font-medium">{u.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {u.userId}
-                    {u.classCode ? ` · ${u.classCode}` : ""}
-                    {u.grade ? ` · Grade ${u.grade}` : ""}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         <Card className="mb-6 border-brand-surface bg-white/95">
           <CardContent className="flex flex-wrap items-center gap-3 py-4 text-sm text-brand-text/80">
             <span>
-              <strong className="text-brand-text">ID:</strong> {active.userId}
+              <strong className="text-brand-text">ID:</strong>{" "}
+              {active.userId || "—"}
             </span>
             <span>
               <strong className="text-brand-text">Role:</strong> {active.role}
@@ -198,18 +157,21 @@ export function DevHubScreen() {
                 <strong className="text-brand-text">Class:</strong>{" "}
                 {active.classCode}
               </span>
-            ) : (
+            ) : active.role === "student" ? (
               <Badge variant="outline">No class</Badge>
-            )}
+            ) : null}
           </CardContent>
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {NAV_CARDS.map((card) => {
             const locked =
-              "teacherOnly" in card &&
-              card.teacherOnly &&
-              active.role !== "teacher";
+              ("studentOnly" in card &&
+                card.studentOnly &&
+                active.role !== "student") ||
+              ("educatorOnly" in card &&
+                card.educatorOnly &&
+                active.role !== "educator");
             const Icon = card.icon;
             return (
               <Card
@@ -236,7 +198,9 @@ export function DevHubScreen() {
                       variant="outline"
                       className="w-full border-brand-surface"
                     >
-                      Switch to teacher user
+                      {"studentOnly" in card && card.studentOnly
+                        ? "Student account required"
+                        : "Educator account required"}
                     </Button>
                   ) : (
                     <Button
