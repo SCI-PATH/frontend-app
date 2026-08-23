@@ -7,6 +7,7 @@ export type {
   BktParameterRow,
   ChatHistoryTurn,
   ClassScopeMeta,
+  ClassSummaryResponse,
   ClassroomSliceResponse,
   ClassroomStudentMeta,
   ClassroomTopicMeta,
@@ -57,8 +58,9 @@ export interface User {
   role: UserRole;
   /** Present for students */
   grade?: GradeLevel;
-  /** Optional class join code for students */
+  /** Primary enrolled class code */
   classCode?: string;
+  classCodes?: string[];
   /** Present for educators */
   schoolName?: string;
   /** Present for educators */

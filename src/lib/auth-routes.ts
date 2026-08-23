@@ -21,6 +21,9 @@ export const EDUCATOR_CONTENT_GENERATION_PATH = "/content-generation";
 /** Educator question-generation placeholder. */
 export const EDUCATOR_QUESTION_GENERATION_PATH = "/question-generation";
 
+/** Student mastery / focus-areas profile. */
+export const STUDENT_PROFILE_PATH = "/profile";
+
 export function homePathForRole(role: UserRole | null | undefined): string {
   return role === "educator" ? EDUCATOR_HOME_PATH : STUDENT_HOME_PATH;
 }

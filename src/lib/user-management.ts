@@ -3,6 +3,9 @@ import type { GradeLevel, TeacherClass, User, UserRole } from "@/types";
 type ApiStudentProfile = {
   grade: number;
   prev_year_science_marks?: number | null;
+  learner_id?: string | null;
+  class_code?: string | null;
+  class_codes?: string[];
 };
 
 type ApiTeacherProfile = {
@@ -64,13 +67,24 @@ function gradeLabel(grade?: number | null): GradeLevel | undefined {
 
 export function userFromApi(apiUser: ApiUser): User {
   const role: UserRole = apiUser.role === "teacher" ? "educator" : "student";
+  const classCodes = (apiUser.student?.class_codes ?? [])
+    .map((code) => String(code).trim().toUpperCase())
+    .filter(Boolean);
+  const classCode =
+    String(apiUser.student?.class_code ?? "").trim().toUpperCase() ||
+    classCodes[0] ||
+    undefined;
   return {
-    id: apiUser.student_id || apiUser.id,
+    id: apiUser.student_id || apiUser.student?.learner_id || apiUser.id,
     name: apiUser.full_name,
     email: apiUser.email,
     role,
     ...(role === "student"
-      ? { grade: gradeLabel(apiUser.student?.grade) }
+      ? {
+          grade: gradeLabel(apiUser.student?.grade),
+          classCode,
+          classCodes,
+        }
       : {
           sectionName: apiUser.teacher?.class_sections?.join(", ") || undefined,
         }),
@@ -214,4 +228,23 @@ export async function joinClass(
       response.class_info as unknown as Record<string, unknown>
     ),
   };
+}
+
+/** Classes this learner is enrolled in (User Management `GET /classes/enrolled`). */
+export async function fetchEnrolledClasses(token: string): Promise<TeacherClass[]> {
+  const response = await requestJson<TeacherClass[] | { classes?: TeacherClass[] }>(
+    "/classes/enrolled",
+    { method: "GET" },
+    token
+  );
+  const rows = Array.isArray(response)
+    ? response
+    : Array.isArray(response.classes)
+      ? response.classes
+      : [];
+  return rows
+    .map((row) =>
+      normalizeTeacherClass(row as unknown as Record<string, unknown>)
+    )
+    .filter((row) => row.class_code.length > 0);
 }
