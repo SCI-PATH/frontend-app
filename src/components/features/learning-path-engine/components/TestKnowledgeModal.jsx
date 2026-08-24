@@ -2,7 +2,7 @@ import { Gamepad2 } from "lucide-react";
 
 /**
  * Shown after a student finishes a lesson (Done).
- * Teammate wires `onOk` to navigate into the gaming service.
+ * OK opens the gaming farm start screen.
  */
 export default function TestKnowledgeModal({ open, onOk, lessonTitle = "" }) {
   if (!open) return null;

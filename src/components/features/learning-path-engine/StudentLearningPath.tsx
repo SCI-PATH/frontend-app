@@ -20,6 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getStudentInitialCategory } from "@/lib/api/assessment";
+import {
+  buildGamingServiceLaunchUrl,
+  getGamingServiceBaseUrl,
+} from "@/components/features/gaming-service/buildGamingServiceLaunchUrl";
 import { useUserStore } from "@/store/useUserStore";
 import type { CurriculumLesson, CurriculumResponse, LessonResponse } from "@/types";
 
@@ -430,11 +434,22 @@ export default function StudentLearningPath() {
     }
   }
 
-  /** Teammate: replace body with navigation into the gaming service. */
+  /** After a lesson, OK opens the Discovery Grove start screen (Vite farm). */
   function onTestKnowledgeOk() {
     setTestKnowledgeOpen(false);
-    const finishedId = finishedLessonId || result?.lesson_id || lessonId;
-    void openChapterChoice(finishedId);
+    const studentId = userId || sessionUserId;
+    const displayName = sessionName || "Science explorer";
+    if (studentId && displayName) {
+      window.location.assign(
+        buildGamingServiceLaunchUrl({
+          studentId,
+          displayName,
+          grade,
+        }),
+      );
+      return;
+    }
+    window.location.assign(getGamingServiceBaseUrl());
   }
 
   const onStepChange = useCallback(
