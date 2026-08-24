@@ -1,49 +1,87 @@
 "use client";
 
-import Link from "next/link";
-import { Beaker, Clock, Flame, Target } from "lucide-react";
+import { Beaker, Clock, Flame, Sparkles, Target } from "lucide-react";
+
+import { cn } from "@/lib/utils";
 
 const MISSIONS = [
   {
-    href: "/dashboard",
     icon: Target,
-    title: "Finish Plant Diversity",
-    meta: "12 min left · +80 XP",
-    tone: "text-brand-primary bg-brand-primary/10",
+    title: "Continue your pathway",
+    meta: "Lessons & progress from learning path",
+    accent: "primary" as const,
   },
   {
-    href: "/assessment/session",
     icon: Beaker,
-    title: "Optics mini-check",
-    meta: "5 questions · Adaptive DoK",
-    tone: "text-brand-accent bg-brand-accent/10",
+    title: "Practice with a quiz",
+    meta: "Adaptive checks from assessment",
+    accent: "accent" as const,
   },
   {
-    href: "/dashboard",
     icon: Flame,
-    title: "Keep the streak alive",
-    meta: "1 activity unlocks Day 5",
-    tone: "text-brand-special bg-brand-special/10",
+    title: "Keep your streak",
+    meta: "Daily activity tracking",
+    accent: "special" as const,
   },
 ];
 
+const accentStyles = {
+  primary: {
+    tone: "bg-brand-primary",
+    border: "border-brand-primary/15",
+    card: "bg-gradient-to-br from-white to-brand-primary/8",
+    glow: "bg-brand-primary/15",
+  },
+  accent: {
+    tone: "bg-brand-accent",
+    border: "border-brand-accent/15",
+    card: "bg-gradient-to-br from-white to-brand-accent/8",
+    glow: "bg-brand-accent/15",
+  },
+  special: {
+    tone: "bg-brand-special",
+    border: "border-brand-special/15",
+    card: "bg-gradient-to-br from-white to-brand-special/8",
+    glow: "bg-brand-special/15",
+  },
+} as const;
+
+/** Placeholder missions until gaming / path engines expose real daily tasks. */
 export function TodayMissions() {
   return (
-    <section className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
       {MISSIONS.map((mission) => {
         const Icon = mission.icon;
+        const styles = accentStyles[mission.accent];
         return (
-          <Link
+          <div
             key={mission.title}
-            href={mission.href}
-            className="group flex items-center gap-4 rounded-2xl border border-brand-surface bg-white px-6 py-5 transition-transform duration-200 hover:-translate-y-0.5"
+            className={cn(
+              "relative flex items-center gap-4 overflow-hidden rounded-3xl border px-5 py-5 shadow-sm",
+              styles.border,
+              styles.card
+            )}
           >
+            <div
+              className={cn(
+                "pointer-events-none absolute -right-6 -top-8 size-20 rounded-full blur-2xl",
+                styles.glow
+              )}
+              aria-hidden
+            />
             <span
-              className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${mission.tone}`}
+              className={cn(
+                "relative flex size-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-md",
+                styles.tone
+              )}
             >
               <Icon className="size-5" aria-hidden />
             </span>
-            <span className="min-w-0">
+            <span className="relative min-w-0 flex-1">
+              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-brand-surface/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-text/55">
+                <Sparkles className="size-3" aria-hidden />
+                Coming soon
+              </span>
               <span className="block truncate text-base font-semibold text-brand-text">
                 {mission.title}
               </span>
@@ -52,7 +90,7 @@ export function TodayMissions() {
                 {mission.meta}
               </span>
             </span>
-          </Link>
+          </div>
         );
       })}
     </section>
