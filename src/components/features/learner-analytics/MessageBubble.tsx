@@ -24,7 +24,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
           isStudent
             ? "rounded-br-md bg-brand-primary text-white"
-            : "rounded-bl-md border border-brand-surface bg-brand-background text-brand-text"
+            : "rounded-bl-md border border-brand-surface bg-white text-brand-text"
         )}
       >
         {message.isHint ? (

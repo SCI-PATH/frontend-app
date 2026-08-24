@@ -136,7 +136,6 @@ export function EnrolledStudents({
                 <thead className="bg-brand-background/80 text-xs tracking-wide text-brand-text/60 uppercase">
                   <tr>
                     <th className="px-3 py-2 font-semibold">Student</th>
-                    <th className="px-3 py-2 font-semibold">Learner ID</th>
                     <th className="px-3 py-2 font-semibold">Mastered</th>
                     <th className="px-3 py-2 font-semibold">Learning</th>
                     <th className="px-3 py-2 font-semibold">Needs support</th>
@@ -161,9 +160,6 @@ export function EnrolledStudents({
                       >
                         <td className="px-3 py-2.5 font-medium text-brand-text">
                           {row.displayName}
-                        </td>
-                        <td className="px-3 py-2.5 font-mono text-xs text-brand-text/60">
-                          {row.learnerId}
                         </td>
                         <td className="px-3 py-2.5 text-brand-secondary">
                           {row.bands.mastered}

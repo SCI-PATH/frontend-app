@@ -94,10 +94,12 @@ export function userFromApi(apiUser: ApiUser): User {
       ? {
           grade: gradeLabel(apiUser.student?.grade),
           classCodes,
+          prevYearScienceMarks: apiUser.student?.prev_year_science_marks ?? null,
         }
       : {
           sectionName: apiUser.teacher?.class_sections?.join(", ") || undefined,
           schoolName: apiUser.teacher?.school_name || undefined,
+          gradesTaught: apiUser.teacher?.grades_taught ?? [],
         }),
   };
 }
@@ -163,6 +165,63 @@ export async function checkUserSession(token: string) {
     authenticated: response.authenticated,
     user: response.user ? userFromApi(response.user) : null,
   };
+}
+
+export async function fetchCurrentUser(token: string) {
+  const apiUser = await requestJson<ApiUser>("/users/me", { method: "GET" }, token);
+  return userFromApi(apiUser);
+}
+
+export async function updateStudentProfile(
+  token: string,
+  input: {
+    fullName?: string;
+    grade?: number;
+    prevYearScienceMarks?: number | null;
+  }
+) {
+  const apiUser = await requestJson<ApiUser>(
+    "/users/me",
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(input.fullName !== undefined ? { full_name: input.fullName } : {}),
+        ...(input.grade !== undefined ? { grade: input.grade } : {}),
+        ...(input.prevYearScienceMarks !== undefined
+          ? { prev_year_science_marks: input.prevYearScienceMarks }
+          : {}),
+      }),
+    },
+    token
+  );
+  return userFromApi(apiUser);
+}
+
+export async function updateTeacherProfile(
+  token: string,
+  input: {
+    fullName?: string;
+    gradesTaught?: number[];
+    classSections?: string[];
+  }
+) {
+  const apiUser = await requestJson<ApiUser>(
+    "/users/me",
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(input.fullName !== undefined ? { full_name: input.fullName } : {}),
+        ...(input.gradesTaught !== undefined
+          ? { grades_taught: input.gradesTaught }
+          : {}),
+        ...(input.classSections !== undefined
+          ? { class_sections: input.classSections }
+          : {}),
+      }),
+    },
+    token
+  );
+  return userFromApi(apiUser);
 }
 
 function normalizeTeacherClass(row: Record<string, unknown>): TeacherClass {

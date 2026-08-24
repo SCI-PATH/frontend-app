@@ -72,27 +72,35 @@ const TOOLS = [
 const accentStyles = {
   primary: {
     kicker: "text-brand-primary",
-    icon: "bg-brand-primary/10 text-brand-primary",
+    icon: "bg-brand-primary text-white shadow-md shadow-brand-primary/25",
     button: "bg-brand-primary text-white hover:bg-brand-primary/90",
-    border: "border-brand-primary/20",
+    border: "border-brand-primary/15",
+    card: "bg-gradient-to-br from-white to-brand-primary/8",
+    glow: "bg-brand-primary/15",
   },
   special: {
     kicker: "text-brand-special",
-    icon: "bg-brand-special/10 text-brand-special",
+    icon: "bg-brand-special text-white shadow-md shadow-brand-special/25",
     button: "bg-brand-special text-white hover:bg-brand-special/90",
-    border: "border-brand-special/20",
+    border: "border-brand-special/15",
+    card: "bg-gradient-to-br from-white to-brand-special/8",
+    glow: "bg-brand-special/15",
   },
   secondary: {
     kicker: "text-brand-secondary",
-    icon: "bg-brand-secondary/15 text-brand-text",
+    icon: "bg-brand-secondary text-brand-text shadow-md shadow-brand-secondary/25",
     button: "bg-brand-secondary text-brand-text hover:bg-brand-secondary/90",
-    border: "border-brand-secondary/25",
+    border: "border-brand-secondary/20",
+    card: "bg-gradient-to-br from-white to-brand-secondary/10",
+    glow: "bg-brand-secondary/20",
   },
   accent: {
     kicker: "text-brand-accent",
-    icon: "bg-brand-accent/10 text-brand-accent",
+    icon: "bg-brand-accent text-white shadow-md shadow-brand-accent/25",
     button: "bg-brand-accent text-white hover:bg-brand-accent/90",
-    border: "border-brand-accent/20",
+    border: "border-brand-accent/15",
+    card: "bg-gradient-to-br from-white to-brand-accent/8",
+    glow: "bg-brand-accent/15",
   },
 } as const;
 
@@ -133,7 +141,7 @@ export function EducatorHome() {
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-10 sm:gap-10 sm:px-5">
         <EducatorWelcomeBanner />
 
-        <section className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2">
+        <section className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             const styles = accentStyles[tool.accent];
@@ -141,11 +149,19 @@ export function EducatorHome() {
               <article
                 key={tool.href}
                 className={cn(
-                  "flex min-h-[16.5rem] flex-col gap-4 rounded-2xl border bg-white p-7 transition-transform duration-200 hover:-translate-y-0.5",
-                  styles.border
+                  "relative flex min-h-[17rem] flex-col overflow-hidden rounded-3xl border p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
+                  styles.border,
+                  styles.card
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div
+                  className={cn(
+                    "pointer-events-none absolute -right-8 -top-10 size-28 rounded-full blur-2xl",
+                    styles.glow
+                  )}
+                  aria-hidden
+                />
+                <div className="relative flex items-start justify-between gap-3">
                   <p
                     className={cn(
                       "text-sm font-bold uppercase tracking-wider",
@@ -154,29 +170,22 @@ export function EducatorHome() {
                   >
                     {tool.kicker}
                   </p>
-                  <div className="flex items-center gap-2">
-                    {"comingSoon" in tool && tool.comingSoon ? (
-                      <span className="rounded-full bg-brand-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-accent">
-                        Soon
-                      </span>
-                    ) : null}
-                    <span
-                      className={cn(
-                        "flex size-10 items-center justify-center rounded-xl",
-                        styles.icon
-                      )}
-                    >
-                      <Icon className="size-5" aria-hidden />
-                    </span>
-                  </div>
+                  <span
+                    className={cn(
+                      "flex size-12 items-center justify-center rounded-2xl",
+                      styles.icon
+                    )}
+                  >
+                    <Icon className="size-6" aria-hidden />
+                  </span>
                 </div>
-                <h2 className="text-lg font-semibold text-brand-text">
+                <h2 className="relative mt-4 text-xl font-semibold text-brand-text">
                   {tool.title}
                 </h2>
-                <p className="text-base leading-snug text-brand-text/65">
+                <p className="relative mt-2 text-base leading-snug text-brand-text/65">
                   {tool.description}
                 </p>
-                <Button asChild className={cn("mt-auto w-full", styles.button)}>
+                <Button asChild className={cn("relative mt-auto w-full", styles.button)}>
                   <Link href={tool.href}>
                     {tool.cta}
                     <ArrowRight className="size-4" aria-hidden />
@@ -187,13 +196,13 @@ export function EducatorHome() {
           })}
         </section>
 
-        <section className="rounded-2xl border border-brand-surface bg-white p-6 sm:p-7">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <section className="rounded-3xl border border-brand-special/15 bg-gradient-to-br from-white to-brand-special/5 p-6 shadow-sm sm:p-7">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider text-brand-special">
                 Your classes
               </p>
-              <h2 className="text-lg font-semibold text-brand-text">
+              <h2 className="text-xl font-semibold text-brand-text">
                 Share a class code so students can join
               </h2>
             </div>
@@ -209,7 +218,7 @@ export function EducatorHome() {
           </div>
 
           {classes.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-brand-surface bg-brand-background px-4 py-6 text-sm text-brand-text/65">
+            <p className="rounded-2xl border border-dashed border-brand-special/25 bg-white px-4 py-8 text-center text-sm text-brand-text/65">
               You have not created a class yet. Teachers get a join code only
               after creating a class — students enter that code at signup.
             </p>
@@ -218,17 +227,19 @@ export function EducatorHome() {
               {classes.slice(0, 4).map((row) => (
                 <li
                   key={row.class_code}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-brand-surface bg-brand-background/70 px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-brand-primary/15 bg-white px-4 py-4 shadow-sm"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-brand-text">
                       {row.class_name}
                     </p>
-                    <p className="text-xs text-brand-text/55">
-                      Grade {row.grade_level}
-                      {row.subject ? ` · ${row.subject}` : ""}
+                    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-brand-text/55">
+                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 font-semibold text-brand-primary">
+                        Grade {row.grade_level}
+                      </span>
+                      {row.subject ? <span>{row.subject}</span> : null}
                     </p>
-                    <p className="mt-1 font-mono text-xs text-brand-primary">
+                    <p className="mt-2 font-mono text-sm font-semibold text-brand-special">
                       {row.class_code}
                     </p>
                   </div>
@@ -251,7 +262,7 @@ export function EducatorHome() {
                     <Button
                       asChild
                       size="sm"
-                      className="h-7 bg-brand-primary text-white hover:bg-brand-primary/90"
+                      className="h-8 bg-brand-primary text-white hover:bg-brand-primary/90"
                     >
                       <Link
                         href={EDUCATOR_DASHBOARD_PATH}

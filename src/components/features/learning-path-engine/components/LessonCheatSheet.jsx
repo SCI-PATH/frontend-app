@@ -12,7 +12,9 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const [expanded, setExpanded] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const sheetRef = useRef(null);
 
   useEffect(() => {
@@ -48,9 +50,18 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
     onCollapsedChange?.(!nextExpanded);
   }
 
-  function onDownloadPdf() {
-    if (!sheet) return;
-    downloadCheatsheetPdf(sheet, lessonTitle || sheet.title);
+  async function onDownloadPdf() {
+    if (!sheet || downloading) return;
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      await downloadCheatsheetPdf(sheet, lessonTitle || sheet.title);
+    } catch (err) {
+      console.error("[LessonCheatSheet] PDF download failed", err);
+      setDownloadError("Could not download the PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   if (loading) {
@@ -127,11 +138,17 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
               <button
                 type="button"
                 className="lesson-static__cheatsheet-download"
-                onClick={onDownloadPdf}
+                onClick={() => void onDownloadPdf()}
+                disabled={downloading}
               >
                 <Download size={16} aria-hidden />
-                Download PDF
+                {downloading ? "Preparing PDF…" : "Download PDF"}
               </button>
+              {downloadError ? (
+                <p className="lesson-static__muted" role="alert">
+                  {downloadError}
+                </p>
+              ) : null}
             </>
           ) : (
             <div className="lesson-static__placeholder">

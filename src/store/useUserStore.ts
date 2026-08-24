@@ -20,9 +20,15 @@ type UserStore = {
   accessToken: string | null;
   /** Selected classroom for educator analytics (persisted). */
   activeClassCode: string | null;
+  /** Student avatar choice keyed by user id (User Management has no avatar field). */
+  studentAvatarByUserId: Record<string, string>;
+  /** Teacher avatar choice keyed by user id. */
+  teacherAvatarByUserId: Record<string, string>;
   hasHydrated: boolean;
   login: (userData: User, token: string) => void;
   logout: () => void;
+  setStudentAvatar: (userId: string, avatarId: string) => void;
+  setTeacherAvatar: (userId: string, avatarId: string) => void;
   setSession: (partial: {
     user?: User | null;
     token?: string | null;
@@ -65,45 +71,75 @@ export const useUserStore = create<UserStore>()(
     (set) => ({
       ...emptySession,
       activeClassCode: null,
+      studentAvatarByUserId: {},
+      teacherAvatarByUserId: {},
       hasHydrated: false,
       login: (userData, token) =>
         set({ ...sessionFromUser(userData, token), hasHydrated: true }),
       logout: () =>
         set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
+      setStudentAvatar: (userId, avatarId) =>
+        set((state) => {
+          const id = userId.trim();
+          if (!id) return state;
+          return {
+            studentAvatarByUserId: {
+              ...state.studentAvatarByUserId,
+              [id]: avatarId,
+            },
+          };
+        }),
+      setTeacherAvatar: (userId, avatarId) =>
+        set((state) => {
+          const id = userId.trim();
+          if (!id) return state;
+          return {
+            teacherAvatarByUserId: {
+              ...state.teacherAvatarByUserId,
+              [id]: avatarId,
+            },
+          };
+        }),
       setSession: (partial) =>
         set((state) => {
-      const nextUser =
-        partial.user !== undefined
-          ? partial.user
-          : state.user
-            ? {
-                ...state.user,
-                ...(partial.userId !== undefined ? { id: partial.userId || state.user.id } : {}),
-                ...(partial.fullName !== undefined
-                  ? { name: partial.fullName || state.user.name }
-                  : {}),
-                ...(partial.email !== undefined
-                  ? { email: partial.email || state.user.email }
-                  : {}),
-                ...(partial.role !== undefined ? { role: partial.role || state.user.role } : {}),
-              }
-            : state.user;
-      const nextToken =
-        partial.token !== undefined
-          ? partial.token
-          : partial.accessToken !== undefined
-            ? partial.accessToken
-            : state.token;
-      const base = sessionFromUser(nextUser, nextToken);
-      return {
-        ...base,
-        ...(partial.userId !== undefined ? { userId: partial.userId } : {}),
-        ...(partial.fullName !== undefined ? { fullName: partial.fullName } : {}),
-        ...(partial.email !== undefined ? { email: partial.email } : {}),
-        ...(partial.role !== undefined ? { role: partial.role } : {}),
-        ...(partial.grade !== undefined ? { grade: partial.grade } : {}),
-        ...(partial.accessToken !== undefined ? { accessToken: partial.accessToken } : {}),
-      };
+          const nextUser =
+            partial.user !== undefined
+              ? partial.user
+              : state.user
+                ? {
+                    ...state.user,
+                    ...(partial.userId !== undefined
+                      ? { id: partial.userId || state.user.id }
+                      : {}),
+                    ...(partial.fullName !== undefined
+                      ? { name: partial.fullName || state.user.name }
+                      : {}),
+                    ...(partial.email !== undefined
+                      ? { email: partial.email || state.user.email }
+                      : {}),
+                    ...(partial.role !== undefined
+                      ? { role: partial.role || state.user.role }
+                      : {}),
+                  }
+                : state.user;
+          const nextToken =
+            partial.token !== undefined
+              ? partial.token
+              : partial.accessToken !== undefined
+                ? partial.accessToken
+                : state.token;
+          const base = sessionFromUser(nextUser, nextToken);
+          return {
+            ...base,
+            ...(partial.userId !== undefined ? { userId: partial.userId } : {}),
+            ...(partial.fullName !== undefined ? { fullName: partial.fullName } : {}),
+            ...(partial.email !== undefined ? { email: partial.email } : {}),
+            ...(partial.role !== undefined ? { role: partial.role } : {}),
+            ...(partial.grade !== undefined ? { grade: partial.grade } : {}),
+            ...(partial.accessToken !== undefined
+              ? { accessToken: partial.accessToken }
+              : {}),
+          };
         }),
       clearSession: () =>
         set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
@@ -124,6 +160,8 @@ export const useUserStore = create<UserStore>()(
         grade: state.grade,
         accessToken: state.accessToken,
         activeClassCode: state.activeClassCode,
+        studentAvatarByUserId: state.studentAvatarByUserId,
+        teacherAvatarByUserId: state.teacherAvatarByUserId,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

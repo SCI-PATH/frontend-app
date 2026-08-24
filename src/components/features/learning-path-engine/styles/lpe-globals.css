@@ -57,7 +57,12 @@
     margin: 0.5rem 0 0.25rem;
     color: var(--brand-ink);
   }
-  :where(.lpe-app input, .lpe-app select, .lpe-app textarea, .lpe-app button) {
+  /*
+   * Legacy form controls only — never restyle app chrome (header/nav) or
+   * shadcn primitives ([data-slot]). Otherwise navbar buttons become full-width
+   * "empty boxes" when FeatureShell wraps shared Navbar / EducatorNavbar.
+   */
+  :where(.lpe-app) :is(input, select, textarea, button):not(header *):not([data-slot]) {
     font: inherit;
     width: 100%;
     padding: 0.5rem 0.6rem;
@@ -66,7 +71,7 @@
     background: #fff;
     color: var(--brand-ink);
   }
-  :where(.lpe-app button) {
+  :where(.lpe-app) button:not(header *):not([data-slot]) {
     margin-top: 1rem;
     cursor: pointer;
     background: var(--brand-focus);
@@ -74,8 +79,13 @@
     border: none;
     font-weight: 600;
   }
-  :where(.lpe-app button:hover:not(:disabled)) { background: var(--brand-focus-dark); }
-  :where(.lpe-app button:disabled) { opacity: 0.6; cursor: not-allowed; }
+  :where(.lpe-app) button:not(header *):not([data-slot]):hover:not(:disabled) {
+    background: var(--brand-focus-dark);
+  }
+  :where(.lpe-app) button:not(header *):not([data-slot]):disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .lpe-app .card {
