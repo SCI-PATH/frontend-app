@@ -4,6 +4,7 @@ SCI_PATH farm — Phaser 3 + React (Vite). Runs on port **5173** when started fr
 
 ## How integrators run SCI-PATH + farm
 
+<<<<<<< HEAD
 1. **gaming-service backend** (`:8002`) — engagement API, Sage, mind maps  
 2. **This Vite app** (`:5173`) — farm UI  
 3. **frontend-app** (`:3000`) — students sign in and launch the farm from the dashboard  
@@ -37,9 +38,15 @@ http://localhost:5173/
 `topicId` is always included: live tutor topic → last saved topic for the student → first curriculum topic for their grade.
 
 Set in Next `.env.local`:
+=======
+**Game Arena** on the student dashboard opens the farm with query params.
+
+Backend API (`/api/storyline`, `/api/avatar-chat`, …) is proxied to `GAMING_API_PROXY_TARGET` (local `:8002` or EC2).
+>>>>>>> a661e281f183d2ef1c48b09b9341cb278fc59be1
 
 ```env
 NEXT_PUBLIC_GAMING_SERVICE_URL=http://localhost:5173
+GAMING_API_PROXY_TARGET=http://127.0.0.1:8002
 ```
 
 Params are built in:
