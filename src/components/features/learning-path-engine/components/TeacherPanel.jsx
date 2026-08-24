@@ -49,7 +49,12 @@ const TABS = [
   { id: "materials", label: "Additional material", icon: Link2 },
 ];
 
-export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlot }) {
+export default function TeacherPanel({
+  onBack,
+  teacherId: teacherIdProp,
+  backSlot,
+  embedded = false,
+}) {
   const [teacherId] = useState(teacherIdProp || "");
   const [grade, setGrade] = useState(7);
   const [profile, setProfile] = useState("basic");
@@ -453,45 +458,60 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
     lessons.find((l) => l.lesson_id === lessonId)?.title ||
     "";
 
-  return (
-    <main className="teacher-panel m-0 max-w-none min-h-screen bg-brand-background p-0 pb-12 text-brand-text">
-      <div className="bg-brand-primary px-5 py-7 sm:px-8 lg:px-12">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-4">
-          <div className="text-white">
-            <p className="m-0 text-xs font-bold tracking-[0.18em] uppercase opacity-80">
-              Educator workspace
-            </p>
-            <h1 className="m-0 mt-1 text-2xl font-bold text-white sm:text-3xl">
-              Learning Content Studio
-            </h1>
-          </div>
-          {backSlot
-            ? backSlot
-            : onBack
-              ? (
-                <button
-                  type="button"
-                  className="m-0 w-auto rounded-full border border-white/50 bg-white px-4 py-2 text-sm font-semibold text-brand-primary"
-                  onClick={onBack}
-                >
-                  Back
-                </button>
-              )
-              : null}
-        </div>
-      </div>
+  const fieldClass =
+    "mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-brand-background/80 px-3 text-brand-text outline-none transition-colors focus:border-brand-primary focus:bg-white focus:ring-3 focus:ring-brand-primary/20";
 
-      <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-8 lg:px-12">
-        <section className="mb-6 rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-6">
+  return (
+    <main
+      className={`teacher-panel m-0 max-w-none p-0 text-brand-text ${
+        embedded ? "min-h-0 bg-transparent pb-4" : "min-h-screen bg-brand-background pb-12"
+      }`}
+    >
+      {!embedded ? (
+        <div className="bg-gradient-to-br from-brand-special via-brand-primary to-brand-accent px-5 py-7 sm:px-8 lg:px-12">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4">
+            <div className="text-white">
+              <p className="m-0 text-xs font-bold tracking-[0.18em] uppercase opacity-80">
+                Educator workspace
+              </p>
+              <h1 className="m-0 mt-1 text-2xl font-bold text-white sm:text-3xl">
+                Content Generation
+              </h1>
+            </div>
+            {backSlot
+              ? backSlot
+              : onBack
+                ? (
+                  <button
+                    type="button"
+                    className="m-0 w-auto rounded-full border border-white/50 bg-white px-4 py-2 text-sm font-semibold text-brand-primary"
+                    onClick={onBack}
+                  >
+                    Back
+                  </button>
+                )
+                : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className={embedded ? "w-full" : "mx-auto w-full max-w-6xl px-5 py-6 sm:px-8"}>
+        <section className="mb-6 rounded-2xl border border-brand-secondary/25 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="m-0 text-lg font-bold text-brand-text">Choose lesson context</h2>
+              <p className="m-0 text-sm font-bold uppercase tracking-wider text-brand-secondary">
+                Context
+              </p>
+              <h2 className="m-0 mt-1 text-lg font-bold text-brand-text">
+                Choose lesson context
+              </h2>
               <p className="m-0 mt-1 text-sm text-brand-text/60">
                 Saved verified content loads automatically when you change the selection.
               </p>
             </div>
-            <span className="rounded-full bg-brand-secondary/15 px-3 py-1 text-xs font-bold text-brand-text">
-              Neon verified library
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-secondary/15 px-3 py-1.5 text-xs font-bold text-brand-text ring-1 ring-brand-secondary/25">
+              <CheckCircle2 className="size-3.5 text-brand-secondary" aria-hidden />
+              Verified library
             </span>
           </div>
 
@@ -500,7 +520,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
               Grade
               <select
                 id="tGrade"
-                className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-brand-background px-3 text-brand-text outline-none focus:border-brand-primary"
+                className={fieldClass}
                 value={grade}
                 onChange={(e) => {
                   setGrade(Number(e.target.value));
@@ -516,7 +536,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
               Student level
               <select
                 id="tProfile"
-                className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-brand-background px-3 text-brand-text outline-none focus:border-brand-primary"
+                className={fieldClass}
                 value={profile}
                 onChange={(e) => {
                   setProfile(e.target.value);
@@ -532,7 +552,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
               Chapter
               <select
                 id="tLesson"
-                className="mt-1.5 h-11 w-full rounded-xl border border-brand-surface bg-brand-background px-3 text-brand-text outline-none focus:border-brand-primary"
+                className={fieldClass}
                 value={lessonId}
                 onChange={(e) => {
                   setLessonId(e.target.value);
@@ -551,7 +571,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
         </section>
 
         <div
-          className="mb-6 grid grid-cols-1 gap-2 rounded-2xl border border-brand-surface bg-white p-2 sm:grid-cols-3"
+          className="mb-6 grid grid-cols-1 gap-1.5 rounded-2xl border border-brand-surface bg-white p-1.5 shadow-sm sm:grid-cols-3"
           role="tablist"
           aria-label="Teacher content sections"
         >
@@ -564,10 +584,10 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                className={`m-0 flex w-full items-center justify-center gap-2 rounded-xl border-0 px-4 py-3 text-sm font-bold transition-colors ${
+                className={`m-0 flex w-full items-center justify-center gap-2 rounded-xl border-0 px-4 py-3 text-sm font-bold transition-all duration-200 ${
                   selected
-                    ? "bg-brand-primary text-white"
-                    : "bg-white text-brand-text/65 hover:bg-brand-primary/10 hover:text-brand-primary"
+                    ? "bg-brand-primary text-white shadow-sm"
+                    : "bg-transparent text-brand-text/65 hover:bg-brand-primary/10 hover:text-brand-primary"
                 }`}
                 onClick={() => setTab(item.id)}
               >
@@ -579,23 +599,25 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
         </div>
 
         {tab === "content" ? (
-          <form className="rounded-2xl border border-brand-surface bg-white shadow-sm" onSubmit={onGenerate}>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-surface p-5 sm:p-6">
+          <form className="overflow-hidden rounded-2xl border border-brand-primary/15 bg-white shadow-sm" onSubmit={onGenerate}>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-surface bg-gradient-to-r from-brand-primary/5 via-white to-brand-secondary/5 p-5 sm:p-6">
               <div>
-                <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
-                  <BookOpen className="size-5 text-brand-primary" aria-hidden />
+                <h2 className="m-0 flex items-center gap-2 text-xl font-bold text-brand-text">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                    <BookOpen className="size-4" aria-hidden />
+                  </span>
                   Verified lesson content
                 </h2>
-                <p className="m-0 mt-1 text-sm text-brand-text/60">
+                <p className="m-0 mt-1.5 text-sm text-brand-text/60">
                   {chapterTitle || "Select a chapter"} · Grade {grade} ·{" "}
                   {PROFILE_LABEL[profile] || profile}
                 </p>
               </div>
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${
                   contentId
-                    ? "bg-brand-secondary/15 text-brand-text"
-                    : "bg-brand-accent/15 text-brand-accent"
+                    ? "bg-brand-secondary/15 text-brand-text ring-brand-secondary/30"
+                    : "bg-brand-accent/10 text-brand-accent ring-brand-accent/25"
                 }`}
               >
                 {contentId ? <CheckCircle2 className="size-3.5" aria-hidden /> : null}
@@ -606,14 +628,14 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
             <div className="p-5 sm:p-6">
               <textarea
                 id="editText"
-                className="min-h-[520px] w-full resize-y rounded-2xl border border-brand-surface bg-brand-background p-5 font-sans text-[15px] leading-7 text-brand-text outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
+                className="min-h-[480px] w-full resize-y rounded-2xl border border-brand-surface bg-brand-background/80 p-5 font-sans text-[15px] leading-7 text-brand-text outline-none transition-colors focus:border-brand-primary focus:bg-white focus:ring-4 focus:ring-brand-primary/10"
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 placeholder="Saved content appears here automatically. Generate content if this chapter and level do not have an entry yet."
               />
 
               {statusNote ? (
-                <p className="m-0 mt-3 rounded-xl bg-brand-primary/10 px-4 py-3 text-sm text-brand-text">
+                <p className="m-0 mt-3 rounded-xl border border-brand-primary/15 bg-brand-primary/10 px-4 py-3 text-sm text-brand-text">
                   {statusNote}
                 </p>
               ) : null}
@@ -621,7 +643,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
               <div className="mt-5 flex flex-col-reverse gap-3 border-t border-brand-surface pt-5 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-accent bg-white px-5 py-3 font-bold text-brand-accent hover:bg-brand-accent hover:text-white sm:w-auto"
+                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-accent/40 bg-white px-5 py-3 font-bold text-brand-accent transition-colors hover:bg-brand-accent hover:text-white sm:w-auto"
                   disabled={busy || generating || !contentId}
                   onClick={() => void onDelete()}
                 >
@@ -630,7 +652,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
                 </button>
                 <button
                   type="button"
-                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-primary bg-white px-5 py-3 font-bold text-brand-primary hover:bg-brand-primary/10 sm:w-auto"
+                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-primary bg-white px-5 py-3 font-bold text-brand-primary transition-colors hover:bg-brand-primary/10 sm:w-auto"
                   disabled={busy || generating || !editText.trim()}
                   onClick={() => void onUpdate()}
                 >
@@ -639,7 +661,7 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
                 </button>
                 <button
                   type="submit"
-                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-brand-special px-5 py-3 font-bold text-white hover:bg-brand-special/90 sm:w-auto"
+                  className="m-0 inline-flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-brand-special px-5 py-3 font-bold text-white shadow-sm transition-colors hover:bg-brand-special/90 sm:w-auto"
                   disabled={generating || !lessonId}
                 >
                   <RefreshCw className={`size-4 ${generating ? "animate-spin" : ""}`} aria-hidden />
@@ -652,14 +674,18 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
 
         {tab === "media" ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
-            <section className="rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
-                <Video className="size-5 text-brand-primary" aria-hidden />
-                Video library
-              </h2>
-              <p className="m-0 mt-1 text-sm text-brand-text/60">
-                Add YouTube lessons in the order students should watch them.
-              </p>
+            <section className="rounded-2xl border border-brand-primary/15 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                  <Video className="size-4" aria-hidden />
+                </span>
+                <div>
+                  <h2 className="m-0 text-xl font-bold text-brand-text">Video library</h2>
+                  <p className="m-0 mt-1 text-sm text-brand-text/60">
+                    Add YouTube lessons in the order students should watch them.
+                  </p>
+                </div>
+              </div>
 
               <div className="mt-5 space-y-3">
                 {mediaVideos.map((video, index) => (
@@ -753,14 +779,18 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
-                <ImageIcon className="size-5 text-brand-special" aria-hidden />
-                Images
-              </h2>
-              <p className="m-0 mt-1 text-sm text-brand-text/60">
-                Upload photos or paste a public image URL. Files are stored with this chapter.
-              </p>
+            <section className="rounded-2xl border border-brand-special/20 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-special/10 text-brand-special">
+                  <ImageIcon className="size-4" aria-hidden />
+                </span>
+                <div>
+                  <h2 className="m-0 text-xl font-bold text-brand-text">Images</h2>
+                  <p className="m-0 mt-1 text-sm text-brand-text/60">
+                    Upload photos or paste a public image URL. Files are stored with this chapter.
+                  </p>
+                </div>
+              </div>
 
               <label
                 className="mt-5 flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-brand-special/35 bg-brand-special/5 px-4 py-8 text-center"
@@ -858,14 +888,18 @@ export default function TeacherPanel({ onBack, teacherId: teacherIdProp, backSlo
         ) : null}
 
         {tab === "materials" ? (
-          <section className="rounded-2xl border border-brand-surface bg-white p-5 shadow-sm sm:p-7">
-            <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
-              <Link2 className="size-5 text-brand-primary" aria-hidden />
-              Additional material
-            </h2>
-            <p className="m-0 mt-1 text-sm text-brand-text/60">
-              Add links to websites, articles, or reference pages students can open while studying.
-            </p>
+          <section className="rounded-2xl border border-brand-primary/15 bg-white p-5 shadow-sm sm:p-7">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                <Link2 className="size-4" aria-hidden />
+              </span>
+              <div>
+                <h2 className="m-0 text-xl font-bold text-brand-text">Additional material</h2>
+                <p className="m-0 mt-1 text-sm text-brand-text/60">
+                  Add links to websites, articles, or reference pages students can open while studying.
+                </p>
+              </div>
+            </div>
 
             <div className="mt-5 space-y-3">
               {materialLinks.map((link, index) => (
