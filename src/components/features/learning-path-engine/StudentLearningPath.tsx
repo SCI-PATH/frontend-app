@@ -24,6 +24,7 @@ import {
   buildGamingServiceLaunchUrl,
   getGamingServiceBaseUrl,
 } from "@/components/features/gaming-service/buildGamingServiceLaunchUrl";
+import { readGamingLaunchParams } from "@/components/features/gaming-service/getGamingLaunchContext";
 import { useUserStore } from "@/store/useUserStore";
 import type { CurriculumLesson, CurriculumResponse, LessonResponse } from "@/types";
 
@@ -437,16 +438,9 @@ export default function StudentLearningPath() {
   /** After a lesson, OK opens the Discovery Grove start screen (Vite farm). */
   function onTestKnowledgeOk() {
     setTestKnowledgeOpen(false);
-    const studentId = userId || sessionUserId;
-    const displayName = sessionName || "Science explorer";
-    if (studentId && displayName) {
-      window.location.assign(
-        buildGamingServiceLaunchUrl({
-          studentId,
-          displayName,
-          grade,
-        }),
-      );
+    const params = readGamingLaunchParams();
+    if (params) {
+      window.location.assign(buildGamingServiceLaunchUrl(params));
       return;
     }
     window.location.assign(getGamingServiceBaseUrl());
