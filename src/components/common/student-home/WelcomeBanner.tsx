@@ -2,7 +2,7 @@
 
 import { Flag, Flame, Sparkles } from "lucide-react";
 
-import { RoleAvatar } from "@/components/common/RoleAvatar";
+import { StudentAvatar } from "@/components/common/StudentAvatar";
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
 import type { TeacherClass } from "@/types";
@@ -26,11 +26,9 @@ export function WelcomeBanner({
         className="pointer-events-none absolute bottom-0 left-1/3 size-40 rounded-full bg-brand-secondary/30 blur-3xl"
         aria-hidden
       />
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4 sm:gap-5">
-          <div className="rounded-full bg-white p-1.5">
-            <RoleAvatar role="student" size="xl" showRing />
-          </div>
+      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-5 sm:gap-7">
+          <StudentAvatar size="hero" className="ring-2 ring-white/70" />
           <div className="space-y-1.5">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
               <Sparkles className="size-4" aria-hidden />

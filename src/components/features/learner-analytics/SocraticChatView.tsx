@@ -14,9 +14,11 @@ import { useTutorStore } from "@/store/useTutorStore";
 export function SocraticChatView({
   variant = "full",
   onClose,
+  onExpand,
 }: {
   variant?: "full" | "compact";
   onClose?: () => void;
+  onExpand?: () => void;
 }) {
   const compact = variant === "compact";
   const messages = useTutorStore((state) => state.messages);
@@ -48,12 +50,7 @@ export function SocraticChatView({
 
   return (
     <section
-      className={cn(
-        "flex w-full flex-col overflow-hidden bg-white",
-        compact
-          ? "h-full"
-          : "h-[min(52rem,calc(100dvh-4rem))] rounded-2xl border border-brand-surface shadow-[0_18px_50px_-32px_rgba(114,9,183,0.35)]"
-      )}
+      className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-brand-primary/20 bg-brand-background shadow-[0_18px_50px_-32px_rgba(114,9,183,0.35)]"
       aria-label="Socratic tutor chat"
     >
       <ChatHeader
@@ -63,7 +60,7 @@ export function SocraticChatView({
         metadata={metadata}
         canStartNew={!isSending && messages.length > 1}
         compact={compact}
-        expandHref={compact ? "/tutor" : undefined}
+        onExpand={onExpand}
         onClose={onClose}
         onPersonaChange={setPersonaId}
         onTopicLockedChange={setTopicLocked}
@@ -78,7 +75,7 @@ export function SocraticChatView({
       ) : null}
 
       <div
-        className="flex-1 space-y-3 overflow-y-auto bg-white px-4 py-4 sm:px-5"
+        className="flex-1 space-y-3 overflow-y-auto bg-brand-background px-4 py-4 sm:px-5"
         role="log"
         aria-live="polite"
         aria-busy={isSending}
@@ -92,7 +89,7 @@ export function SocraticChatView({
 
       <footer
         className={cn(
-          "space-y-3 border-t border-brand-surface bg-white px-4 py-3 sm:px-5",
+          "space-y-3 border-t border-brand-surface bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-5",
           compact && "space-y-2 px-3 py-2.5 sm:px-3"
         )}
       >

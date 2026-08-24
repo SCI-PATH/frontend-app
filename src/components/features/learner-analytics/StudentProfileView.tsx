@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, BookOpen, Loader2, Target } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  Loader2,
+  Sparkles,
+  Target,
+} from "lucide-react";
 
+import { StudentAvatarPicker } from "@/components/features/learner-analytics/StudentAvatarPicker";
+import { StudentProfileDetailsForm } from "@/components/features/learner-analytics/StudentProfileDetailsForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
@@ -13,7 +22,10 @@ import { countStudentTopicBands, masteryPercent } from "@/lib/educator/bkt";
 import { getRiskTier } from "@/lib/educator/risk";
 import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
 import { studentFocusAction, studentFocusReason } from "@/lib/student/focusAreas";
-import { fetchEnrolledClasses } from "@/lib/user-management";
+import {
+  fetchCurrentUser,
+  fetchEnrolledClasses,
+} from "@/lib/user-management";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
 import type { StudentProfileResponse, TeacherClass } from "@/types";
@@ -22,6 +34,7 @@ export function StudentProfileView() {
   const user = useUserStore((state) => state.user);
   const userId = useUserStore((state) => state.userId);
   const token = useUserStore((state) => state.token);
+  const setSession = useUserStore((state) => state.setSession);
   const [profile, setProfile] = useState<StudentProfileResponse | null>(null);
   const [enrolledClasses, setEnrolledClasses] = useState<TeacherClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,12 +49,14 @@ export function StudentProfileView() {
     setIsLoading(true);
     setError(null);
     try {
-      const [nextProfile, classes] = await Promise.all([
+      const [nextProfile, classes, account] = await Promise.all([
         fetchStudentProfile(userId),
         token ? fetchEnrolledClasses(token).catch(() => []) : Promise.resolve([]),
+        token ? fetchCurrentUser(token).catch(() => null) : Promise.resolve(null),
       ]);
       setProfile(nextProfile);
       setEnrolledClasses(classes);
+      if (account) setSession({ user: account });
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not load your profile."
@@ -49,7 +64,7 @@ export function StudentProfileView() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, userId]);
+  }, [setSession, token, userId]);
 
   useEffect(() => {
     void load();
@@ -63,45 +78,64 @@ export function StudentProfileView() {
     return countStudentTopicBands(row, topicIds);
   }, [profile]);
 
+  const overallMastery = useMemo(() => {
+    const values = (profile?.bkt_parameters ?? [])
+      .map((row) => row.p_l)
+      .filter((value): value is number => typeof value === "number");
+    if (values.length === 0) return null;
+    return Math.round(
+      (values.reduce((sum, value) => sum + value, 0) / values.length) * 100
+    );
+  }, [profile]);
+
   const focusAreas = profile?.focus_areas ?? [];
   const enrolled = enrolledClasses[0] ?? null;
   const distractors =
     profile?.assessment_insights?.most_frequent_distractor_tags ?? [];
   const recentAttempts = profile?.recent_attempts ?? [];
+  const quizAttempts = profile?.assessment_insights?.attempts_count ?? recentAttempts.length;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 py-6 sm:px-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wider text-brand-secondary">
-            Learner profile
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
-            {user?.name || "Your profile"}
-          </h1>
-          <p className="mt-1 text-sm text-brand-text/65">
-            {user?.grade ?? "Grade"}
-            {enrolled ? ` · ${enrolled.class_name}` : ""}
+      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-primary via-brand-special to-brand-accent px-5 py-6 text-white sm:px-8 sm:py-8">
+        <div
+          className="pointer-events-none absolute -right-12 -top-16 size-52 rounded-full bg-white/15 blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 left-1/3 size-40 rounded-full bg-brand-secondary/30 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
+              <Sparkles className="size-4" aria-hidden />
+              Learner profile
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {user?.name || "Your profile"}
+            </h1>
+            <p className="max-w-xl text-base text-white/90">
+              {user?.grade ?? "Grade"}
+              {enrolled ? ` · ${enrolled.class_name}` : " · Choose an avatar and keep your details up to date"}
+            </p>
             {enrolled ? (
-              <span className="ml-1 font-mono text-brand-primary">
-                {enrolled.class_code}
-              </span>
-            ) : (
-              " · Not enrolled in a class yet"
-            )}
-          </p>
+              <p className="font-mono text-sm text-white/80">{enrolled.class_code}</p>
+            ) : null}
+            <Button
+              asChild
+              variant="outline"
+              className="border-white/50 bg-white/10 text-white hover:bg-white hover:text-brand-primary"
+            >
+              <Link href={STUDENT_HOME_PATH}>
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to home
+              </Link>
+            </Button>
+          </div>
+          <StudentAvatarPicker />
         </div>
-        <Button
-          asChild
-          variant="outline"
-          className="border-brand-surface bg-white text-brand-text hover:bg-brand-background"
-        >
-          <Link href={STUDENT_HOME_PATH}>
-            <ArrowLeft className="size-4" aria-hidden />
-            Back to home
-          </Link>
-        </Button>
-      </div>
+      </section>
 
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-brand-surface bg-white py-16 text-brand-text/70">
@@ -114,18 +148,38 @@ export function StudentProfileView() {
         </p>
       ) : (
         <>
-          <section className="grid gap-3 sm:grid-cols-3">
-            <StatCard
-              label="Skills practised"
-              value={String(profile?.topics_covered_count ?? 0)}
-            />
-            <StatCard label="Mastered" value={String(bands.mastered)} tone="ok" />
-            <StatCard
-              label="Focus skills"
-              value={String(profile?.focus_areas_count ?? focusAreas.length)}
-              tone={focusAreas.length > 0 ? "alert" : "default"}
-            />
-          </section>
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+            <StudentProfileDetailsForm />
+            <section className="grid gap-3 sm:grid-cols-2">
+              <StatCard
+                label="Overall mastery"
+                value={overallMastery != null ? `${overallMastery}%` : "—"}
+                hint="Average P(L) across practised skills"
+              />
+              <StatCard
+                label="Skills practised"
+                value={String(profile?.topics_covered_count ?? 0)}
+              />
+              <StatCard
+                label="Mastered"
+                value={String(bands.mastered)}
+                tone="ok"
+              />
+              <StatCard
+                label="Still learning"
+                value={String(bands.learning)}
+              />
+              <StatCard
+                label="Needs support"
+                value={String(bands.atRisk)}
+                tone={bands.atRisk > 0 ? "alert" : "default"}
+              />
+              <StatCard
+                label="Quiz attempts"
+                value={String(quizAttempts)}
+              />
+            </section>
+          </div>
 
           {enrolled ? (
             <section className="flex items-start gap-3 rounded-2xl border border-brand-primary/20 bg-white px-5 py-4">
@@ -150,9 +204,9 @@ export function StudentProfileView() {
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-red-200 bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-brand-accent/25 bg-white p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-2">
-              <Target className="size-5 text-red-600" aria-hidden />
+              <Target className="size-5 text-brand-accent" aria-hidden />
               <div>
                 <h2 className="text-lg font-semibold text-brand-text">
                   Skills to practise
@@ -225,15 +279,32 @@ export function StudentProfileView() {
                   return (
                     <li
                       key={row.topic_id}
-                      className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                      className="flex flex-wrap items-center justify-between gap-3 py-3"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-brand-text">
                           {getCurriculumTitle(row.topic_id)}
                         </p>
                         <p className="font-mono text-xs text-brand-text/45">
                           {row.topic_id}
                         </p>
+                        {pct !== null ? (
+                          <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-brand-surface">
+                            <div
+                              className={cn(
+                                "h-full rounded-full",
+                                row.mastery_category === "advanced" ||
+                                  row.mastery_category === "mastered"
+                                  ? "bg-brand-secondary"
+                                  : row.mastery_category === "basic" ||
+                                      row.mastery_category === "at_risk"
+                                    ? "bg-brand-accent"
+                                    : "bg-brand-primary"
+                              )}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-brand-text">
@@ -241,9 +312,11 @@ export function StudentProfileView() {
                         </span>
                         <Badge
                           className={
-                            row.mastery_category === "advanced"
+                            row.mastery_category === "advanced" ||
+                            row.mastery_category === "mastered"
                               ? "bg-brand-secondary/20 text-brand-text"
-                              : row.mastery_category === "basic"
+                              : row.mastery_category === "basic" ||
+                                  row.mastery_category === "at_risk"
                                 ? EDUCATOR_AT_RISK.badge
                                 : "bg-brand-primary/15 text-brand-primary"
                           }
@@ -330,10 +403,12 @@ export function StudentProfileView() {
 function StatCard({
   label,
   value,
+  hint,
   tone = "default",
 }: {
   label: string;
   value: string;
+  hint?: string;
   tone?: "default" | "ok" | "alert";
 }) {
   return (
@@ -341,7 +416,7 @@ function StatCard({
       className={cn(
         "rounded-2xl border bg-white px-4 py-4",
         tone === "ok" && "border-brand-secondary/35",
-        tone === "alert" && "border-red-200",
+        tone === "alert" && "border-brand-accent/35",
         tone === "default" && "border-brand-surface"
       )}
     >
@@ -352,12 +427,13 @@ function StatCard({
         className={cn(
           "mt-1 text-2xl font-bold",
           tone === "ok" && "text-brand-secondary",
-          tone === "alert" && EDUCATOR_AT_RISK.textStrong,
+          tone === "alert" && "text-brand-accent",
           tone === "default" && "text-brand-text"
         )}
       >
         {value}
       </p>
+      {hint ? <p className="mt-1 text-xs text-brand-text/50">{hint}</p> : null}
     </div>
   );
 }

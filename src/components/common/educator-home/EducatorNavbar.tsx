@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "@/components/common/BrandLockup";
-import { RoleAvatar } from "@/components/common/RoleAvatar";
-import { BASE_PATH, EDUCATOR_HOME_PATH } from "@/lib/auth-routes";
+import { TeacherAvatar } from "@/components/common/TeacherAvatar";
+import {
+  BASE_PATH,
+  EDUCATOR_HOME_PATH,
+  EDUCATOR_PROFILE_PATH,
+} from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 
 export function EducatorNavbar() {
@@ -35,7 +40,11 @@ export function EducatorNavbar() {
           <Badge className="h-8 rounded-full bg-brand-special/10 px-3 text-sm text-brand-special hover:bg-brand-special/10">
             Educator
           </Badge>
-          <div className="flex items-center gap-2 pl-1" aria-label={`${displayName} educator profile`}>
+          <Link
+            href={EDUCATOR_PROFILE_PATH}
+            className="flex items-center gap-2 pl-1"
+            aria-label={`${displayName} educator profile`}
+          >
             <div className="hidden text-right sm:block">
               <p className="text-base font-semibold leading-tight text-brand-text">
                 {displayName}
@@ -44,8 +53,8 @@ export function EducatorNavbar() {
                 {subtitle}
               </p>
             </div>
-            <RoleAvatar role="educator" size="sm" />
-          </div>
+            <TeacherAvatar size="md" />
+          </Link>
           <Button
             type="button"
             variant="outline"
