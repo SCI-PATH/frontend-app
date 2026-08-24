@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronDown, Maximize2, MessageSquarePlus, X, Zap } from "lucide-react";
 
 import { LessonLockToggle } from "@/components/features/learner-analytics/LessonLockToggle";
@@ -31,7 +30,7 @@ interface ChatHeaderProps {
   metadata: TutorTurnMetadata;
   canStartNew?: boolean;
   compact?: boolean;
-  expandHref?: string;
+  onExpand?: () => void;
   onClose?: () => void;
   onPersonaChange: (personaId: TutorPersonaId) => void;
   onTopicLockedChange: (locked: boolean) => void;
@@ -45,7 +44,7 @@ export function ChatHeader({
   metadata,
   canStartNew = true,
   compact = false,
-  expandHref,
+  onExpand,
   onClose,
   onPersonaChange,
   onTopicLockedChange,
@@ -60,7 +59,7 @@ export function ChatHeader({
       : null;
 
   return (
-    <header className="border-b border-brand-surface bg-white">
+    <header className="border-b border-brand-primary/15 bg-gradient-to-r from-brand-primary/10 via-brand-special/10 to-brand-accent/10">
       <div
         className={cn(
           "flex flex-col gap-3 px-4 py-3 sm:px-5",
@@ -135,17 +134,17 @@ export function ChatHeader({
             <MessageSquarePlus className="size-3.5" aria-hidden />
           </Button>
 
-          {expandHref ? (
+          {onExpand ? (
             <Button
-              asChild
+              type="button"
               variant="outline"
               size="icon-sm"
-              title="Open full tutor"
+              title="Open larger chat"
+              onClick={onExpand}
+              aria-label="Expand Socrates over the home screen"
               className="size-7 border-brand-surface bg-white text-brand-text hover:border-brand-special/30 hover:bg-brand-special/10 hover:text-brand-special"
             >
-              <Link href={expandHref} aria-label="Expand Socrates to full screen">
-                <Maximize2 className="size-3.5" aria-hidden />
-              </Link>
+              <Maximize2 className="size-3.5" aria-hidden />
             </Button>
           ) : null}
 

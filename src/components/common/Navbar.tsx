@@ -7,7 +7,7 @@ import { LogOut, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "@/components/common/BrandLockup";
-import { RoleAvatar } from "@/components/common/RoleAvatar";
+import { StudentAvatar } from "@/components/common/StudentAvatar";
 import { STUDENT_PROFILE_PATH } from "@/lib/auth-routes";
 import { BASE_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
@@ -57,7 +57,7 @@ export function Navbar() {
                 </p>
                 <p className="text-sm text-brand-text/50">{grade}</p>
               </div>
-              <RoleAvatar role="student" size="sm" />
+              <StudentAvatar size="sm" />
             </Link>
           <Button
             type="button"

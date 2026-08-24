@@ -32,6 +32,9 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
   return PUBLIC_PATHS.has(pathname);
 }
 
+/** Educator profile page at `/educator-profile`. */
+export const EDUCATOR_PROFILE_PATH = "/educator-profile";
+
 /** Student mastery / focus-areas profile. */
 export const STUDENT_PROFILE_PATH = "/profile";
 

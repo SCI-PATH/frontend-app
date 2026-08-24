@@ -58,6 +58,8 @@ export interface User {
   role: UserRole;
   /** Present for students */
   grade?: GradeLevel;
+  /** Previous-year science marks (0–100) when User Management returns them. */
+  prevYearScienceMarks?: number | null;
   /** Primary enrolled class code */
   classCode?: string;
   classCodes?: string[];
@@ -65,6 +67,8 @@ export interface User {
   schoolName?: string;
   /** Present for educators */
   sectionName?: string;
+  /** Grades this teacher covers (6–9). */
+  gradesTaught?: number[];
 }
 
 export type {
