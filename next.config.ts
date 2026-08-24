@@ -7,6 +7,8 @@ import type { NextConfig } from "next";
 const API = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
 const USER_API =
   process.env.USER_API_PROXY_TARGET || "http://127.0.0.1:8001";
+const GAMING_API =
+  process.env.GAMING_API_PROXY_TARGET || "http://127.0.0.1:8002";
 const ASSESSMENT_API =
   process.env.ASSESSMENT_API_PROXY_TARGET || "http://127.0.0.1:8004";
 
@@ -42,6 +44,26 @@ const nextConfig: NextConfig = {
       {
         source: "/assessment-api/:path*",
         destination: `${ASSESSMENT_API}/:path*`,
+      },
+      {
+        source: "/api/health",
+        destination: `${GAMING_API}/api/health`,
+      },
+      {
+        source: "/api/storyline",
+        destination: `${GAMING_API}/api/storyline`,
+      },
+      {
+        source: "/api/mind-map",
+        destination: `${GAMING_API}/api/mind-map`,
+      },
+      {
+        source: "/api/avatar-chat",
+        destination: `${GAMING_API}/api/avatar-chat`,
+      },
+      {
+        source: "/api/engagement/:path*",
+        destination: `${GAMING_API}/api/engagement/:path*`,
       },
       ...learningPathRewrites,
     ];
