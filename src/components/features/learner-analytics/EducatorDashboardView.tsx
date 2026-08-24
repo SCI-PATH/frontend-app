@@ -232,7 +232,7 @@ export function EducatorDashboardView() {
                 <div className="flex min-w-0 flex-col gap-5">
                   <CollapsibleSection
                     title="Priority follow-up list"
-                    description="Learners who may need your help soon. Cards sit side by side when there is space."
+                    description="Learners who may need your help soon."
                     badge={atRiskAlerts.length}
                     defaultOpen
                     accent="danger"
@@ -247,7 +247,7 @@ export function EducatorDashboardView() {
 
                   <CollapsibleSection
                     title="Classroom mastery grid"
-                    description="Every learner and skill in this class. Collapse this if you want more room for alerts."
+                    description="Every learner and skill in this class."
                     badge={`${studentIds.length} × ${topicIds.length}`}
                     defaultOpen={false}
                     accent="primary"
