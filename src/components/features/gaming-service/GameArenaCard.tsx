@@ -6,21 +6,17 @@ import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
 
 import { buildGamingServiceLaunchUrl } from "./buildGamingServiceLaunchUrl";
+import { readGamingLaunchParams } from "./getGamingLaunchContext";
 
 export function GameArenaCard() {
   const userId = useUserStore((state) => state.userId);
   const fullName = useUserStore((state) => state.fullName);
-  const grade = useUserStore((state) => state.grade);
   const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
   const handleLaunch = () => {
-    if (!userId || !fullName) return;
-    const url = buildGamingServiceLaunchUrl({
-      studentId: userId,
-      displayName: fullName,
-      grade,
-    });
-    window.location.assign(url);
+    const params = readGamingLaunchParams();
+    if (!params) return;
+    window.location.assign(buildGamingServiceLaunchUrl(params));
   };
 
   return (

@@ -6,7 +6,8 @@
     "build": "next build --webpack",
     "dev": "next dev --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "farm:dev": "npm run dev --prefix src/components/features/gaming-service"
   },
   "dependencies": {
     "@google/model-viewer": "^4.3.1",
