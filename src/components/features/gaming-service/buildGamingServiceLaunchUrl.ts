@@ -1,16 +1,22 @@
 /**
- * Build launch URL for the SCI_PATH farm (gaming-service Vite app).
+ * Build launch URL for the SCI_PATH farm (Vite app under this folder).
  * Default local dev: http://localhost:5173
  *
  * Set in `.env.local`:
  *   NEXT_PUBLIC_GAMING_SERVICE_URL=http://localhost:5173
  */
 export type GamingServiceLaunchParams = {
+  /** Stable user id from user-management / JWT */
   studentId: string;
+  /** Login handle (email local-part or id) */
+  username: string;
+  /** Shown in farm UI */
   displayName: string;
+  /** Platform session id — ties engagement rows to SCI-PATH login */
+  sessionId: string;
+  /** Science topic id — always required for farm launch */
+  topicId: string;
   grade?: number | null;
-  /** Platform session id; generated if omitted */
-  sessionId?: string;
 };
 
 export function getGamingServiceBaseUrl(): string {
@@ -27,18 +33,14 @@ export function buildGamingServiceLaunchUrl(
   const url = new URL(base.endsWith("/") ? base : `${base}/`);
 
   url.searchParams.set("studentId", params.studentId);
+  url.searchParams.set("username", params.username);
   url.searchParams.set("displayName", params.displayName);
-  url.searchParams.set(
-    "sessionId",
-    params.sessionId ||
-      (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `sess_${Date.now()}`),
-  );
+  url.searchParams.set("sessionId", params.sessionId);
+  url.searchParams.set("topicId", params.topicId.trim());
   if (params.grade != null && Number.isFinite(params.grade)) {
     url.searchParams.set("grade", String(params.grade));
   }
-  url.searchParams.set("source", "sci-path");
+  url.searchParams.set("source", "frontend-app");
 
   return url.toString();
 }

@@ -21,6 +21,20 @@ const EMPTY_METADATA: TutorTurnMetadata = {
   personaLabel: null,
 };
 
+const FARM_TOPIC_PREFIX = "scipath_farm_topic__";
+
+function rememberTopicForFarm(topicId: string | null | undefined) {
+  const id = topicId?.trim();
+  if (!id || typeof window === "undefined") return;
+  const userId = useUserStore.getState().userId;
+  if (!userId) return;
+  try {
+    localStorage.setItem(`${FARM_TOPIC_PREFIX}${userId}`, id);
+  } catch {
+    /* ignore */
+  }
+}
+
 function createWelcomeMessage(): ChatMessage {
   return {
     id: "socrates-welcome",
@@ -92,6 +106,7 @@ function applySuccessfulTurn(
   }
 ): Partial<TutorState> {
   const nextTopicId = response.topic_id_resolved ?? state.activeTopicId;
+  rememberTopicForFarm(nextTopicId);
   const switched =
     response.topic_routing === "switched" && Boolean(response.topic_id_resolved);
 
