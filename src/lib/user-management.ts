@@ -117,6 +117,7 @@ export function userFromApi(apiUser: ApiUser): User {
     ...(role === "student"
       ? {
           grade: gradeLabel(apiUser.student?.grade),
+          classCode,
           classCodes,
           prevYearScienceMarks: apiUser.student?.prev_year_science_marks ?? null,
         }
@@ -327,21 +328,52 @@ export async function joinClass(
   };
 }
 
-/** Classes this learner is enrolled in (User Management `GET /classes/enrolled`). */
+/** Classes this learner is enrolled in. */
 export async function fetchEnrolledClasses(token: string): Promise<TeacherClass[]> {
-  const response = await requestJson<TeacherClass[] | { classes?: TeacherClass[] }>(
-    "/classes/enrolled",
-    { method: "GET" },
-    token
-  );
-  const rows = Array.isArray(response)
-    ? response
-    : Array.isArray(response.classes)
-      ? response.classes
-      : [];
-  return rows
-    .map((row) =>
-      normalizeTeacherClass(row as unknown as Record<string, unknown>)
+  try {
+    const response = await requestJson<TeacherClass[] | { classes?: TeacherClass[] }>(
+      "/classes/enrolled",
+      { method: "GET" },
+      token
+    );
+    const rows = Array.isArray(response)
+      ? response
+      : Array.isArray(response.classes)
+        ? response.classes
+        : [];
+    const parsed = rows
+      .map((row) =>
+        normalizeTeacherClass(row as unknown as Record<string, unknown>)
+      )
+      .filter((row) => row.class_code.length > 0);
+    if (parsed.length > 0) return parsed;
+  } catch {
+    // Older User Management builds have no GET /classes/enrolled
+    // (the path is treated as a class code and 403s for students).
+  }
+
+  const me = await fetchCurrentUser(token);
+  const codes = Array.from(
+    new Set(
+      [...(me.classCodes ?? []), me.classCode]
+        .map((code) => String(code ?? "").trim().toUpperCase())
+        .filter(Boolean)
     )
-    .filter((row) => row.class_code.length > 0);
+  );
+  if (codes.length === 0) return [];
+
+  const resolved: TeacherClass[] = [];
+  for (const code of codes) {
+    try {
+      const { classInfo } = await joinClass(token, code);
+      resolved.push(classInfo);
+    } catch {
+      resolved.push({
+        class_code: code,
+        class_name: "Enrolled class",
+        grade_level: 0,
+      });
+    }
+  }
+  return resolved;
 }

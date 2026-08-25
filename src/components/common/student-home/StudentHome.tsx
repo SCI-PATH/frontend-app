@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ExamPrepCard } from "@/components/features/assessment-engine/ExamPrepCard";
 import { PlacementCourseCard } from "@/components/features/assessment-engine/PlacementCourseCard";
@@ -13,31 +13,15 @@ import { SocratesChatToggle } from "@/components/common/student-home/SocratesCha
 import { TodayMissions } from "@/components/common/student-home/TodayMissions";
 import { WelcomeBanner } from "@/components/common/student-home/WelcomeBanner";
 import { fetchStudentProfile } from "@/lib/api/educator";
-import { fetchEnrolledClasses } from "@/lib/user-management";
+import { useEnrolledClasses } from "@/lib/student/useEnrolledClasses";
 import { useUserStore } from "@/store/useUserStore";
-import type { StudentProfileResponse, TeacherClass } from "@/types";
+import type { StudentProfileResponse } from "@/types";
 
 export function StudentHome() {
-  const token = useUserStore((state) => state.token);
   const userId = useUserStore((state) => state.userId);
-  const [enrolledClasses, setEnrolledClasses] = useState<TeacherClass[]>([]);
+  const upsertEnrolledClass = useUserStore((state) => state.upsertEnrolledClass);
+  const { enrolledClasses, primaryClass, refresh } = useEnrolledClasses();
   const [profile, setProfile] = useState<StudentProfileResponse | null>(null);
-
-  const loadEnrolled = useCallback(async () => {
-    if (!token) {
-      setEnrolledClasses([]);
-      return;
-    }
-    try {
-      setEnrolledClasses(await fetchEnrolledClasses(token));
-    } catch {
-      setEnrolledClasses([]);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void loadEnrolled();
-  }, [loadEnrolled]);
 
   useEffect(() => {
     if (!userId) return;
@@ -62,11 +46,14 @@ export function StudentHome() {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-24 sm:gap-10 sm:px-5 sm:pb-28">
-        <WelcomeBanner enrolledClass={enrolledClasses[0] ?? null} />
+        <WelcomeBanner enrolledClass={primaryClass} />
 
         <JoinClassSection
           enrolledClasses={enrolledClasses}
-          onJoined={() => void loadEnrolled()}
+          onJoined={(classroom) => {
+            upsertEnrolledClass(classroom);
+            void refresh();
+          }}
         />
 
         <section className="space-y-4">

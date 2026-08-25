@@ -1,24 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Check,
+  ClipboardList,
   Loader2,
   Plus,
   RefreshCw,
+  Sparkles,
   Wand2,
   X,
 } from "lucide-react";
 
+import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,23 +27,31 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   approveTeacherQuestion,
-  createTeacherQuestion,
+  fetchMostMissedQuestions,
   fetchTeacherQuestions,
+  fetchTeacherQuestionsAllStatuses,
   fetchTeacherTopics,
   generateTeacherQuestions,
   rejectTeacherQuestion,
 } from "../api/teacher";
+import { AddCustomQuestionDialog } from "../components/question-bank/AddCustomQuestionDialog";
+import { AssessmentShell } from "../components/AssessmentShell";
+import { normalizeOptions } from "../components/QuestionRenderer";
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
+  MostMissedQuestionInsight,
   QuestionType,
   RejectReason,
   TeacherQuestion,
   TeacherTopic,
 } from "../types";
 import { AssessmentApiError } from "../types";
+import {
+  chapterIdFromTopicId,
+  chaptersFromTopics,
+  topicsForChapter,
+} from "../utils/topicChapter";
 import { EDUCATOR_HOME_PATH } from "@/lib/auth-routes";
-import { AssessmentShell } from "../components/AssessmentShell";
-import { normalizeOptions } from "../components/QuestionRenderer";
 import { cn } from "@/lib/utils";
 
 const REJECT_REASONS: { value: RejectReason; label: string; highlight?: boolean }[] =
@@ -66,18 +71,40 @@ const Q_TYPES: QuestionType[] = [
   "MultiBlank",
 ];
 
+type StatusFilter = "pending" | "approved" | "rejected" | "all";
+
+type LoadOverrides = {
+  status?: StatusFilter;
+  grade?: number;
+  classCode?: string;
+  dok?: string;
+  qType?: string;
+  chapterId?: string;
+  /** When set, fetch this topic from the API (most reliable after Generate). */
+  topicId?: string;
+  /** Avoid full-page spinner when we already show optimistic results. */
+  quiet?: boolean;
+};
+
 export function AssessmentQuestionBankScreen() {
   const user = useAssessmentUser();
-  const [grade, setGrade] = useState(7);
-  const [status, setStatus] = useState("pending");
-  const [dok, setDok] = useState<string>("");
-  const [qType, setQType] = useState<string>("");
+  const [grade, setGrade] = useState(user.grade ?? 7);
+  const [status, setStatus] = useState<StatusFilter>("pending");
+  const [chapterId, setChapterId] = useState("");
+  const [dok, setDok] = useState("");
+  const [qType, setQType] = useState("");
   const [classCode, setClassCode] = useState(user.classCode ?? "");
+
   const [questions, setQuestions] = useState<TeacherQuestion[]>([]);
   const [topics, setTopics] = useState<TeacherTopic[]>([]);
+  const [mostMissed, setMostMissed] = useState<MostMissedQuestionInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  /** Ignores stale in-flight list responses (common after Generate filter changes). */
+  const loadSeqRef = useRef(0);
+  /** Skip one auto-load after Generate already refreshed with explicit overrides. */
+  const skipNextAutoLoadRef = useRef(false);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<TeacherQuestion | null>(null);
@@ -85,66 +112,140 @@ export function AssessmentQuestionBankScreen() {
     useState<RejectReason>("FACTUAL_ERROR");
   const [rejectNotes, setRejectNotes] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Soft placeholder after reject until a real regenerate endpoint exists. */
+  const [replacementPlaceholder, setReplacementPlaceholder] = useState<{
+    topicId?: string;
+    reason: string;
+  } | null>(null);
 
+  const [genChapter, setGenChapter] = useState("");
   const [genTopic, setGenTopic] = useState("");
   const [genDok, setGenDok] = useState("2");
   const [genType, setGenType] = useState<QuestionType>("MCQ");
-  const [genCount, setGenCount] = useState(1);
   const [generating, setGenerating] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [addPrompt, setAddPrompt] = useState("");
-  const [addAnswer, setAddAnswer] = useState("");
-  const [addType, setAddType] = useState<QuestionType>("MCQ");
-  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     setClassCode(user.classCode ?? "");
   }, [user.classCode]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const chapterOptions = useMemo(() => chaptersFromTopics(topics), [topics]);
+  const genTopics = useMemo(
+    () => topicsForChapter(topics, genChapter),
+    [topics, genChapter]
+  );
+
+  const loadTopics = useCallback(async () => {
+    try {
+      const list = await fetchTeacherTopics(grade);
+      setTopics(list);
+      const chapters = chaptersFromTopics(list);
+      if (chapters[0]) {
+        setGenChapter((prev) => prev || chapters[0].id);
+        setChapterId((prev) => prev);
+      }
+      const firstTopic = list[0]?.topic_id;
+      if (firstTopic) setGenTopic((prev) => prev || firstTopic);
+    } catch {
+      setTopics([]);
+    }
+  }, [grade]);
+
+  useEffect(() => {
+    void loadTopics();
+  }, [loadTopics]);
+
+  useEffect(() => {
+    if (!genTopics.length) return;
+    if (!genTopics.some((t) => t.topic_id === genTopic)) {
+      setGenTopic(genTopics[0].topic_id);
+    }
+  }, [genTopics, genTopic]);
+
+  const load = useCallback(async (overrides?: LoadOverrides) => {
+    const seq = ++loadSeqRef.current;
+    const nextStatus = overrides?.status ?? status;
+    const nextGrade = overrides?.grade ?? grade;
+    const nextClass = overrides?.classCode ?? classCode;
+    const nextDok = overrides?.dok ?? dok;
+    const nextType = overrides?.qType ?? qType;
+    const nextChapter = overrides?.chapterId ?? chapterId;
+    const nextTopic = overrides?.topicId;
+    const quiet = overrides?.quiet === true;
+
+    if (!quiet) setLoading(true);
     setError(null);
     try {
-      const list = await fetchTeacherQuestions({
-        status: status || undefined,
-        grade,
-        class_code: classCode || undefined,
-        dok_level: dok ? Number(dok) : undefined,
-        question_type: (qType as QuestionType) || undefined,
-      });
+      const base = {
+        grade: nextGrade,
+        class_code: nextClass || undefined,
+        dok_level: nextDok ? Number(nextDok) : undefined,
+        question_type: (nextType as QuestionType) || undefined,
+        topic_id: nextTopic || undefined,
+        limit: 100,
+      };
+
+      let list: TeacherQuestion[];
+      if (nextStatus === "all") {
+        list = await fetchTeacherQuestionsAllStatuses(base);
+      } else {
+        list = await fetchTeacherQuestions({ ...base, status: nextStatus });
+      }
+
+      // Topic-scoped fetches already match; chapter filter is client-side only.
+      if (nextChapter && !nextTopic) {
+        list = list.filter(
+          (q) =>
+            chapterIdFromTopicId(q.topic_id) === nextChapter.toUpperCase()
+        );
+      }
+
+      if (seq !== loadSeqRef.current) return;
       setQuestions(list);
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setError(
         err instanceof AssessmentApiError
           ? err.message
           : "Could not load questions"
       );
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current && !quiet) setLoading(false);
     }
-  }, [status, grade, classCode, dok, qType]);
+  }, [status, grade, classCode, dok, qType, chapterId]);
 
   useEffect(() => {
+    if (skipNextAutoLoadRef.current) {
+      skipNextAutoLoadRef.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
   useEffect(() => {
-    void fetchTeacherTopics(grade)
-      .then((t) => {
-        setTopics(t);
-        if (t[0] && !genTopic) setGenTopic(t[0].topic_id);
-      })
-      .catch(() => setTopics([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grade]);
+    void fetchMostMissedQuestions({
+      grade,
+      class_code: classCode || undefined,
+      limit: 8,
+    })
+      .then(setMostMissed)
+      .catch(() => setMostMissed([]));
+  }, [grade, classCode]);
 
   async function handleApprove(q: TeacherQuestion) {
     setBusyId(q.id);
-    setMessage(null);
+    setError(null);
     try {
       await approveTeacherQuestion(q.id);
-      setMessage(`Approved question ${q.id}`);
+      setToast("Question approved.");
+      setReplacementPlaceholder(null);
       await load();
     } catch (err) {
       setError(
@@ -158,20 +259,22 @@ export function AssessmentQuestionBankScreen() {
   async function handleRejectConfirm() {
     if (!rejectTarget) return;
     setBusyId(rejectTarget.id);
-    setMessage(null);
+    setError(null);
     try {
-      const res = await rejectTeacherQuestion(rejectTarget.id, {
+      await rejectTeacherQuestion(rejectTarget.id, {
         reason: rejectReason,
         notes: rejectNotes || undefined,
       });
-      const aiNote =
-        res.rejection_confirmed_ai === true
-          ? " · AI confirmed factual error"
-          : "";
-      setMessage(`Rejected (${rejectReason})${aiNote}`);
       setRejectOpen(false);
       setRejectTarget(null);
       setRejectNotes("");
+      // Clear sticky banners — show a clean replacement placeholder instead.
+      setToast(null);
+      setReplacementPlaceholder({
+        topicId: rejectTarget.topic_id,
+        reason: rejectReason.replace(/_/g, " ").toLowerCase(),
+      });
+      setStatus("pending");
       await load();
     } catch (err) {
       setError(
@@ -184,54 +287,81 @@ export function AssessmentQuestionBankScreen() {
 
   async function handleGenerate() {
     if (!genTopic.trim()) {
-      setError("Select or enter a topic_id before generating.");
+      setError("Select a chapter and topic before generating.");
       return;
     }
     setGenerating(true);
     setError(null);
-    setMessage(null);
+    setToast(null);
+    const topicId = genTopic.trim();
+    const topicMeta = topics.find((t) => t.topic_id === topicId);
+    const nextGrade = topicMeta?.grade ?? grade;
+    const nextChapter =
+      genChapter || chapterIdFromTopicId(topicId) || chapterId;
+
     try {
-      await generateTeacherQuestions({
-        topic_id: genTopic.trim(),
+      const result = await generateTeacherQuestions({
+        topic_id: topicId,
+        skill: topicMeta?.skill,
         dok_level: Number(genDok) || 2,
         question_type: genType,
-        count: Math.max(1, genCount),
+        count: 1,
       });
-      setMessage("Generation requested — refresh the pending queue.");
-      await load();
+
+      // Align queue filters so the new item is not hidden by DOK/type/chapter.
+      // (Previously await load() used a stale closure and wiped the optimistic list.)
+      skipNextAutoLoadRef.current = true;
+      setStatus("pending");
+      setGrade(nextGrade);
+      setChapterId(nextChapter);
+      setDok("");
+      setQType("");
+      setReplacementPlaceholder(null);
+
+      if (result.created === 0 || result.questions.length === 0) {
+        setError(
+          "No questions were created. The LLM may have failed validation, or there is no RAG context for this topic. Try again or pick another topic/chapter."
+        );
+        await load({
+          status: "pending",
+          grade: nextGrade,
+          chapterId: nextChapter,
+          dok: "",
+          qType: "",
+          topicId,
+        });
+        return;
+      }
+
+      setQuestions(result.questions);
+      setToast(
+        `Generated ${result.questions.length} pending question${
+          result.questions.length === 1 ? "" : "s"
+        }.`
+      );
+
+      // Confirm from API scoped to this topic (avoids grade/filter misses).
+      await load({
+        status: "pending",
+        grade: nextGrade,
+        chapterId: nextChapter,
+        dok: "",
+        qType: "",
+        topicId,
+        quiet: true,
+      });
+      // Keep generate payload visible even if a racey list response was empty.
+      setQuestions((prev) => {
+        const byId = new Map(prev.map((q) => [q.id, q]));
+        for (const q of result.questions) byId.set(q.id, q);
+        return Array.from(byId.values());
+      });
     } catch (err) {
       setError(
         err instanceof AssessmentApiError ? err.message : "Generate failed"
       );
     } finally {
       setGenerating(false);
-    }
-  }
-
-  async function handleAdd() {
-    if (!addPrompt.trim() || !addAnswer.trim()) return;
-    setAdding(true);
-    setError(null);
-    try {
-      await createTeacherQuestion({
-        prompt: addPrompt.trim(),
-        expected_answer: addAnswer.trim(),
-        question_type: addType,
-        grade,
-        class_code: classCode || undefined,
-        dok_level: dok ? Number(dok) : 2,
-      });
-      setAddOpen(false);
-      setAddPrompt("");
-      setAddAnswer("");
-      setMessage("Custom question added.");
-      await load();
-    } catch (err) {
-      setError(
-        err instanceof AssessmentApiError ? err.message : "Create failed"
-      );
-    } finally {
-      setAdding(false);
     }
   }
 
@@ -243,20 +373,18 @@ export function AssessmentQuestionBankScreen() {
         backHref={EDUCATOR_HOME_PATH}
         backLabel="Teacher home"
       >
-        <Card className="border-brand-surface bg-white">
-          <CardContent className="py-10 text-center text-sm text-brand-text/70">
-            Sign in with an educator account to review and manage the question
-            bank.
-          </CardContent>
-        </Card>
+        <div className="rounded-[2rem] border border-brand-surface bg-white px-6 py-12 text-center text-sm text-brand-text/70">
+          Sign in with an educator account to review and manage the question
+          bank.
+        </div>
       </AssessmentShell>
     );
   }
 
   return (
     <AssessmentShell
-      title="Assessment question bank"
-      subtitle="Component 2 review · approve / reject / generate — not the classroom matrix"
+      title="Question bank"
+      subtitle="Generate, review, and curate assessment items for your classes."
       maxWidth="5xl"
       backHref={EDUCATOR_HOME_PATH}
       backLabel="Teacher home"
@@ -266,7 +394,7 @@ export function AssessmentQuestionBankScreen() {
             variant="outline"
             size="sm"
             onClick={() => void load()}
-            className="border-brand-surface"
+            className="rounded-xl border-brand-surface"
           >
             <RefreshCw className="size-3.5" aria-hidden />
             Refresh
@@ -274,7 +402,7 @@ export function AssessmentQuestionBankScreen() {
           <Button
             size="sm"
             onClick={() => setAddOpen(true)}
-            className="bg-brand-primary text-white hover:bg-brand-primary/90"
+            className="rounded-xl bg-brand-accent text-white hover:bg-brand-accent/90"
           >
             <Plus className="size-3.5" aria-hidden />
             Add question
@@ -282,196 +410,280 @@ export function AssessmentQuestionBankScreen() {
         </>
       }
     >
-      <Card className="mb-4 border-brand-surface bg-white">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base text-brand-text">Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <FilterSelect
-            label="Status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: "pending", label: "Pending" },
-              { value: "approved", label: "Approved" },
-              { value: "rejected", label: "Rejected" },
-              { value: "", label: "All" },
-            ]}
-          />
-          <FilterSelect
-            label="Grade"
-            value={String(grade)}
-            onChange={(v) => setGrade(Number(v))}
-            options={[6, 7, 8, 9].map((g) => ({
-              value: String(g),
-              label: `Grade ${g}`,
-            }))}
-          />
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-brand-text/60">
-              Class code
-            </label>
-            <Input
-              value={classCode}
-              onChange={(e) => setClassCode(e.target.value)}
-              className="h-9 w-28 border-brand-surface"
-            />
-          </div>
-          <FilterSelect
-            label="DOK"
-            value={dok}
-            onChange={setDok}
-            options={[
-              { value: "", label: "Any" },
-              { value: "1", label: "1" },
-              { value: "2", label: "2" },
-              { value: "3", label: "3" },
-              { value: "4", label: "4" },
-            ]}
-          />
-          <FilterSelect
-            label="Type"
-            value={qType}
-            onChange={setQType}
-            options={[
-              { value: "", label: "Any" },
-              ...Q_TYPES.map((t) => ({ value: t, label: t })),
-            ]}
-          />
-        </CardContent>
-      </Card>
-
-      <Card className="mb-4 border-brand-special/20 bg-brand-special/5">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base text-brand-text">
-            <Wand2 className="size-4 text-brand-special" aria-hidden />
-            Generate (RAG → pending)
-          </CardTitle>
-          <CardDescription>
-            Topics for grade {grade}
-            {topics.length ? ` · ${topics.length} available` : ""}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200px] flex-1 space-y-1">
-            <label className="text-xs font-medium text-brand-text/60">
-              Topic ID
-            </label>
-            {topics.length > 0 ? (
-              <select
-                value={genTopic}
-                onChange={(e) => setGenTopic(e.target.value)}
-                className="h-9 w-full rounded-lg border border-brand-surface bg-white px-2 text-sm"
-              >
-                {topics.map((t) => (
-                  <option key={t.topic_id} value={t.topic_id}>
-                    {t.name ?? t.topic_id}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <Input
-                value={genTopic}
-                onChange={(e) => setGenTopic(e.target.value)}
-                placeholder="topic_id"
-                className="h-9 border-brand-surface"
+      <div className="space-y-6">
+        {/* Filters */}
+        <section className="overflow-hidden rounded-[1.75rem] border border-brand-surface bg-white shadow-sm">
+          <BrandGradientBar />
+          <div className="space-y-4 p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent">
+                <ClipboardList className="size-5" aria-hidden />
+              </span>
+              <div>
+                <h2 className="font-semibold text-brand-text">Filters</h2>
+                <p className="text-sm text-brand-text/55">
+                  Narrow the review queue by chapter, depth, and type
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <FilterSelect
+                label="Status"
+                value={status}
+                onChange={(v) => setStatus(v as StatusFilter)}
+                options={[
+                  { value: "pending", label: "Pending" },
+                  { value: "approved", label: "Approved" },
+                  { value: "rejected", label: "Rejected" },
+                  { value: "all", label: "All" },
+                ]}
               />
-            )}
+              <FilterSelect
+                label="Grade"
+                value={String(grade)}
+                onChange={(v) => setGrade(Number(v))}
+                options={[6, 7, 8, 9].map((g) => ({
+                  value: String(g),
+                  label: `Grade ${g}`,
+                }))}
+              />
+              <FilterSelect
+                label="Chapter ID"
+                value={chapterId}
+                onChange={setChapterId}
+                options={[
+                  { value: "", label: "All chapters" },
+                  ...chapterOptions.map((c) => ({
+                    value: c.id,
+                    label: c.label,
+                  })),
+                ]}
+              />
+              <FilterSelect
+                label="DOK"
+                value={dok}
+                onChange={setDok}
+                options={[
+                  { value: "", label: "Any" },
+                  { value: "1", label: "1" },
+                  { value: "2", label: "2" },
+                  { value: "3", label: "3" },
+                  { value: "4", label: "4" },
+                ]}
+              />
+              <FilterSelect
+                label="Question type"
+                value={qType}
+                onChange={setQType}
+                options={[
+                  { value: "", label: "Any" },
+                  ...Q_TYPES.map((t) => ({ value: t, label: t })),
+                ]}
+              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-brand-text/55">
+                  Class code
+                </label>
+                <Input
+                  value={classCode}
+                  onChange={(e) => setClassCode(e.target.value)}
+                  placeholder="Optional"
+                  className="h-10 rounded-xl border-brand-surface"
+                />
+              </div>
+            </div>
           </div>
-          <FilterSelect
-            label="DOK"
-            value={genDok}
-            onChange={setGenDok}
-            options={[
-              { value: "1", label: "1" },
-              { value: "2", label: "2" },
-              { value: "3", label: "3" },
-              { value: "4", label: "4" },
-            ]}
-          />
-          <FilterSelect
-            label="Type"
-            value={genType}
-            onChange={(v) => setGenType(v as QuestionType)}
-            options={Q_TYPES.map((t) => ({ value: t, label: t }))}
-          />
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-brand-text/60">
-              Count
-            </label>
-            <Input
-              type="number"
-              min={1}
-              max={10}
-              value={genCount}
-              onChange={(e) => setGenCount(Number(e.target.value) || 1)}
-              className="h-9 w-20 border-brand-surface"
-            />
-          </div>
-          <Button
-            disabled={generating}
-            onClick={() => void handleGenerate()}
-            className="bg-brand-special text-white hover:bg-brand-special/90"
-          >
-            {generating ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+        </section>
+
+        {/* Most missed */}
+        <section className="overflow-hidden rounded-[1.75rem] border border-brand-accent/20 bg-gradient-to-br from-white to-brand-accent/5 shadow-sm">
+          <div className="space-y-3 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-white shadow-md shadow-brand-accent/25">
+                <AlertTriangle className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold text-brand-text">
+                  Most missed questions
+                </h2>
+                <p className="text-sm text-brand-text/60">
+                  Spot items students miss most — a flawed stem to reject, or a
+                  class learning gap to reteach.
+                </p>
+              </div>
+            </div>
+            {mostMissed.length > 0 ? (
+              <ul className="space-y-2">
+                {mostMissed.map((row) => (
+                  <li
+                    key={row.question_id}
+                    className="rounded-2xl border border-brand-surface bg-white px-4 py-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="font-medium text-brand-text">
+                        {row.prompt || row.question_id}
+                      </p>
+                      <Badge className="bg-brand-accent/15 text-brand-accent hover:bg-brand-accent/15">
+                        {row.incorrect_count}/{row.attempt_count} missed
+                      </Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <Wand2 className="size-4" aria-hidden />
+              <div className="rounded-2xl border border-dashed border-brand-accent/30 bg-white/70 px-4 py-6 text-center text-sm text-brand-text/60">
+                {/* TODO(IAE): GET /teacher/insights/most-missed from analytics_events */}
+                No miss-rate insights yet. Once the teacher insights endpoint is
+                live, the hardest items will appear here automatically.
+              </div>
             )}
-            Generate
-          </Button>
-        </CardContent>
-      </Card>
+          </div>
+        </section>
 
-      {message ? (
-        <p className="mb-3 rounded-lg border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="mb-3 rounded-lg border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
-          {error}
-        </p>
-      ) : null}
+        {/* Generate */}
+        <section className="overflow-hidden rounded-[1.75rem] border border-brand-special/20 bg-gradient-to-br from-white to-brand-special/5 shadow-sm">
+          <div className="space-y-4 p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-brand-special text-white shadow-md shadow-brand-special/25">
+                <Wand2 className="size-5" aria-hidden />
+              </span>
+              <div>
+                <h2 className="font-semibold text-brand-text">
+                  Generate (RAG → pending)
+                </h2>
+                <p className="text-sm text-brand-text/55">
+                  Create draft items from the syllabus catalog for grade {grade}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <FilterSelect
+                label="Chapter ID"
+                value={genChapter}
+                onChange={setGenChapter}
+                options={chapterOptions.map((c) => ({
+                  value: c.id,
+                  label: c.label,
+                }))}
+              />
+              <FilterSelect
+                label="Topic"
+                value={genTopic}
+                onChange={setGenTopic}
+                options={genTopics.map((t) => ({
+                  value: t.topic_id,
+                  label: t.skill || t.name || t.topic_id,
+                }))}
+              />
+              <FilterSelect
+                label="DOK"
+                value={genDok}
+                onChange={setGenDok}
+                options={[1, 2, 3, 4].map((d) => ({
+                  value: String(d),
+                  label: `DOK ${d}`,
+                }))}
+              />
+              <FilterSelect
+                label="Question type"
+                value={genType}
+                onChange={(v) => setGenType(v as QuestionType)}
+                options={Q_TYPES.map((t) => ({ value: t, label: t }))}
+              />
+            </div>
+            <Button
+              disabled={generating || !genTopic}
+              onClick={() => void handleGenerate()}
+              className="rounded-xl bg-brand-special text-white hover:bg-brand-special/90"
+            >
+              {generating ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Wand2 className="size-4" aria-hidden />
+              )}
+              Generate
+            </Button>
+          </div>
+        </section>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="size-8 animate-spin text-brand-primary" />
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {questions.length === 0 ? (
-            <Card className="border-brand-surface bg-white">
-              <CardContent className="py-10 text-center text-sm text-brand-text/60">
+        {toast ? (
+          <p className="rounded-2xl border border-brand-secondary/30 bg-brand-secondary/10 px-4 py-3 text-sm text-brand-text animate-in fade-in">
+            {toast}
+          </p>
+        ) : null}
+        {error ? (
+          <p
+            className="rounded-2xl border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-sm text-brand-accent"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        {replacementPlaceholder ? (
+          <div className="rounded-[1.75rem] border border-dashed border-brand-primary/30 bg-brand-primary/5 px-5 py-6 text-center">
+            <Sparkles className="mx-auto size-6 text-brand-primary" aria-hidden />
+            <p className="mt-2 font-semibold text-brand-text">
+              Coming soon: Replacement question being generated
+            </p>
+            <p className="mt-1 text-sm text-brand-text/60">
+              The previous item was rejected
+              {replacementPlaceholder.reason
+                ? ` (${replacementPlaceholder.reason})`
+                : ""}
+              . Use Generate above to draft a replacement
+              {replacementPlaceholder.topicId
+                ? ` for ${replacementPlaceholder.topicId}`
+                : ""}
+              .
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-xl border-brand-surface"
+              onClick={() => setReplacementPlaceholder(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        ) : null}
+
+        {/* Queue */}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="size-8 animate-spin text-brand-primary" />
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {questions.length === 0 ? (
+              <li className="rounded-[1.75rem] border border-brand-surface bg-white px-6 py-12 text-center text-sm text-brand-text/60">
                 No questions match these filters.
-              </CardContent>
-            </Card>
-          ) : null}
-          {questions.map((q) => (
-            <li key={q.id}>
-              <Card className="border-brand-surface bg-white">
-                <CardHeader className="pb-2">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
+              </li>
+            ) : null}
+            {questions.map((q) => (
+              <li key={q.id}>
+                <article className="rounded-[1.75rem] border border-brand-surface bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap gap-1.5">
-                        <Badge className="bg-brand-primary/10 text-brand-primary">
+                        <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
                           {q.question_type}
                         </Badge>
                         {q.dok_level != null ? (
                           <Badge variant="outline">DOK {q.dok_level}</Badge>
                         ) : null}
-                        <Badge variant="outline">{q.status}</Badge>
-                        {q.rejection_confirmed_ai ? (
-                          <Badge className="bg-brand-accent/15 text-brand-accent">
-                            AI confirmed error
+                        {chapterIdFromTopicId(q.topic_id) ? (
+                          <Badge variant="outline">
+                            {chapterIdFromTopicId(q.topic_id)}
                           </Badge>
                         ) : null}
+                        <StatusBadge status={q.status} />
                       </div>
-                      <CardTitle className="text-base font-medium leading-snug text-brand-text">
+                      <h3 className="text-base font-semibold leading-snug text-brand-text">
                         {q.prompt}
-                      </CardTitle>
+                      </h3>
                       {q.options ? (
-                        <ul className="mt-2 space-y-1 text-sm text-brand-text/75">
+                        <ul className="space-y-1 text-sm text-brand-text/75">
                           {normalizeOptions(q.options).map((opt) => (
                             <li key={opt.key}>
                               <span className="font-semibold text-brand-primary">
@@ -483,22 +695,35 @@ export function AssessmentQuestionBankScreen() {
                         </ul>
                       ) : null}
                       {q.paragraph && q.paragraph !== q.prompt ? (
-                        <p className="mt-2 text-sm whitespace-pre-wrap text-brand-text/70">
+                        <p className="text-sm whitespace-pre-wrap text-brand-text/70">
                           {q.paragraph}
                         </p>
                       ) : null}
+                      {q.expected_answer ? (
+                        <p className="text-xs text-brand-text/50">
+                          Expected: {q.expected_answer}
+                        </p>
+                      ) : null}
+                      {q.status === "rejected" && q.rejection_reason ? (
+                        <p className="text-xs text-brand-text/45">
+                          Rejected · {q.rejection_reason.replace(/_/g, " ")}
+                        </p>
+                      ) : null}
                     </div>
-                    {q.status === "pending" ? (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={busyId === q.id}
-                          onClick={() => void handleApprove(q)}
-                          className="bg-brand-secondary text-brand-text hover:bg-brand-secondary/90"
-                        >
-                          <Check className="size-3.5" aria-hidden />
-                          Approve
-                        </Button>
+
+                    {(q.status === "pending" || q.status === "approved") && (
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {q.status === "pending" ? (
+                          <Button
+                            size="sm"
+                            disabled={busyId === q.id}
+                            onClick={() => void handleApprove(q)}
+                            className="rounded-xl bg-brand-secondary text-brand-text hover:bg-brand-secondary/90"
+                          >
+                            <Check className="size-3.5" aria-hidden />
+                            Approve
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="outline"
@@ -506,35 +731,40 @@ export function AssessmentQuestionBankScreen() {
                           onClick={() => {
                             setRejectTarget(q);
                             setRejectReason("FACTUAL_ERROR");
+                            setRejectNotes("");
                             setRejectOpen(true);
                           }}
-                          className="border-brand-accent/40 text-brand-accent hover:bg-brand-accent/10"
+                          className="rounded-xl border-brand-accent/40 text-brand-accent hover:bg-brand-accent/10"
                         >
                           <X className="size-3.5" aria-hidden />
                           Reject
                         </Button>
                       </div>
-                    ) : null}
+                    )}
                   </div>
-                </CardHeader>
-                {q.expected_answer ? (
-                  <CardContent className="text-xs text-brand-text/55">
-                    Expected: {q.expected_answer}
-                  </CardContent>
-                ) : null}
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+                </article>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(open) => {
+          setRejectOpen(open);
+          if (!open) {
+            setRejectTarget(null);
+            setRejectNotes("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reject question</DialogTitle>
             <DialogDescription>
-              Choose a reason. <strong>FACTUAL_ERROR</strong> may trigger AI
-              confirmation on the backend.
+              Choose a reason. Factual errors may trigger an AI confirmation
+              check on the server.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -578,61 +808,42 @@ export function AssessmentQuestionBankScreen() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add custom question</DialogTitle>
-            <DialogDescription>
-              Posts to <code>/api/v1/teacher/questions</code>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <FilterSelect
-              label="Type"
-              value={addType}
-              onChange={(v) => setAddType(v as QuestionType)}
-              options={Q_TYPES.map((t) => ({ value: t, label: t }))}
-            />
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-brand-text/60">
-                Prompt
-              </label>
-              <textarea
-                value={addPrompt}
-                onChange={(e) => setAddPrompt(e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-brand-surface bg-white px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-brand-text/60">
-                Expected answer
-              </label>
-              <Input
-                value={addAnswer}
-                onChange={(e) => setAddAnswer(e.target.value)}
-                className="border-brand-surface"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={adding}
-              onClick={() => void handleAdd()}
-              className="bg-brand-primary text-white hover:bg-brand-primary/90"
-            >
-              {adding ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : null}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddCustomQuestionDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        grade={grade}
+        topics={topics}
+        defaultChapterId={chapterId || genChapter}
+        defaultDok={dok ? Number(dok) : 2}
+        onCreated={() => {
+          setToast("Custom question added.");
+          setStatus("approved");
+          void load();
+        }}
+      />
     </AssessmentShell>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "approved") {
+    return (
+      <Badge className="bg-brand-secondary/20 text-brand-text hover:bg-brand-secondary/20">
+        approved
+      </Badge>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <Badge className="bg-brand-text/10 text-brand-text/70 hover:bg-brand-text/10">
+        rejected
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="bg-brand-special/15 text-brand-special hover:bg-brand-special/15">
+      pending
+    </Badge>
   );
 }
 
@@ -648,18 +859,24 @@ function FilterSelect({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-brand-text/60">{label}</label>
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold uppercase tracking-wide text-brand-text/55">
+        {label}
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-lg border border-brand-surface bg-white px-2 text-sm text-brand-text"
+        className="h-10 w-full rounded-xl border border-brand-surface bg-white px-3 text-sm text-brand-text"
       >
-        {options.map((o) => (
-          <option key={o.value || "all"} value={o.value}>
-            {o.label}
-          </option>
-        ))}
+        {options.length === 0 ? (
+          <option value="">None</option>
+        ) : (
+          options.map((o) => (
+            <option key={o.value || `${label}-all`} value={o.value}>
+              {o.label}
+            </option>
+          ))
+        )}
       </select>
     </div>
   );

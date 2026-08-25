@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { GradeLevel, User, UserRole } from "@/types";
+import type { GradeLevel, TeacherClass, User, UserRole } from "@/types";
 
 /**
  * Shared auth/session client state for SCI-PATH frontend-app.
@@ -20,6 +20,8 @@ type UserStore = {
   accessToken: string | null;
   /** Selected classroom for educator analytics (persisted). */
   activeClassCode: string | null;
+  /** Classes this student has joined (refetched after login; not persisted). */
+  enrolledClasses: TeacherClass[];
   /** Student avatar choice keyed by user id (User Management has no avatar field). */
   studentAvatarByUserId: Record<string, string>;
   /** Teacher avatar choice keyed by user id. */
@@ -41,6 +43,8 @@ type UserStore = {
   }) => void;
   clearSession: () => void;
   setActiveClassCode: (classCode: string | null) => void;
+  setEnrolledClasses: (classes: TeacherClass[]) => void;
+  upsertEnrolledClass: (classroom: TeacherClass) => void;
   setHasHydrated: (hydrated: boolean) => void;
 };
 
@@ -71,13 +75,24 @@ export const useUserStore = create<UserStore>()(
     (set) => ({
       ...emptySession,
       activeClassCode: null,
+      enrolledClasses: [],
       studentAvatarByUserId: {},
       teacherAvatarByUserId: {},
       hasHydrated: false,
       login: (userData, token) =>
-        set({ ...sessionFromUser(userData, token), hasHydrated: true }),
+        set((state) => ({
+          ...sessionFromUser(userData, token),
+          enrolledClasses:
+            state.user?.id === userData.id ? state.enrolledClasses : [],
+          hasHydrated: true,
+        })),
       logout: () =>
-        set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
+        set({
+          ...emptySession,
+          activeClassCode: null,
+          enrolledClasses: [],
+          hasHydrated: true,
+        }),
       setStudentAvatar: (userId, avatarId) =>
         set((state) => {
           const id = userId.trim();
@@ -142,9 +157,28 @@ export const useUserStore = create<UserStore>()(
           };
         }),
       clearSession: () =>
-        set({ ...emptySession, activeClassCode: null, hasHydrated: true }),
+        set({
+          ...emptySession,
+          activeClassCode: null,
+          enrolledClasses: [],
+          hasHydrated: true,
+        }),
       setActiveClassCode: (classCode) =>
         set({ activeClassCode: classCode?.trim().toUpperCase() ?? null }),
+      setEnrolledClasses: (classes) => set({ enrolledClasses: classes }),
+      upsertEnrolledClass: (classroom) =>
+        set((state) => {
+          const code = classroom.class_code.trim().toUpperCase();
+          if (!code) return state;
+          const next = {
+            ...classroom,
+            class_code: code,
+          };
+          const others = state.enrolledClasses.filter(
+            (row) => row.class_code !== code
+          );
+          return { enrolledClasses: [next, ...others] };
+        }),
       setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
     }),
     {

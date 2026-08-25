@@ -209,20 +209,55 @@ export interface AnswerResponse {
   feedback?: string;
   is_complete?: boolean;
   session_complete?: boolean;
+  questions_asked?: number;
   elo_rating?: number;
   status?: string;
   grade?: unknown;
+}
+
+/** Attempt trail from GET /quizzes/{id}/results — IAE AttemptRecord (not C4). */
+export interface AttemptRecord {
+  question_id: string;
+  question_type?: QuestionType | string;
+  chapter_name?: string;
+  sub_concept?: string;
+  dok_level?: number;
+  student_answer?: string;
+  accuracy_score?: number;
+  is_correct?: boolean;
+  feedback?: string;
+  reasoning?: string;
+  time_taken_seconds?: number;
+  asked_at?: string;
+  error_category?: string | null;
+  missing_keywords?: string[] | null;
+  detailed_explanation?: string | null;
+  missed_blanks?: Record<string, string> | null;
+  concept_explanation?: string | null;
+  distractor_tag?: string | null;
+  distractor_label?: string | null;
 }
 
 export interface QuizResults {
   session_id: string;
   score?: number;
   accuracy?: number;
+  /** IAE results endpoint field (0–1). */
+  raw_accuracy?: number;
   correct_count?: number;
   total_answered?: number;
+  questions_asked?: number;
   max_questions?: number;
   status?: string;
+  session_kind?: string;
+  scope_chapter?: string;
+  elo_rating?: number;
+  /** IAE AttemptRecord list from the results endpoint. */
+  history?: AttemptRecord[];
+  /** Legacy / alternate shape — prefer `history`. */
   items?: QuizResultItem[];
+  /** LLM analyze payload — do not use for Custom Quiz results UI. */
+  ai_analysis?: unknown;
 }
 
 export interface QuizResultItem {
@@ -259,7 +294,42 @@ export interface SessionSummary {
 
 export interface SessionDetail extends SessionSummary {
   answers?: SessionAnswerItem[];
-  items?: SessionAnswerItem[];
+  items?: SessionDetailItem[] | SessionAnswerItem[];
+  session?: {
+    session_id?: string;
+    status?: string;
+    questions_asked?: number;
+    max_questions?: number;
+    history?: AttemptRecord[];
+  };
+  ai_analysis?: unknown;
+}
+
+/** Raw item from GET .../sessions/{id} (attempt + bank question). */
+export interface SessionDetailItem {
+  attempt?: AttemptRecord;
+  question?: SessionDetailQuestion;
+  expected_answer?: unknown;
+  student_answer?: string;
+}
+
+export interface SessionDetailQuestion {
+  id?: string;
+  question_id?: string;
+  question_type?: QuestionType | string;
+  type?: string;
+  chapter_name?: string;
+  sub_concept?: string;
+  prompt?: string | NestedPrompt;
+  payload?: NestedPrompt & {
+    options?: Record<string, string> | string[];
+    correct_answer?: unknown;
+    ideal_answer?: unknown;
+    answers?: unknown;
+    paragraph?: string;
+    question?: string;
+  };
+  options?: Record<string, string> | string[];
 }
 
 export interface SessionAnswerItem {
@@ -293,13 +363,24 @@ export interface TeacherTopic {
   topic_id: string;
   name?: string;
   grade?: number;
+  chapter_title?: string;
+  skill?: string;
+  chapter_number?: number | null;
+  domain?: string;
+  concept_code?: string;
 }
 
 export interface GenerateQuestionsRequest {
   topic_id: string;
+  skill?: string | null;
   dok_level: number;
   question_type: QuestionType;
   count: number;
+}
+
+export interface GenerateQuestionsResult {
+  created: number;
+  questions: TeacherQuestion[];
 }
 
 export interface TeacherQuestion {
@@ -315,6 +396,7 @@ export interface TeacherQuestion {
   class_code?: string;
   status: QuestionStatus;
   topic_id?: string;
+  chapter_name?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -327,7 +409,12 @@ export interface TeacherQuestionRaw {
   question_type?: string | QuestionType;
   type?: string;
   prompt?: string | NestedPrompt;
-  payload?: NestedPrompt;
+  payload?: NestedPrompt & {
+    correct_answer?: unknown;
+    ideal_answer?: unknown;
+    answers?: unknown;
+    keywords?: unknown;
+  };
   options?: Record<string, string> | string[];
   expected_answer?: string;
   correct_answer?: unknown;
@@ -338,6 +425,7 @@ export interface TeacherQuestionRaw {
   class_code?: string;
   status?: QuestionStatus | string;
   topic_id?: string;
+  chapter_name?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -350,6 +438,8 @@ export interface TeacherQuestionsQuery {
   class_code?: string;
   dok_level?: number;
   question_type?: QuestionType;
+  topic_id?: string;
+  limit?: number;
 }
 
 export interface RejectQuestionRequest {
@@ -357,15 +447,52 @@ export interface RejectQuestionRequest {
   notes?: string;
 }
 
+/** Matches IAE CreateTeacherQuestionRequest (payload-discriminated). */
+export type TeacherQuestionPayload =
+  | {
+      type: "MCQ";
+      question: string;
+      options: Record<string, string>;
+      correct_answer: string;
+    }
+  | {
+      type: "TrueFalse";
+      question: string;
+      correct_answer: "True" | "False";
+      distractor_tag?: string;
+      distractor_label?: string;
+    }
+  | {
+      type: "ShortAnswer";
+      question: string;
+      ideal_answer: string;
+      keywords: string[];
+    }
+  | {
+      type: "MultiBlank";
+      paragraph: string;
+      answers: string[];
+    };
+
 export interface CreateTeacherQuestionRequest {
-  prompt: string;
-  question_type: QuestionType;
-  expected_answer: string;
-  options?: Record<string, string> | string[];
   grade: number;
-  class_code?: string;
-  dok_level?: number;
+  chapter_name: string;
+  topic_id: string;
+  skill: string;
+  dok_level: number;
+  question_type: QuestionType;
+  payload: TeacherQuestionPayload;
+  sub_concept?: string;
+}
+
+/** Most-missed insight row — wired when teacher insights endpoint ships. */
+export interface MostMissedQuestionInsight {
+  question_id: string;
+  prompt?: string;
   topic_id?: string;
+  incorrect_count: number;
+  attempt_count: number;
+  miss_rate?: number;
 }
 
 export class AssessmentApiError extends Error {
