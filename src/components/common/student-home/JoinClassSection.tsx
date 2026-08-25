@@ -15,7 +15,7 @@ const fieldClassName =
 
 interface JoinClassSectionProps {
   enrolledClasses?: readonly TeacherClass[];
-  onJoined?: () => void;
+  onJoined?: (classroom: TeacherClass) => void;
 }
 
 export function JoinClassSection({
@@ -75,7 +75,7 @@ export function JoinClassSection({
         });
       }
       setClassCode("");
-      onJoined?.();
+      onJoined?.(result.classInfo);
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not join that class."

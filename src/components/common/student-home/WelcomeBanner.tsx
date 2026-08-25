@@ -35,12 +35,21 @@ export function WelcomeBanner({
         <div className="flex items-center gap-5 sm:gap-7">
           <StudentAvatar size="hero" className="ring-2 ring-white/70 shadow-lg" />
           <div className="space-y-2">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide backdrop-blur-sm">
-              <Sparkles className="size-4" aria-hidden />
+            <p className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide backdrop-blur-sm">
+              <Sparkles className="size-4 shrink-0" aria-hidden />
               {grade}
-              {enrolledClass
-                ? ` · ${enrolledClass.class_name}`
-                : " · Grades 6–9 Science"}
+              {enrolledClass ? (
+                <>
+                  <span className="font-semibold normal-case tracking-normal">
+                    · {enrolledClass.class_name}
+                  </span>
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 font-mono text-[11px] font-bold normal-case tracking-wide">
+                    {enrolledClass.class_code}
+                  </span>
+                </>
+              ) : (
+                " · Grades 6–9 Science"
+              )}
             </p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Welcome back, {firstName}
