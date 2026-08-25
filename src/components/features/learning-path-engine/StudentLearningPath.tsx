@@ -7,7 +7,6 @@ import {
   BookOpen,
   Check,
   ChevronRight,
-  Compass,
   GraduationCap,
   Sparkles,
 } from "lucide-react";
@@ -676,14 +675,7 @@ export default function StudentLearningPath() {
                     Dashboard
                   </Link>
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => setView("explore")}
-                  className="bg-brand-special text-white hover:bg-brand-special/90"
-                >
-                  <Compass className="size-4" aria-hidden />
-                  Science map
-                </Button>
+                {/* Science map / AR explorer hidden until AR content is ready */}
               </div>
             </header>
 
