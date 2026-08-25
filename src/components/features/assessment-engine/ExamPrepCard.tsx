@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Flag } from "lucide-react";
+import { Flag, FlaskConical } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,23 +10,34 @@ export function ExamPrepCard() {
   const [bktUpdate, setBktUpdate] = useState(false);
 
   return (
-    <article className="flex min-h-[20rem] flex-col gap-5 rounded-2xl border border-brand-accent/25 bg-white p-7 transition-transform duration-200 hover:-translate-y-0.5">
-      <p className="text-sm font-bold uppercase tracking-wider text-brand-accent">
-        Exam Preparation
-      </p>
-      <h2 className="text-lg font-semibold text-brand-text">Generate a Quiz</h2>
-      <p className="text-base leading-snug text-brand-text/65">
+    <article className="group relative flex min-h-[20rem] flex-col overflow-hidden rounded-3xl border border-brand-accent/15 bg-gradient-to-br from-white to-brand-accent/8 p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+      <div
+        className="pointer-events-none absolute -right-8 -top-10 size-28 rounded-full bg-brand-accent/15 blur-2xl"
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-3">
+        <p className="text-sm font-bold uppercase tracking-wider text-brand-accent">
+          Exam Preparation
+        </p>
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-accent text-white shadow-md shadow-brand-accent/25">
+          <FlaskConical className="size-6" aria-hidden />
+        </span>
+      </div>
+      <h2 className="relative mt-3 text-lg font-semibold text-brand-text">
+        Generate a Quiz
+      </h2>
+      <p className="relative mt-2 text-base leading-snug text-brand-text/65">
         Custom test from chapters you choose.
       </p>
-      <div className="flex flex-wrap gap-2">
-        <span className="rounded-full bg-brand-accent/15 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
+      <div className="relative mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-brand-accent/20 bg-white/80 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
           G7 Optics
         </span>
-        <span className="rounded-full bg-brand-accent/15 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
+        <span className="rounded-full border border-brand-accent/20 bg-white/80 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
           G7 Acids
         </span>
       </div>
-      <label className="flex items-center gap-2 text-sm text-brand-text/70">
+      <label className="relative mt-3 flex items-center gap-2 text-sm text-brand-text/70">
         <input
           type="checkbox"
           checked={bktUpdate}
@@ -37,7 +48,7 @@ export function ExamPrepCard() {
       </label>
       <Button
         asChild
-        className="mt-auto w-full bg-brand-accent text-base text-white hover:bg-brand-accent/90"
+        className="relative mt-auto h-11 w-full rounded-2xl bg-brand-accent text-base text-white shadow-md shadow-brand-accent/20 hover:bg-brand-accent/90"
       >
         <Link href="/assessment/custom-quiz">
           Configure &amp; Start

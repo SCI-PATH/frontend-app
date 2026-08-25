@@ -6,11 +6,12 @@ import { BookOpen, CheckCircle2, KeyRound, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { joinClass } from "@/lib/user-management";
+import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
 import type { TeacherClass } from "@/types";
 
 const fieldClassName =
-  "h-11 border-brand-surface bg-brand-background/70 font-mono uppercase tracking-wide text-brand-text placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
+  "h-11 border-brand-surface bg-white font-mono uppercase tracking-wide text-brand-text placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:ring-brand-primary/25";
 
 interface JoinClassSectionProps {
   enrolledClasses?: readonly TeacherClass[];
@@ -85,12 +86,23 @@ export function JoinClassSection({
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-brand-primary/20 bg-gradient-to-r from-brand-primary/8 via-white to-brand-secondary/10 px-6 py-6 sm:px-7">
-      <div className="flex flex-col gap-5">
+    <section className="relative overflow-hidden rounded-3xl border border-brand-primary/15 bg-gradient-to-br from-white to-brand-primary/8 px-6 py-6 shadow-sm sm:px-7 sm:py-7">
+      <div
+        className="pointer-events-none absolute -right-10 -top-12 size-36 rounded-full bg-brand-primary/15 blur-2xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-8 left-1/3 size-28 rounded-full bg-brand-secondary/20 blur-2xl"
+        aria-hidden
+      />
+
+      <div className="relative flex flex-col gap-5">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">
             <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-brand-primary">
-              <Users className="size-4" aria-hidden />
+              <span className="flex size-8 items-center justify-center rounded-xl bg-brand-primary text-white shadow-md shadow-brand-primary/25">
+                <Users className="size-4" aria-hidden />
+              </span>
               Classroom
             </p>
             <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
@@ -143,7 +155,7 @@ export function JoinClassSection({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-11 shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90 sm:min-w-[7.5rem]"
+              className="h-11 shrink-0 rounded-2xl bg-brand-primary text-white shadow-md shadow-brand-primary/20 hover:bg-brand-primary/90 sm:min-w-[7.5rem]"
             >
               {isSubmitting ? "Joining..." : "Join class"}
             </Button>
@@ -155,14 +167,19 @@ export function JoinClassSection({
             {enrolledClasses.map((row) => (
               <li
                 key={row.class_code}
-                className="flex items-start gap-3 rounded-xl border border-brand-secondary/30 bg-white px-4 py-3"
+                className={cn(
+                  "flex items-start gap-3 rounded-2xl border border-brand-secondary/25 bg-white/90 px-4 py-3.5 shadow-sm"
+                )}
               >
-                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-secondary/20 text-brand-text">
+                <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-secondary text-brand-text shadow-md shadow-brand-secondary/25">
                   <BookOpen className="size-4" aria-hidden />
                 </span>
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 font-semibold text-brand-text">
-                    <CheckCircle2 className="size-4 text-brand-secondary" aria-hidden />
+                    <CheckCircle2
+                      className="size-4 text-brand-secondary"
+                      aria-hidden
+                    />
                     {row.class_name}
                   </p>
                   <p className="text-sm text-brand-text/60">
@@ -181,7 +198,7 @@ export function JoinClassSection({
 
       {error ? (
         <p
-          className="mt-4 rounded-lg border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent"
+          className="relative mt-4 rounded-xl border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent"
           role="alert"
         >
           {error}
@@ -190,7 +207,7 @@ export function JoinClassSection({
 
       {success ? (
         <p
-          className="mt-4 rounded-lg border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text"
+          className="relative mt-4 rounded-xl border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text"
           role="status"
         >
           {success.message} You&apos;re in{" "}
