@@ -30,33 +30,44 @@ export function MasteryProfileCard({ profile }: MasteryProfileCardProps) {
       : null;
 
   return (
-    <article className="flex min-h-[20rem] flex-col gap-5 rounded-2xl border border-brand-secondary/30 bg-white p-7 transition-transform duration-200 hover:-translate-y-0.5">
-      <p className="text-sm font-bold uppercase tracking-wider text-brand-secondary">
-        Mastery Profile
-      </p>
-      <h2 className="text-lg font-semibold text-brand-text">My Learner Profile</h2>
-      <p className="text-base leading-snug text-brand-text/65">
+    <article className="group relative flex min-h-[20rem] flex-col overflow-hidden rounded-3xl border border-brand-secondary/25 bg-gradient-to-br from-white to-brand-secondary/10 p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+      <div
+        className="pointer-events-none absolute -right-8 -top-10 size-28 rounded-full bg-brand-secondary/25 blur-2xl"
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-3">
+        <p className="text-sm font-bold uppercase tracking-wider text-brand-secondary">
+          Mastery Profile
+        </p>
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-secondary text-brand-text shadow-md shadow-brand-secondary/25">
+          <ChartColumnIncreasing className="size-6" aria-hidden />
+        </span>
+      </div>
+      <h2 className="relative mt-3 text-lg font-semibold text-brand-text">
+        My Learner Profile
+      </h2>
+      <p className="relative mt-2 text-base leading-snug text-brand-text/65">
         Track mastery and skills that need practice.
       </p>
-      <ul className="space-y-1 text-base text-brand-text/80">
-        <li className="flex justify-between">
+      <ul className="relative mt-4 space-y-2 rounded-2xl border border-brand-secondary/20 bg-white/75 px-3.5 py-3 text-sm text-brand-text/80">
+        <li className="flex justify-between gap-2">
           <span>Skills with evidence</span>
-          <span className="font-semibold">{covered}</span>
+          <span className="font-semibold text-brand-text">{covered}</span>
         </li>
-        <li className="flex justify-between">
+        <li className="flex justify-between gap-2">
           <span>Mastered skills</span>
-          <span className="font-semibold">
+          <span className="font-semibold text-brand-text">
             {bands.mastered}
             {topicIds.length ? ` / ${topicIds.length}` : ""}
           </span>
         </li>
         {overall !== null ? (
-          <li className="flex justify-between">
+          <li className="flex justify-between gap-2">
             <span>Progress mix</span>
-            <span className="font-semibold">{overall}%</span>
+            <span className="font-semibold text-brand-text">{overall}%</span>
           </li>
         ) : null}
-        <li className="font-medium text-brand-accent">
+        <li className="border-t border-brand-surface pt-2 font-medium text-brand-accent">
           {focusCount > 0 && topFocus
             ? `Focus: ${getCurriculumTitle(topFocus.topic_id)}`
             : "No at-risk focus skills right now"}
@@ -64,7 +75,7 @@ export function MasteryProfileCard({ profile }: MasteryProfileCardProps) {
       </ul>
       <Button
         asChild
-        className="mt-auto w-full bg-brand-secondary text-base text-brand-text hover:bg-brand-secondary/90"
+        className="relative mt-auto h-11 w-full rounded-2xl bg-brand-secondary text-base text-brand-text shadow-md shadow-brand-secondary/20 hover:bg-brand-secondary/90"
       >
         <Link href={STUDENT_PROFILE_PATH}>
           View full profile
