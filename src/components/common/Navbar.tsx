@@ -27,7 +27,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-brand-surface bg-white/95 backdrop-blur-sm">
+    <header className="relative border-b border-brand-surface bg-white/95">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-3 sm:h-[4.25rem] sm:gap-4 sm:px-5">
         <BrandLockup
           href="/dashboard"

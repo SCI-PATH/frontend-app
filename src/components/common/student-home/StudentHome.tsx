@@ -121,9 +121,9 @@ export function StudentHome() {
         </section>
 
         <DailyFactCard />
-
-        <SocratesChatToggle />
       </div>
+
+      <SocratesChatToggle />
     </div>
   );
 }

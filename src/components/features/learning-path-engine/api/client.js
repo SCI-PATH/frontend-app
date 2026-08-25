@@ -12,6 +12,13 @@ const apiBase =
     : ""
   ).replace(/\/$/, "");
 
+function looksLikeNetworkGate(rawText) {
+  const t = String(rawText || "");
+  return /Web Filter Violation|Intrusion Prevention|Access Blocked|Web Page Blocked|Internet usage policy|cloudflare|cf-ray|<html|<!DOCTYPE/i.test(
+    t,
+  );
+}
+
 function friendlyFromHttp(status, rawText, data) {
   const detail = data?.detail;
   let candidate =
@@ -22,6 +29,11 @@ function friendlyFromHttp(status, rawText, data) {
         : typeof data?.message === "string"
           ? data.message
           : "";
+
+  // Corporate / ISP filters often return HTML 403 for EC2 IPs — not an auth issue.
+  if (looksLikeNetworkGate(rawText)) {
+    return "We could not reach the learning service from this network (request blocked). Try again, use another network, or run the backends locally.";
+  }
 
   // Map common backend technical lines to product copy
   if (/Unknown lesson_id|Unknown topic|Unknown content_id/i.test(candidate || rawText || "")) {
@@ -46,6 +58,10 @@ function friendlyFromHttp(status, rawText, data) {
 
   if (status === 404) return "That content could not be found.";
   if (status === 422) return "Some of the request details look invalid. Check and try again.";
+  // Bare 403 with non-JSON/HTML body is almost never a real LPE ACL on these public GETs.
+  if (status === 403 && (!data || looksLikeNetworkGate(rawText))) {
+    return "We could not reach the learning service from this network (request blocked). Try again, use another network, or run the backends locally.";
+  }
   if (status === 401 || status === 403) return "You don’t have permission for that action.";
   if (status >= 500) return "The learning service hit a problem. Please try again in a moment.";
   if (status === 0 || !status) return "We could not reach the learning service. Is the server running?";

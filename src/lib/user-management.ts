@@ -44,22 +44,33 @@ async function requestJson<T>(
   init?: RequestInit,
   token?: string
 ): Promise<T> {
-  const response = await fetch(`/user-api${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/user-api${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new UserManagementError(
+      "Could not reach User Management. Check that the service is running.",
+      0,
+      "network_error"
+    );
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = payload?.detail;
     let message = "User Management could not complete this request.";
+    let code: string | undefined;
     if (typeof detail === "string") {
       message = detail;
     } else if (detail && typeof detail === "object" && !Array.isArray(detail)) {
       message = detail.message || detail.code || message;
+      code = typeof detail.code === "string" ? detail.code : undefined;
     } else if (Array.isArray(detail) && detail.length) {
       const first = detail[0];
       message =
@@ -67,9 +78,22 @@ async function requestJson<T>(
           ? first
           : first?.msg || first?.message || message;
     }
-    throw new Error(message);
+    throw new UserManagementError(message, response.status, code);
   }
   return payload as T;
+}
+
+/** Typed UM API failure — callers can tell auth rejection from network/proxy blips. */
+export class UserManagementError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "UserManagementError";
+    this.status = status;
+    this.code = code;
+  }
 }
 
 function gradeLabel(grade?: number | null): GradeLevel | undefined {

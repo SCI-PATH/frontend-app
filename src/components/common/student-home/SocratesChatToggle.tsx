@@ -43,16 +43,16 @@ export function SocratesChatToggle() {
           {expanded ? (
             <button
               type="button"
-              className="fixed inset-0 z-50 bg-brand-text/40 backdrop-blur-[2px]"
+              className="fixed inset-0 z-[60] bg-brand-text/40 backdrop-blur-[2px]"
               aria-label="Close Socrates chat"
               onClick={close}
             />
           ) : null}
           <aside
             className={cn(
-              "z-50 flex flex-col",
+              "z-[60] flex flex-col",
               expanded
-                ? "fixed top-4 right-3 bottom-4 left-3 z-50 sm:top-6 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[min(48rem,calc(100vw-2rem))] sm:-translate-x-1/2"
+                ? "fixed top-4 right-3 bottom-4 left-3 z-[60] sm:top-6 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[min(48rem,calc(100vw-2rem))] sm:-translate-x-1/2"
                 : "fixed right-3 bottom-20 h-[min(32rem,75vh)] w-[min(32rem,calc(100vw-1.5rem))] sm:right-5"
             )}
             aria-label="Ask Socrates chat"
@@ -74,7 +74,7 @@ export function SocratesChatToggle() {
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-label={open ? "Hide Socrates chat" : "Ask Socrates"}
-          className="fixed right-4 bottom-3 z-50 h-12 gap-2 rounded-full bg-brand-special px-4 text-base text-white shadow-md hover:bg-brand-special/90 sm:right-6"
+          className="fixed right-4 bottom-3 z-[60] h-12 gap-2 rounded-full bg-brand-special px-4 text-base text-white shadow-md hover:bg-brand-special/90 sm:right-6"
         >
           <MessageCircle className="size-5" aria-hidden />
           {open ? "Hide tutor" : "Ask Socrates"}

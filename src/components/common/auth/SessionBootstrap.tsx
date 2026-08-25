@@ -4,12 +4,17 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { BASE_PATH, isPublicPath } from "@/lib/auth-routes";
-import { checkUserSession } from "@/lib/user-management";
+import {
+  checkUserSession,
+  UserManagementError,
+} from "@/lib/user-management";
 import { useUserStore } from "@/store/useUserStore";
 
 /**
  * Revalidates the persisted User Management token after refresh / on interval.
  * Expired or revoked sessions clear local state and send the user to `/`.
+ * Transient proxy/network failures keep the local session so a flaky EC2 hop
+ * does not bounce a just-logged-in user back to the landing page.
  */
 export function SessionBootstrap() {
   const checkedToken = useRef<string | null>(null);
@@ -49,9 +54,12 @@ export function SessionBootstrap() {
           sendToBase();
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         checkedToken.current = null;
-        sendToBase();
+        if (isDefinitiveAuthFailure(err)) {
+          sendToBase();
+        }
+        // Network / proxy blips: keep token so RoleGuard does not bounce to `/`.
       });
   }, [clearSession, hasHydrated, login, pathname, router, token]);
 
@@ -69,10 +77,12 @@ export function SessionBootstrap() {
             }
           }
         })
-        .catch(() => {
-          clearSession();
-          if (!isPublicPath(pathname)) {
-            router.replace(BASE_PATH);
+        .catch((err: unknown) => {
+          if (isDefinitiveAuthFailure(err)) {
+            clearSession();
+            if (!isPublicPath(pathname)) {
+              router.replace(BASE_PATH);
+            }
           }
         });
     }, 60 * 60 * 1000);
@@ -81,4 +91,10 @@ export function SessionBootstrap() {
   }, [clearSession, hasHydrated, pathname, router, token]);
 
   return null;
+}
+
+function isDefinitiveAuthFailure(err: unknown): boolean {
+  if (!(err instanceof UserManagementError)) return false;
+  // Real UM auth rejection. Ignore 0 (network) and 5xx / filter HTML 403s.
+  return err.status === 401;
 }

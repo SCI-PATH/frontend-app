@@ -37,6 +37,8 @@ export function isTechnicalErrorText(s) {
   if (t.length > 220) return true;
   if (/https?:\/\//i.test(t)) return true;
   if (/www\./i.test(t)) return true;
+  if (/Web Filter Violation|Intrusion Prevention|Access Blocked|Internet usage policy/i.test(t))
+    return true;
   if (/<!DOCTYPE|<html|<body|Traceback|ECONNREFUSED|ENOTFOUND|Failed to fetch|NetworkError|fetch failed/i.test(t))
     return true;
   if (/Internal Server Error|uvicorn|fastapi|SQLAlchemy|psycopg|sqlite3\.|File \"/i.test(t)) return true;
