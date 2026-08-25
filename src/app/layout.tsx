@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { SessionBootstrap } from "@/components/common/auth/SessionBootstrap";
-import { APP_LOGO_PATH } from "@/lib/brand";
 
 import "./globals.css";
 
@@ -20,10 +19,6 @@ export const metadata: Metadata = {
   title: "SCI PATH | Adaptive Science Learning for Grades 6–9",
   description:
     "SCI PATH connects Socratic tutoring, Farm & Unlock gamification, adaptive learning paths, dynamic assessments, and BKT analytics for middle-school science.",
-  icons: {
-    icon: APP_LOGO_PATH,
-    apple: APP_LOGO_PATH,
-  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
