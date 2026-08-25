@@ -363,13 +363,24 @@ export interface TeacherTopic {
   topic_id: string;
   name?: string;
   grade?: number;
+  chapter_title?: string;
+  skill?: string;
+  chapter_number?: number | null;
+  domain?: string;
+  concept_code?: string;
 }
 
 export interface GenerateQuestionsRequest {
   topic_id: string;
+  skill?: string | null;
   dok_level: number;
   question_type: QuestionType;
   count: number;
+}
+
+export interface GenerateQuestionsResult {
+  created: number;
+  questions: TeacherQuestion[];
 }
 
 export interface TeacherQuestion {
@@ -385,6 +396,7 @@ export interface TeacherQuestion {
   class_code?: string;
   status: QuestionStatus;
   topic_id?: string;
+  chapter_name?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -397,7 +409,12 @@ export interface TeacherQuestionRaw {
   question_type?: string | QuestionType;
   type?: string;
   prompt?: string | NestedPrompt;
-  payload?: NestedPrompt;
+  payload?: NestedPrompt & {
+    correct_answer?: unknown;
+    ideal_answer?: unknown;
+    answers?: unknown;
+    keywords?: unknown;
+  };
   options?: Record<string, string> | string[];
   expected_answer?: string;
   correct_answer?: unknown;
@@ -408,6 +425,7 @@ export interface TeacherQuestionRaw {
   class_code?: string;
   status?: QuestionStatus | string;
   topic_id?: string;
+  chapter_name?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -420,6 +438,8 @@ export interface TeacherQuestionsQuery {
   class_code?: string;
   dok_level?: number;
   question_type?: QuestionType;
+  topic_id?: string;
+  limit?: number;
 }
 
 export interface RejectQuestionRequest {
@@ -427,15 +447,52 @@ export interface RejectQuestionRequest {
   notes?: string;
 }
 
+/** Matches IAE CreateTeacherQuestionRequest (payload-discriminated). */
+export type TeacherQuestionPayload =
+  | {
+      type: "MCQ";
+      question: string;
+      options: Record<string, string>;
+      correct_answer: string;
+    }
+  | {
+      type: "TrueFalse";
+      question: string;
+      correct_answer: "True" | "False";
+      distractor_tag?: string;
+      distractor_label?: string;
+    }
+  | {
+      type: "ShortAnswer";
+      question: string;
+      ideal_answer: string;
+      keywords: string[];
+    }
+  | {
+      type: "MultiBlank";
+      paragraph: string;
+      answers: string[];
+    };
+
 export interface CreateTeacherQuestionRequest {
-  prompt: string;
-  question_type: QuestionType;
-  expected_answer: string;
-  options?: Record<string, string> | string[];
   grade: number;
-  class_code?: string;
-  dok_level?: number;
+  chapter_name: string;
+  topic_id: string;
+  skill: string;
+  dok_level: number;
+  question_type: QuestionType;
+  payload: TeacherQuestionPayload;
+  sub_concept?: string;
+}
+
+/** Most-missed insight row — wired when teacher insights endpoint ships. */
+export interface MostMissedQuestionInsight {
+  question_id: string;
+  prompt?: string;
   topic_id?: string;
+  incorrect_count: number;
+  attempt_count: number;
+  miss_rate?: number;
 }
 
 export class AssessmentApiError extends Error {

@@ -7,11 +7,23 @@ import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchAmplitudeChapters } from "../api/amplitude";
-import { createCustomizableQuiz } from "../api/quizzes";
+import {
+  clearNextQuestionGate,
+  seedNextQuestion,
+} from "../api/nextQuestionGate";
+import {
+  createCustomizableQuiz,
+  fetchNextQuestion,
+} from "../api/quizzes";
 import { chaptersForGrade } from "../data/catalog";
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import { useQuizSessionStore } from "../store/useQuizSessionStore";
-import type { AmplitudeChapter, QuestionType, QuizResults } from "../types";
+import type {
+  AmplitudeChapter,
+  NextQuestionResponse,
+  QuestionType,
+  QuizResults,
+} from "../types";
 import { AssessmentApiError } from "../types";
 import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
@@ -48,6 +60,9 @@ export function CustomQuizScreen() {
   const [numQuestions, setNumQuestions] = useState(5);
   const [types, setTypes] = useState<QuestionType[]>([...ALL_TYPES]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [initialNext, setInitialNext] = useState<NextQuestionResponse | null>(
+    null
+  );
   const [results, setResults] = useState<QuizResults | null>(null);
   const [view, setView] = useState<View>("setup");
   const [starting, setStarting] = useState(false);
@@ -100,9 +115,11 @@ export function CustomQuizScreen() {
 
   function handleRetry() {
     if (sessionId) {
+      clearNextQuestionGate(sessionId);
       useQuizSessionStore.getState().setPendingNext(sessionId, null);
     }
     setSessionId(null);
+    setInitialNext(null);
     setResults(null);
     setError(null);
     setView("setup");
@@ -139,7 +156,15 @@ export function CustomQuizScreen() {
       });
       const id = session.session_id;
       if (!id) throw new AssessmentApiError(500, "No session_id returned");
+
+      // Exactly one /next for question 1. QuizPlayer must reuse this payload
+      // (backend burns a slot on every /next call).
+      const first = await fetchNextQuestion(id);
+      seedNextQuestion(id, first);
+      useQuizSessionStore.getState().setPendingNext(id, first);
+
       setResults(null);
+      setInitialNext(first);
       setSessionId(id);
       setView("playing");
     } catch (err) {
@@ -184,6 +209,7 @@ export function CustomQuizScreen() {
         <QuizPlayer
           sessionId={sessionId}
           maxQuestions={numQuestions}
+          initialNext={initialNext}
           onFinished={(res) => {
             setResults(res);
             setView("results");

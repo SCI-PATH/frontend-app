@@ -127,10 +127,7 @@ export function normalizeQuestion(raw: QuizQuestionRaw): QuizQuestion {
   }
 
   return {
-    question_id:
-      cleaned.question_id ||
-      cleaned.id ||
-      `q-${Math.random().toString(36).slice(2, 10)}`,
+    question_id: cleaned.question_id || cleaned.id || "",
     prompt: paragraph ? paragraph : stem,
     question_type: questionType,
     options,
@@ -166,6 +163,9 @@ export function normalizeTeacherQuestion(
     };
     if (typeof extra.correct_answer === "string") return extra.correct_answer;
     if (typeof extra.ideal_answer === "string") return extra.ideal_answer;
+    if (Array.isArray(extra.answers)) {
+      return extra.answers.map((a, i) => `Blank ${i + 1}: ${String(a)}`).join(" · ");
+    }
     if (typeof extra.answers === "string") return extra.answers;
     return undefined;
   })();
@@ -185,6 +185,9 @@ export function normalizeTeacherQuestion(
     (typeof raw.expected_answer === "string" && raw.expected_answer) ||
     (typeof raw.correct_answer === "string" && raw.correct_answer) ||
     (typeof raw.ideal_answer === "string" && raw.ideal_answer) ||
+    (Array.isArray(raw.answers)
+      ? raw.answers.map((a, i) => `Blank ${i + 1}: ${String(a)}`).join(" · ")
+      : undefined) ||
     expectedFromBody ||
     undefined;
 
@@ -200,6 +203,7 @@ export function normalizeTeacherQuestion(
     class_code: raw.class_code,
     status: (raw.status as QuestionStatus) || "pending",
     topic_id: raw.topic_id,
+    chapter_name: raw.chapter_name,
     rejection_reason: raw.rejection_reason,
     rejection_notes: raw.rejection_notes,
     rejection_confirmed_ai: raw.rejection_confirmed_ai,
