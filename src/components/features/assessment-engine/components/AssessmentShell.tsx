@@ -48,6 +48,14 @@ export function AssessmentShell({
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E820,_transparent_45%),radial-gradient(ellipse_at_bottom_right,_#70E00018,_transparent_40%),radial-gradient(ellipse_at_top_right,_#FF6B3514,_transparent_35%)]"
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-24 top-8 size-72 rounded-full bg-brand-primary/10 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-16 bottom-20 size-64 rounded-full bg-brand-special/10 blur-3xl"
+      />
 
       <div
         className={cn(
@@ -55,7 +63,7 @@ export function AssessmentShell({
           maxWidthClass[maxWidth]
         )}
       >
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             {backHref ? (
               <Link
@@ -67,15 +75,17 @@ export function AssessmentShell({
               </Link>
             ) : null}
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-white p-1 ring-1 ring-brand-surface">
+              <div className="rounded-2xl bg-white p-1.5 ring-2 ring-brand-primary/15">
                 <AppLogo size="md" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-brand-text sm:text-3xl">
+                <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
                   {title}
                 </h1>
                 {subtitle ? (
-                  <p className="mt-0.5 text-sm text-brand-text/65">{subtitle}</p>
+                  <p className="mt-1 text-sm text-brand-text/65 sm:text-base">
+                    {subtitle}
+                  </p>
                 ) : null}
               </div>
             </div>

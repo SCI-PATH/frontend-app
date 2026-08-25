@@ -21,6 +21,7 @@ import {
 import { isSessionComplete, normalizeQuestion } from "../api/normalizeQuestion";
 import { useQuizSessionStore } from "../store/useQuizSessionStore";
 import type {
+  AnswerResponse,
   NextQuestionResponse,
   QuizQuestion,
   QuizQuestionRaw,
@@ -42,22 +43,121 @@ interface QuizPlayerProps {
 type Phase = "loading" | "answering" | "submitting" | "results" | "error";
 
 /**
- * Deduplicate the *first* /next per session across React Strict Mode remounts.
- * Each /next advances C2 state — a second mount must reuse the same promise,
- * not fire another HTTP call. Subsequent /next after /answer bypass this cache.
+ * Cache the *current* unanswered /next payload per session.
+ * Prevents React Strict Mode / Fast Refresh remounts from calling /next again
+ * and consuming (skipping) the first question on the server.
  */
-const initialNextBySession = new Map<string, Promise<NextQuestionResponse>>();
+const pendingNextBySession = new Map<string, Promise<NextQuestionResponse>>();
+const pendingNextResultBySession = new Map<string, NextQuestionResponse>();
+
+function clearPendingNextMaps(sessionId: string) {
+  pendingNextBySession.delete(sessionId);
+  pendingNextResultBySession.delete(sessionId);
+}
+
+function readStorePending(sessionId: string): NextQuestionResponse | undefined {
+  try {
+    return useQuizSessionStore.getState().pendingNextBySession[sessionId];
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStorePending(
+  sessionId: string,
+  payload: NextQuestionResponse | null
+) {
+  try {
+    useQuizSessionStore.getState().setPendingNext(sessionId, payload);
+  } catch {
+    // Store may be unavailable during SSR — maps still cover the happy path.
+  }
+}
+
+function clearPendingNext(sessionId: string) {
+  clearPendingNextMaps(sessionId);
+  writeStorePending(sessionId, null);
+}
 
 function fetchInitialNext(sessionId: string): Promise<NextQuestionResponse> {
-  const cached = initialNextBySession.get(sessionId);
+  const fromStore = readStorePending(sessionId);
+  if (fromStore) {
+    pendingNextResultBySession.set(sessionId, fromStore);
+    return Promise.resolve(fromStore);
+  }
+
+  const resolved = pendingNextResultBySession.get(sessionId);
+  if (resolved) return Promise.resolve(resolved);
+
+  const cached = pendingNextBySession.get(sessionId);
   if (cached) return cached;
 
-  const promise = fetchNextQuestion(sessionId).catch((err) => {
-    initialNextBySession.delete(sessionId);
-    throw err;
-  });
-  initialNextBySession.set(sessionId, promise);
+  const promise = fetchNextQuestion(sessionId)
+    .then((data) => {
+      pendingNextResultBySession.set(sessionId, data);
+      writeStorePending(sessionId, data);
+      return data;
+    })
+    .catch((err) => {
+      clearPendingNext(sessionId);
+      throw err;
+    });
+  pendingNextBySession.set(sessionId, promise);
   return promise;
+}
+
+function isSessionEndedError(err: unknown): boolean {
+  if (!(err instanceof AssessmentApiError) || err.status !== 409) {
+    return false;
+  }
+  const msg = String(err.message || err.detail || "").toLowerCase();
+  return (
+    msg.includes("session") ||
+    msg.includes("complete") ||
+    msg.includes("ended") ||
+    msg.includes("no question")
+  );
+}
+
+/**
+ * Prefer backend completion flags.
+ * Do not use questions_asked >= max alone — that counts *served* questions,
+ * so it is already max while the student is still answering the last item.
+ */
+function answerIndicatesComplete(res: AnswerResponse): boolean {
+  if (
+    isSessionComplete({
+      is_complete: res.is_complete,
+      session_complete: res.session_complete,
+    })
+  ) {
+    return true;
+  }
+  const status = String(res.status || "").toLowerCase();
+  return (
+    status === "completed" || status === "terminated" || status === "failed"
+  );
+}
+
+function extractQuestion(
+  next: NextQuestionResponse
+): QuizQuestionRaw | null {
+  if (next.question && typeof next.question === "object") {
+    return next.question as QuizQuestionRaw;
+  }
+  const root = next as NextQuestionResponse & QuizQuestionRaw;
+  if (root.id || root.question_id || root.payload) {
+    return root;
+  }
+  return null;
+}
+
+function questionTypeIsMultiBlank(type: string | undefined): boolean {
+  return (
+    String(type || "")
+      .toLowerCase()
+      .replace(/[_\s-]/g, "") === "multiblank"
+  );
 }
 
 export function QuizPlayer({
@@ -71,14 +171,15 @@ export function QuizPlayer({
   const [phase, setPhase] = useState<Phase>("loading");
   const [question, setQuestion] = useState<QuizQuestion | null>(null);
   const [answer, setAnswer] = useState<string | string[]>("");
-  const [index, setIndex] = useState(0);
+  /** 1-based ordinal of the question currently on screen. */
+  const [ordinal, setOrdinal] = useState(0);
   const [asked, setAsked] = useState(0);
   const [cap, setCap] = useState(maxQuestions);
   const [results, setResults] = useState<QuizResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  /** Blocks overlapping /next while one is in flight (post-answer path). */
   const nextInFlight = useRef(false);
+  const bootAppliedRef = useRef(false);
 
   const timerRunning = phase === "answering";
   const elapsed = useElapsedSeconds(
@@ -87,6 +188,7 @@ export function QuizPlayer({
   );
 
   const loadResults = useCallback(async () => {
+    clearPendingNext(sessionId);
     try {
       const res = await fetchQuizResults(sessionId);
       setResults(res);
@@ -103,15 +205,13 @@ export function QuizPlayer({
   }, [sessionId, onFinished]);
 
   const applyQuestion = useCallback(
-    (raw: QuizQuestionRaw, askedHint?: number) => {
+    (raw: QuizQuestionRaw, askedHint?: number, ordinalHint?: number) => {
       const q = normalizeQuestion(raw);
       setQuestion(q);
-      setIndex((i) => i + 1);
-      setAsked(
-        askedHint ?? q.questions_asked ?? q.question_number ?? 0
-      );
+      setOrdinal((prev) => ordinalHint ?? (prev > 0 ? prev + 1 : 1));
+      setAsked(askedHint ?? q.questions_asked ?? q.question_number ?? 0);
       if (q.total_questions) setCap(q.total_questions);
-      if (q.question_type === "MultiBlank") {
+      if (questionTypeIsMultiBlank(q.question_type)) {
         setAnswer(Array.from({ length: q.blanks ?? 2 }, () => ""));
       } else {
         setAnswer("");
@@ -121,7 +221,6 @@ export function QuizPlayer({
     []
   );
 
-  /** After a successful /answer (or manual retry) — always a fresh /next. */
   const loadNext = useCallback(async () => {
     if (nextInFlight.current) return;
     nextInFlight.current = true;
@@ -129,23 +228,35 @@ export function QuizPlayer({
     setError(null);
     setFlash(null);
     setAnswer("");
+    clearPendingNext(sessionId);
     try {
       const next = await fetchNextQuestion(sessionId);
+      // Keep payload so a remount mid-question won't burn another /next.
+      pendingNextResultBySession.set(sessionId, next);
+      writeStorePending(sessionId, next);
+
       if (next.max_questions) setCap(next.max_questions);
       if (next.questions_asked != null) setAsked(next.questions_asked);
 
+      const rawQ = extractQuestion(next);
       const complete = isSessionComplete({
         is_complete: next.is_complete,
         done: next.done,
         complete: next.complete,
-        hasQuestion: Boolean(next.question),
+        hasQuestion: Boolean(rawQ),
       });
       if (complete) {
+        clearPendingNext(sessionId);
         await loadResults();
         return;
       }
-      applyQuestion(next.question as QuizQuestionRaw, next.questions_asked);
+      applyQuestion(rawQ as QuizQuestionRaw, next.questions_asked);
     } catch (err) {
+      if (isSessionEndedError(err)) {
+        clearPendingNext(sessionId);
+        await loadResults();
+        return;
+      }
       setError(
         err instanceof AssessmentApiError
           ? err.message
@@ -159,7 +270,7 @@ export function QuizPlayer({
 
   useEffect(() => {
     setLastSessionId(sessionId);
-    setIndex(0);
+    setOrdinal(0);
     setAsked(0);
     setCap(maxQuestions);
     setResults(null);
@@ -168,24 +279,27 @@ export function QuizPlayer({
     setFlash(null);
     setAnswer("");
     setPhase("loading");
+    bootAppliedRef.current = false;
 
     let cancelled = false;
 
     async function boot() {
       try {
-        // Shared promise: Strict Mode remount awaits the same first /next.
         const next = await fetchInitialNext(sessionId);
         if (cancelled) return;
+
         if (next.max_questions) setCap(next.max_questions);
         if (next.questions_asked != null) setAsked(next.questions_asked);
 
+        const rawQ = extractQuestion(next);
         const complete = isSessionComplete({
           is_complete: next.is_complete,
           done: next.done,
           complete: next.complete,
-          hasQuestion: Boolean(next.question),
+          hasQuestion: Boolean(rawQ),
         });
         if (complete) {
+          clearPendingNext(sessionId);
           const res = await fetchQuizResults(sessionId);
           if (cancelled) return;
           setResults(res);
@@ -193,11 +307,38 @@ export function QuizPlayer({
           onFinished?.(res);
           return;
         }
-        // Reset index then apply so remount doesn't double-count.
-        setIndex(0);
-        applyQuestion(next.question as QuizQuestionRaw, next.questions_asked);
+
+        // Apply once — Strict Mode remount reuses the same cached /next payload.
+        if (bootAppliedRef.current) return;
+        bootAppliedRef.current = true;
+        const displayOrdinal = Math.max(1, next.questions_asked ?? 1);
+        applyQuestion(
+          rawQ as QuizQuestionRaw,
+          next.questions_asked,
+          displayOrdinal
+        );
       } catch (err) {
         if (cancelled) return;
+        if (isSessionEndedError(err)) {
+          try {
+            clearPendingNext(sessionId);
+            const res = await fetchQuizResults(sessionId);
+            if (cancelled) return;
+            setResults(res);
+            setPhase("results");
+            onFinished?.(res);
+            return;
+          } catch (resultsErr) {
+            if (cancelled) return;
+            setError(
+              resultsErr instanceof AssessmentApiError
+                ? resultsErr.message
+                : "Failed to load results"
+            );
+            setPhase("error");
+            return;
+          }
+        }
         setError(
           err instanceof AssessmentApiError
             ? err.message
@@ -224,24 +365,34 @@ export function QuizPlayer({
         student_answer: serializeStudentAnswer(answer),
         time_taken_seconds: elapsed,
       });
-      if (res.is_correct != null) {
+
+      const grade = res.grade as { is_correct?: boolean } | undefined;
+      const isCorrect =
+        res.is_correct ??
+        (grade && typeof grade === "object" ? grade.is_correct : undefined);
+      if (isCorrect != null) {
         setFlash(
-          res.is_correct
+          isCorrect
             ? "Nice! That one landed."
             : "Keep going — every try teaches something."
         );
       }
-      if (
-        isSessionComplete({
-          is_complete: res.is_complete,
-          session_complete: res.session_complete,
-        })
-      ) {
+      if (res.questions_asked != null) setAsked(res.questions_asked);
+
+      // Answered — clear pending so the next /next is a real new fetch.
+      clearPendingNext(sessionId);
+
+      if (answerIndicatesComplete(res)) {
         await loadResults();
         return;
       }
       await loadNext();
     } catch (err) {
+      if (isSessionEndedError(err)) {
+        clearPendingNext(sessionId);
+        await loadResults();
+        return;
+      }
       setError(
         err instanceof AssessmentApiError
           ? err.message
@@ -251,11 +402,27 @@ export function QuizPlayer({
     }
   }
 
-  const progressNum = question?.question_number ?? (asked || index);
   const progressDen = question?.total_questions ?? cap;
+  const progressNum = ordinal || question?.question_number || asked || 1;
   const progressLabel = progressDen
-    ? `Question ${progressNum || index} / ${progressDen}`
-    : `Question ${progressNum || index}`;
+    ? `Question ${progressNum} / ${progressDen}`
+    : `Question ${progressNum}`;
+
+  if (phase === "results" && onFinished) {
+    return (
+      <Card className="border-brand-surface bg-white">
+        <CardContent className="flex flex-col items-center gap-3 py-16">
+          <Loader2
+            className="size-8 animate-spin text-brand-primary"
+            aria-hidden
+          />
+          <p className="text-sm font-medium text-brand-text">
+            Preparing your results…
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (phase === "results" && results) {
     return (
@@ -281,8 +448,8 @@ export function QuizPlayer({
         <CardFooter className="gap-2">
           <Button
             onClick={() => {
-              // Failed initial boot: clear cache so retry issues a new /next.
-              initialNextBySession.delete(sessionId);
+              clearPendingNext(sessionId);
+              bootAppliedRef.current = false;
               void loadNext();
             }}
             className="bg-brand-primary text-white hover:bg-brand-primary/90"
