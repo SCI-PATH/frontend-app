@@ -2,6 +2,13 @@
 
 import type { ReactNode } from "react";
 import {
+  Flame,
+  Lock,
+  Send,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
+import {
   Area,
   AreaChart,
   CartesianGrid,
@@ -46,13 +53,22 @@ const CHAT_PREVIEW = [
     role: "tutor" as const,
     text: "Exactly—now predict what the wall does when those extra charges get close.",
   },
+  {
+    role: "student" as const,
+    text: "The wall’s charges rearrange, so opposite charges pull the balloon in?",
+  },
+  {
+    role: "tutor" as const,
+    text: "That’s induction. What would change if the balloon lost those extra electrons?",
+  },
 ];
 
 const PATH_PREVIEW = [
-  { step: "Static charges", status: "done" },
-  { step: "Electric circuits", status: "active" },
-  { step: "Generation of electricity", status: "locked" },
-  { step: "Water as solvent", status: "locked" },
+  { step: "Static charges", status: "done", note: "Mastered · 86%" },
+  { step: "Electric circuits", status: "active", note: "In progress · lesson 2 of 4" },
+  { step: "Generation of electricity", status: "next", note: "Unlocks after circuits" },
+  { step: "Magnetism", status: "locked", note: "Grade 7 sequence" },
+  { step: "Water as solvent", status: "locked", note: "Later this term" },
 ];
 
 const QUIZ_PREVIEW = [
@@ -64,7 +80,9 @@ const QUIZ_PREVIEW = [
 const FARM_PREVIEW = [
   { zone: "Soil Lab", xp: 320, unlocked: true },
   { zone: "Circuit Grove", xp: 180, unlocked: true },
+  { zone: "Water Meadow", xp: 90, unlocked: true },
   { zone: "Force Fields", xp: 0, unlocked: false },
+  { zone: "Magnet Ridge", xp: 0, unlocked: false },
 ];
 
 function PreviewShell({
@@ -78,7 +96,7 @@ function PreviewShell({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-brand-surface bg-white p-5 shadow-sm sm:p-6",
+        "relative flex h-full min-h-[28rem] flex-col overflow-hidden rounded-3xl border border-brand-surface bg-white p-5 shadow-sm sm:min-h-[32rem] sm:p-6",
         "animate-in fade-in slide-in-from-right-4 duration-500"
       )}
     >
@@ -89,10 +107,10 @@ function PreviewShell({
           styles.bg
         )}
       />
-      <p className={cn("mb-4 text-xs font-bold uppercase tracking-wider", styles.text)}>
+      <p className={cn("relative mb-4 text-xs font-bold uppercase tracking-wider", styles.text)}>
         {feature.previewLabel}
       </p>
-      {children}
+      <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
@@ -100,24 +118,44 @@ function PreviewShell({
 function SocratesPreview({ feature }: { feature: LandingFeature }) {
   return (
     <PreviewShell feature={feature}>
-      <div className="space-y-3">
-        {CHAT_PREVIEW.map((line, index) => (
-          <div
-            key={index}
-            className={cn(
-              "max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-              line.role === "student"
-                ? "ml-auto bg-brand-primary text-white"
-                : "mr-auto border border-brand-surface bg-brand-background text-brand-text"
-            )}
-          >
-            {line.text}
+      <div className="flex flex-1 flex-col justify-between gap-4">
+        <div className="space-y-3">
+          {CHAT_PREVIEW.map((line, index) => (
+            <div
+              key={index}
+              className={cn(
+                "max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                line.role === "student"
+                  ? "ml-auto bg-brand-primary text-white"
+                  : "mr-auto border border-brand-surface bg-brand-background text-brand-text"
+              )}
+            >
+              {line.text}
+            </div>
+          ))}
+        </div>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {["💡 Give me a hint", "🤔 I'm stuck"].map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full border border-brand-surface bg-white px-3 py-1 text-xs font-medium text-brand-text/70"
+              >
+                {chip}
+              </span>
+            ))}
           </div>
-        ))}
+          <div className="flex items-center gap-2 rounded-2xl border border-brand-surface bg-brand-background/80 px-3 py-2">
+            <p className="flex-1 text-sm text-brand-text/40">Ask Socrates about a science idea…</p>
+            <span className="flex size-8 items-center justify-center rounded-xl bg-brand-primary text-white">
+              <Send className="size-3.5" aria-hidden />
+            </span>
+          </div>
+          <p className="text-xs text-brand-text/50">
+            Hint mode adapts from scaffold → balanced → nudge as P(L) rises.
+          </p>
+        </div>
       </div>
-      <p className="mt-4 text-xs text-brand-text/50">
-        Hint mode adapts from scaffold → balanced → nudge as P(L) rises.
-      </p>
     </PreviewShell>
   );
 }
@@ -125,35 +163,57 @@ function SocratesPreview({ feature }: { feature: LandingFeature }) {
 function FarmPreview({ feature }: { feature: LandingFeature }) {
   return (
     <PreviewShell feature={feature}>
-      <div className="space-y-3">
-        {FARM_PREVIEW.map((zone) => (
-          <div
-            key={zone.zone}
-            className={cn(
-              "flex items-center justify-between rounded-2xl border px-4 py-3",
-              zone.unlocked
-                ? "border-brand-special/20 bg-brand-special/5"
-                : "border-brand-surface bg-brand-background opacity-60"
-            )}
-          >
-            <div>
-              <p className="font-semibold text-brand-text">{zone.zone}</p>
-              <p className="text-xs text-brand-text/55">
-                {zone.unlocked ? `${zone.xp} XP earned` : "Complete Circuit Grove to unlock"}
-              </p>
-            </div>
-            <span
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className="rounded-2xl bg-brand-special/10 px-3 py-3">
+          <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-brand-special">
+            <Flame className="size-3.5" aria-hidden />
+            Streak
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-text">4 days</p>
+        </div>
+        <div className="rounded-2xl bg-brand-accent/10 px-3 py-3">
+          <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-brand-accent">
+            <Trophy className="size-3.5" aria-hidden />
+            XP
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-text">1,250</p>
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col justify-between gap-3">
+        <div className="space-y-2.5">
+          {FARM_PREVIEW.map((zone) => (
+            <div
+              key={zone.zone}
               className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-bold",
+                "flex items-center justify-between rounded-2xl border px-4 py-3",
                 zone.unlocked
-                  ? "bg-brand-special text-white"
-                  : "bg-brand-surface text-brand-text/50"
+                  ? "border-brand-special/20 bg-brand-special/5"
+                  : "border-brand-surface bg-brand-background opacity-70"
               )}
             >
-              {zone.unlocked ? "Unlocked" : "Locked"}
-            </span>
-          </div>
-        ))}
+              <div>
+                <p className="font-semibold text-brand-text">{zone.zone}</p>
+                <p className="text-xs text-brand-text/55">
+                  {zone.unlocked ? `${zone.xp} XP earned` : "Complete the previous zone to unlock"}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
+                  zone.unlocked
+                    ? "bg-brand-special text-white"
+                    : "bg-brand-surface text-brand-text/50"
+                )}
+              >
+                {zone.unlocked ? "Unlocked" : <Lock className="size-3" aria-hidden />}
+                {zone.unlocked ? null : "Locked"}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="rounded-2xl border border-brand-special/20 bg-brand-special/5 px-4 py-3 text-sm text-brand-special">
+          Weekly challenge: harvest 3 Circuit Grove missions before Friday.
+        </p>
       </div>
     </PreviewShell>
   );
@@ -162,30 +222,42 @@ function FarmPreview({ feature }: { feature: LandingFeature }) {
 function PathPreview({ feature }: { feature: LandingFeature }) {
   return (
     <PreviewShell feature={feature}>
-      <div className="space-y-0">
-        {PATH_PREVIEW.map((item, index) => (
-          <div key={item.step} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <span
-                className={cn(
-                  "flex size-8 items-center justify-center rounded-full text-xs font-bold",
-                  item.status === "done" && "bg-brand-secondary text-brand-text",
-                  item.status === "active" && "bg-brand-primary text-white",
-                  item.status === "locked" && "bg-brand-surface text-brand-text/40"
-                )}
-              >
-                {index + 1}
-              </span>
-              {index < PATH_PREVIEW.length - 1 ? (
-                <span className="my-1 h-8 w-0.5 bg-brand-surface" />
-              ) : null}
+      <div className="flex flex-1 flex-col justify-between gap-4">
+        <div>
+          {PATH_PREVIEW.map((item, index) => (
+            <div key={item.step} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-full text-xs font-bold",
+                    item.status === "done" && "bg-brand-secondary text-brand-text",
+                    item.status === "active" && "bg-brand-primary text-white",
+                    item.status === "next" && "bg-brand-primary/15 text-brand-primary",
+                    item.status === "locked" && "bg-brand-surface text-brand-text/40"
+                  )}
+                >
+                  {index + 1}
+                </span>
+                {index < PATH_PREVIEW.length - 1 ? (
+                  <span className="my-1 h-7 w-0.5 bg-brand-surface" />
+                ) : null}
+              </div>
+              <div className="pb-4 pt-1">
+                <p className="font-medium text-brand-text">{item.step}</p>
+                <p className="text-xs text-brand-text/50">{item.note}</p>
+              </div>
             </div>
-            <div className="pb-5 pt-1">
-              <p className="font-medium text-brand-text">{item.step}</p>
-              <p className="text-xs capitalize text-brand-text/50">{item.status}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className="rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+            Next generated lesson
+          </p>
+          <p className="mt-1 font-semibold text-brand-text">Series circuits · Grade 7</p>
+          <p className="mt-1 text-sm text-brand-text/65">
+            Analogy-first explanation, then a short check for current vs voltage.
+          </p>
+        </div>
       </div>
     </PreviewShell>
   );
@@ -194,29 +266,68 @@ function PathPreview({ feature }: { feature: LandingFeature }) {
 function DdaPreview({ feature }: { feature: LandingFeature }) {
   return (
     <PreviewShell feature={feature}>
-      <div className="space-y-4">
-        {QUIZ_PREVIEW.map((band) => (
-          <div key={band.label}>
-            <div className="mb-1 flex justify-between text-sm">
-              <span className="font-medium text-brand-text">{band.label}</span>
-              <span className="text-brand-text/50">{band.pct}% of items</span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-brand-surface">
+      <div className="flex flex-1 flex-col justify-between gap-5">
+        <div className="rounded-2xl border border-brand-accent/20 bg-brand-accent/5 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-accent">
+            Live item · intermediate
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-brand-text">
+            A balloon rubbed on hair is brought near a wall. What best explains why it sticks?
+          </p>
+          <div className="mt-3 space-y-2">
+            {[
+              { id: "A", text: "Gravity pulls the balloon toward the wall", on: false },
+              { id: "B", text: "Opposite charges are induced on the wall", on: true },
+              { id: "C", text: "Air pressure increases behind the balloon", on: false },
+            ].map((option) => (
               <div
+                key={option.id}
                 className={cn(
-                  "h-full rounded-full transition-all duration-700",
-                  band.active ? "bg-brand-accent w-[55%]" : "bg-brand-accent/30",
-                  !band.active && band.label === "Basic" && "w-[35%]",
-                  !band.active && band.label === "Advanced" && "w-[20%]"
+                  "flex items-start gap-2 rounded-xl border px-3 py-2 text-sm",
+                  option.on
+                    ? "border-brand-accent/40 bg-white text-brand-text"
+                    : "border-brand-surface bg-white text-brand-text/75"
                 )}
-              />
-            </div>
+              >
+                <span
+                  className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                    option.on
+                      ? "bg-brand-accent text-white"
+                      : "bg-brand-background text-brand-text/50"
+                  )}
+                >
+                  {option.id}
+                </span>
+                {option.text}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        <div className="space-y-4">
+          {QUIZ_PREVIEW.map((band) => (
+            <div key={band.label}>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="font-medium text-brand-text">{band.label}</span>
+                <span className="text-brand-text/50">{band.pct}% of items</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-brand-surface">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-700",
+                    band.active ? "bg-brand-accent w-[55%]" : "bg-brand-accent/30",
+                    !band.active && band.label === "Basic" && "w-[35%]",
+                    !band.active && band.label === "Advanced" && "w-[20%]"
+                  )}
+                />
+              </div>
+            </div>
+          ))}
+          <p className="rounded-xl bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
+            Next question targets G7 static electricity · intermediate band
+          </p>
+        </div>
       </div>
-      <p className="mt-4 rounded-xl bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
-        Next question targets G7 static electricity · intermediate band
-      </p>
     </PreviewShell>
   );
 }
@@ -225,65 +336,86 @@ function BktPreview({ feature }: { feature: LandingFeature }) {
   const styles = ACCENT_STYLES[feature.accent];
   return (
     <PreviewShell feature={feature}>
-      <div className="h-48 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={BKT_PREVIEW} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="masteryFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00A8E8" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#00A8E8" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" vertical={false} />
-            <XAxis
-              dataKey="attempt"
-              tick={{ fill: "#212529", fontSize: 11, opacity: 0.55 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[0, 1]}
-              tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`}
-              tick={{ fill: "#212529", fontSize: 11, opacity: 0.55 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              formatter={(value) => [`${Math.round(Number(value) * 100)}%`, "P(L)"]}
-              contentStyle={{
-                borderRadius: "12px",
-                border: "1px solid #E9ECEF",
-                fontSize: "12px",
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="mastery"
-              stroke="#00A8E8"
-              strokeWidth={2.5}
-              fill="url(#masteryFill)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="min-h-[14rem] flex-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={BKT_PREVIEW} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="masteryFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#00A8E8" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#00A8E8" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" vertical={false} />
+              <XAxis
+                dataKey="attempt"
+                tick={{ fill: "#212529", fontSize: 11, opacity: 0.55 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[0, 1]}
+                tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`}
+                tick={{ fill: "#212529", fontSize: 11, opacity: 0.55 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                formatter={(value) => [`${Math.round(Number(value) * 100)}%`, "P(L)"]}
+                contentStyle={{
+                  borderRadius: "12px",
+                  border: "1px solid #E9ECEF",
+                  fontSize: "12px",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="mastery"
+                stroke="#00A8E8"
+                strokeWidth={2.5}
+                fill="url(#masteryFill)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-red-600">
+              Priority follow-up
+            </p>
+            <p className="mt-1 text-sm font-semibold text-brand-text">Aisha · Circuits</p>
+            <p className="text-xs text-brand-text/60">P(L) 38% · 2 of 3 at-risk rule</p>
+          </div>
+          <div className="rounded-2xl border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-brand-text">
+              Mastered this week
+            </p>
+            <p className="mt-1 text-sm font-semibold text-brand-text">Nimal · Static charges</p>
+            <p className="text-xs text-brand-text/60">P(L) 86% · ready to advance</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "At risk", color: "bg-red-500" },
+              { label: "Learning", color: "bg-brand-accent" },
+              { label: "Mastered", color: "bg-brand-secondary" },
+            ].map((band) => (
+              <span
+                key={band.label}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-background px-2.5 py-1 text-xs text-brand-text/70"
+              >
+                <span className={cn("size-2 rounded-full", band.color)} />
+                {band.label}
+              </span>
+            ))}
+          </div>
+          <p className={cn("inline-flex items-center gap-1 text-xs font-medium", styles.text)}>
+            <Sparkles className="size-3" aria-hidden />
+            Class-scoped · SCI-G7-492
+          </p>
+        </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {[
-          { label: "At risk", color: "bg-red-500" },
-          { label: "Learning", color: "bg-brand-accent" },
-          { label: "Mastered", color: "bg-brand-secondary" },
-        ].map((band) => (
-          <span
-            key={band.label}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand-background px-2.5 py-1 text-xs text-brand-text/70"
-          >
-            <span className={cn("size-2 rounded-full", band.color)} />
-            {band.label}
-          </span>
-        ))}
-      </div>
-      <p className={cn("mt-3 text-xs font-medium", styles.text)}>
-        Class-scoped heatmaps · SCI-G7-492
-      </p>
     </PreviewShell>
   );
 }

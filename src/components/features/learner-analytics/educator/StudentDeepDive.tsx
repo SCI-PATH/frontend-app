@@ -35,6 +35,7 @@ import {
 import { getCurriculumTitle } from "@/lib/curriculum/topics";
 import { countStudentTopicBands, masteryPercent } from "@/lib/educator/bkt";
 import { formatEducatorTimestamp } from "@/lib/educator/format";
+import { isMisconceptionPhrase } from "@/lib/educator/misconceptions";
 import { getRiskTier, parseRiskReasons } from "@/lib/educator/risk";
 import { getStudentDisplayName } from "@/lib/educator/students";
 import { compactTopicLabel } from "@/lib/educator/topicGrade";
@@ -489,6 +490,7 @@ export function StudentDeepDive({
     const tags =
       profile?.assessment_insights?.most_frequent_distractor_tags ?? [];
     return [...tags]
+      .filter((item) => isMisconceptionPhrase(item.tag))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8)
       .map((item) => ({

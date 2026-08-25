@@ -19,6 +19,7 @@ import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { fetchStudentProfile } from "@/lib/api/educator";
 import { getCurriculumTitle } from "@/lib/curriculum/topics";
 import { countStudentTopicBands, masteryPercent } from "@/lib/educator/bkt";
+import { isMisconceptionPhrase } from "@/lib/educator/misconceptions";
 import { getRiskTier } from "@/lib/educator/risk";
 import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
 import { studentFocusAction, studentFocusReason } from "@/lib/student/focusAreas";
@@ -90,8 +91,9 @@ export function StudentProfileView() {
 
   const focusAreas = profile?.focus_areas ?? [];
   const enrolled = enrolledClasses[0] ?? null;
-  const distractors =
-    profile?.assessment_insights?.most_frequent_distractor_tags ?? [];
+  const distractors = (
+    profile?.assessment_insights?.most_frequent_distractor_tags ?? []
+  ).filter((item) => isMisconceptionPhrase(item.tag));
   const recentAttempts = profile?.recent_attempts ?? [];
   const quizAttempts = profile?.assessment_insights?.attempts_count ?? recentAttempts.length;
 

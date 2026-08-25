@@ -3,6 +3,7 @@
 import { Activity, AlertTriangle, Flame, Lightbulb } from "lucide-react";
 
 import { getCurriculumTitle } from "@/lib/curriculum/topics";
+import { isMisconceptionPhrase } from "@/lib/educator/misconceptions";
 import { getStudentDisplayName } from "@/lib/educator/students";
 import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { compactTopicLabel } from "@/lib/educator/topicGrade";
@@ -58,7 +59,9 @@ export function ClassResearchSummary({
   const frustrationAvg = summary.frustration?.class_average ?? null;
   const elevatedCount = summary.frustration?.elevated_count ?? 0;
   const hardest = summary.hardest_skills?.[0];
-  const distractors = summary.top_distractors ?? [];
+  const distractors = (summary.top_distractors ?? []).filter((row) =>
+    isMisconceptionPhrase(row.tag)
+  );
   const maxDistractorCount = Math.max(...distractors.map((row) => row.count), 1);
 
   const cards = [
@@ -179,7 +182,7 @@ export function ClassResearchSummary({
               Common Class Misconceptions
             </p>
             <p className="text-[10px] text-brand-text/50">
-              Wrong-answer patterns the class keeps choosing — useful for what to re-teach next.
+              Wrong ideas the class keeps choosing — useful for what to re-teach next.
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">

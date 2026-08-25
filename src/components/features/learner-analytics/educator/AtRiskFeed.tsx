@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
   recentQuizStatus,
   recommendedAction,
   RISK_REASON_POINTS,
+  RISK_TIERS,
 } from "@/lib/educator/risk";
 import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { masteryPercent } from "@/lib/educator/bkt";
@@ -27,6 +28,7 @@ import type {
   AtRiskStudentAlert,
   ClassroomStudentMeta,
   ClassroomTopicMeta,
+  RiskTierId,
 } from "@/types/educator";
 
 interface AtRiskFeedProps {
@@ -170,6 +172,20 @@ export function AtRiskFeed({
   showHeader = true,
 }: AtRiskFeedProps) {
   const grouped = groupAlertsByTier(alerts);
+  const defaultTier = useMemo<RiskTierId>(() => {
+    const firstWithAlerts = groupAlertsByTier(alerts).find(
+      (group) => group.alerts.length > 0
+    );
+    return firstWithAlerts?.tier.id ?? "immediate";
+  }, [alerts]);
+  const [selectedTierId, setSelectedTierId] = useState<RiskTierId | null>(null);
+  const activeTierId = selectedTierId ?? defaultTier;
+  const selectedGroup =
+    grouped.find((group) => group.tier.id === activeTierId) ?? grouped[0];
+  const visibleAlerts = selectedGroup?.alerts ?? [];
+  const selectedTier =
+    RISK_TIERS.find((tier) => tier.id === activeTierId) ?? RISK_TIERS[0];
+
   const titleByTopicId = new Map(
     topicCatalog.map((topic) => [topic.topicId, topic.curriculumTitle])
   );
@@ -182,10 +198,6 @@ export function AtRiskFeed({
     tier,
     count: tierAlerts.length,
   }));
-
-  // Flat list keeps severity order but renders in one responsive grid so cards
-  // sit side-by-side when space allows (no empty right column for single-tier groups).
-  const orderedAlerts = grouped.flatMap(({ alerts: tierAlerts }) => tierAlerts);
 
   return (
     <div aria-label="Priority at-risk intervention feed" className="space-y-4">
@@ -206,27 +218,52 @@ export function AtRiskFeed({
       ) : null}
 
       <p className="rounded-lg border border-brand-surface bg-brand-background/70 px-3 py-2 text-xs leading-relaxed text-brand-text/65">
-        One alert per learner (their most urgent skill). Use{" "}
+        One alert per learner (their most urgent skill). Tap a risk tier to
+        filter the cards below. Use{" "}
         <span className="font-medium text-brand-text">Learner diagnostics</span>{" "}
         for a full picture of that student.
       </p>
 
       {alerts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {tierCounts.map(({ tier, count }) => (
-            <div
-              key={tier.id}
-              className="rounded-lg border border-brand-surface bg-brand-background/60 px-3 py-2"
-            >
-              <p className="text-[0.62rem] font-semibold uppercase tracking-wide text-brand-text/50">
-                {tier.label}
-              </p>
-              <p className="text-lg font-bold text-brand-text">{count}</p>
-              <p className="text-[0.65rem] text-brand-text/45">
-                Score {tier.scoreRange}
-              </p>
-            </div>
-          ))}
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          role="tablist"
+          aria-label="Filter alerts by risk tier"
+        >
+          {tierCounts.map(({ tier, count }) => {
+            const selected = tier.id === activeTierId;
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setSelectedTierId(tier.id)}
+                className={cn(
+                  "rounded-lg border px-3 py-2.5 text-left transition-colors",
+                  selected ? tier.filterSelectedClass : tier.filterIdleClass
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-[0.62rem] font-semibold uppercase tracking-wide",
+                    selected ? "text-white/80" : "opacity-70"
+                  )}
+                >
+                  {tier.label}
+                </p>
+                <p className="text-lg font-bold">{count}</p>
+                <p
+                  className={cn(
+                    "text-[0.65rem]",
+                    selected ? "text-white/70" : "opacity-60"
+                  )}
+                >
+                  Score {tier.scoreRange}
+                </p>
+              </button>
+            );
+          })}
         </div>
       ) : null}
 
@@ -241,9 +278,13 @@ export function AtRiskFeed({
             </CardDescription>
           </CardHeader>
         </Card>
+      ) : visibleAlerts.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-brand-surface bg-brand-background px-4 py-8 text-center text-sm text-brand-text/65">
+          No learners currently in {selectedTier.label.toLowerCase()}.
+        </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-          {orderedAlerts.map((alert) => (
+          {visibleAlerts.map((alert) => (
             <AlertCard
               key={`${alert.student_id}-${alert.topic_id}`}
               alert={alert}

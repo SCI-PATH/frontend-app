@@ -179,16 +179,6 @@ function HeroSection() {
               </div>
             </div>
           </div>
-          <div
-            aria-hidden
-            className="absolute -bottom-4 -left-4 rounded-2xl border border-brand-secondary/30 bg-white px-4 py-3 shadow-lg"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-secondary">
-              Live mastery
-            </p>
-            <p className="text-2xl font-bold text-brand-text">82%</p>
-            <p className="text-xs text-brand-text/50">G7 · Static electricity</p>
-          </div>
         </div>
       </div>
     </section>
@@ -227,7 +217,7 @@ function FeatureShowcaseSection() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-8">
+        <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-8">
           <div className="space-y-3">
             {LANDING_FEATURES.map((feature) => {
               const styles = ACCENT_STYLES[feature.accent];
