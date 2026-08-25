@@ -7,7 +7,6 @@ import {
   RefreshCw,
   Sparkles,
   Trophy,
-  XCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +28,6 @@ import {
   attemptIsCorrect,
   attemptNeedsReview,
   collectAttemptHistory,
-  computeAttemptStats,
 } from "../utils/attemptStats";
 
 interface ResultsSummaryProps {
@@ -458,29 +456,10 @@ export function ResultsSummary({
     () => enrichFromDetail(history, detail),
     [history, detail]
   );
-  const stats = useMemo(() => computeAttemptStats(history), [history]);
   const wrongItems = useMemo(
     () => enriched.filter((item) => attemptNeedsReview(item.attempt)),
     [enriched]
   );
-
-  const { correctCount, missedCount } = stats;
-  // Total = questions actually taken (attempt trail). Fall back to session caps.
-  const totalQuestions =
-    history.length > 0
-      ? history.length
-      : Math.max(
-          results?.total_answered ?? 0,
-          results?.questions_asked ?? 0,
-          results?.correct_count != null && results.correct_count > 0
-            ? results.correct_count
-            : 0,
-          typeof results?.max_questions === "number" ? results.max_questions : 0
-        );
-  const scorePct =
-    totalQuestions > 0
-      ? Math.round((correctCount / totalQuestions) * 100)
-      : 0;
 
   if (loading) {
     return (
@@ -544,49 +523,6 @@ export function ResultsSummary({
               Review every miss and the correct answer so you know what to
               practice next.
             </p>
-          </div>
-
-          <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-brand-surface bg-brand-background/70 px-4 py-4 text-center backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
-                Score
-              </p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-brand-text">
-                {totalQuestions > 0 ? `${scorePct}%` : "—"}
-              </p>
-              <p className="mt-1 text-xs text-brand-text/45">
-                {correctCount} of {totalQuestions} correct
-              </p>
-            </div>
-            <div className="rounded-2xl border border-brand-surface bg-brand-background/70 px-4 py-4 text-center backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
-                Correct
-              </p>
-              <p className="mt-1 flex items-center justify-center gap-1.5 text-3xl font-bold tabular-nums text-brand-text">
-                <CheckCircle2
-                  className="size-6 text-brand-secondary"
-                  aria-hidden
-                />
-                {totalQuestions > 0
-                  ? `${correctCount}/${totalQuestions}`
-                  : "—"}
-              </p>
-              <p className="mt-1 text-xs text-brand-text/45">
-                Correct / total questions
-              </p>
-            </div>
-            <div className="rounded-2xl border border-brand-surface bg-brand-background/70 px-4 py-4 text-center backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
-                To review
-              </p>
-              <p className="mt-1 flex items-center justify-center gap-1.5 text-3xl font-bold tabular-nums text-brand-text">
-                <XCircle className="size-6 text-brand-accent" aria-hidden />
-                {missedCount}
-              </p>
-              <p className="mt-1 text-xs text-brand-text/45">
-                Incorrect or partial
-              </p>
-            </div>
           </div>
         </div>
       </div>
