@@ -73,9 +73,6 @@ function AlertCard({
 
           <div>
             <p className="text-sm font-bold text-brand-text">{studentName}</p>
-            <p className="font-mono text-[0.62rem] text-brand-text/45">
-              {alert.student_id}
-            </p>
           </div>
 
           <div
@@ -259,7 +256,7 @@ export function AtRiskFeed({
                     selected ? "text-white/70" : "opacity-60"
                   )}
                 >
-                  Score {tier.scoreRange}
+                  Risk Score {tier.scoreRange}
                 </p>
               </button>
             );
