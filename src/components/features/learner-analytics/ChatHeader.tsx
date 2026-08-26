@@ -25,6 +25,7 @@ import {
 
 interface ChatHeaderProps {
   personaId: TutorPersonaId;
+  preferredPersonaId: TutorPersonaId;
   activeTopicId: string | null;
   topicLocked: boolean;
   metadata: TutorTurnMetadata;
@@ -39,6 +40,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
   personaId,
+  preferredPersonaId,
   activeTopicId,
   topicLocked,
   metadata,
@@ -51,6 +53,10 @@ export function ChatHeader({
   onNewConversation,
 }: ChatHeaderProps) {
   const persona = getPersonaById(personaId);
+  const preferredPersona = getPersonaById(preferredPersonaId);
+  const supportiveOverride =
+    personaId === "practical_encourager" &&
+    preferredPersonaId !== "practical_encourager";
   const hasLesson = Boolean(activeTopicId);
   const lessonLabel = formatTopicLabel(activeTopicId);
   const mastery =
@@ -93,14 +99,28 @@ export function ChatHeader({
               )}
             >
               {persona.label}
+              {supportiveOverride ? (
+                <span className="ml-0.5 font-normal opacity-80">· supportive</span>
+              ) : null}
               <ChevronDown className="size-3.5 opacity-70" aria-hidden />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-56">
+            <DropdownMenuContent
+              align="end"
+              side="bottom"
+              collisionPadding={12}
+              className="z-[80] min-w-56 bg-white"
+            >
               <DropdownMenuLabel className="text-xs text-brand-text/60">
-                Active persona
+                Coaching style
               </DropdownMenuLabel>
+              {supportiveOverride ? (
+                <p className="px-2 pb-1 text-[11px] leading-snug text-brand-text/55">
+                  Using {persona.label} this turn. Your saved pick is{" "}
+                  {preferredPersona.label}.
+                </p>
+              ) : null}
               <DropdownMenuRadioGroup
-                value={personaId}
+                value={preferredPersonaId}
                 onValueChange={(value) =>
                   onPersonaChange(value as TutorPersonaId)
                 }
