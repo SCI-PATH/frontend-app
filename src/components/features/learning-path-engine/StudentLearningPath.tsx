@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
 import { getStudentInitialCategory } from "@/lib/api/assessment";
 import { fetchLatestAnalyticsKnowledgeLevel } from "@/lib/api/learner-mastery";
 import { STUDENT_AR_LIBRARY_PATH, STUDENT_HOME_PATH } from "@/lib/auth-routes";
@@ -659,28 +660,31 @@ export default function StudentLearningPath() {
       (result.lesson_text || "").length,
     ].join(":");
     return (
-      <FeatureShell>
-        <LessonStage
-          key={stageKey}
-          lessonText={result.lesson_text}
-          lessonId={result.lesson_id || lessonId}
-          lessonTitle={lessonTitle}
-          event={LESSON_EVENT}
-          profile={displayProfile || undefined}
-          presentationMode={displayPresentation}
-          isFinalLesson={isFinalLesson}
-          initialStep={resumeStep}
-          loadingNextLesson={loadingNextLesson}
-          onStepChange={onStepChange}
-          onClose={exitLesson}
-          onLessonDone={onLessonDone}
-        />
-        <TestKnowledgeModal
-          open={testKnowledgeOpen}
-          lessonTitle={lessonTitle}
-          onOk={onTestKnowledgeOk}
-        />
-      </FeatureShell>
+      <>
+        <FeatureShell>
+          <LessonStage
+            key={stageKey}
+            lessonText={result.lesson_text}
+            lessonId={result.lesson_id || lessonId}
+            lessonTitle={lessonTitle}
+            event={LESSON_EVENT}
+            profile={displayProfile || undefined}
+            presentationMode={displayPresentation}
+            isFinalLesson={isFinalLesson}
+            initialStep={resumeStep}
+            loadingNextLesson={loadingNextLesson}
+            onStepChange={onStepChange}
+            onClose={exitLesson}
+            onLessonDone={onLessonDone}
+          />
+          <TestKnowledgeModal
+            open={testKnowledgeOpen}
+            lessonTitle={lessonTitle}
+            onOk={onTestKnowledgeOk}
+          />
+        </FeatureShell>
+        <SocratesChatToggle />
+      </>
     );
   }
 
