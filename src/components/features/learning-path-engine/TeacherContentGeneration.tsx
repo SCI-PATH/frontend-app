@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles } from "lucide-react";
 
 import { EducatorNavbar } from "@/components/common/educator-home/EducatorNavbar";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,10 @@ export default function TeacherContentGeneration() {
                 variant="outline"
                 className="border-brand-surface bg-white text-brand-text hover:bg-brand-background"
               >
-                <Link href={EDUCATOR_HOME_PATH}>Back to teacher home</Link>
+                <Link href={EDUCATOR_HOME_PATH}>
+                  <ArrowLeft className="size-4" aria-hidden />
+                  Home
+                </Link>
               </Button>
             </header>
 

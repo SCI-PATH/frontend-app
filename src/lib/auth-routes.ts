@@ -30,6 +30,9 @@ export const EDUCATOR_PROFILE_PATH = "/educator-profile";
 /** Student mastery / focus-areas profile. */
 export const STUDENT_PROFILE_PATH = "/profile";
 
+/** Student learning-path / chapter content. */
+export const STUDENT_LEARNING_PATH = "/learning-path";
+
 /** Student marker AR library (heart / kidney APKs). */
 export const STUDENT_AR_LIBRARY_PATH = "/ar-library";
 

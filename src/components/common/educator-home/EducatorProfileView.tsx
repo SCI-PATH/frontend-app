@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   GraduationCap,
   Loader2,
   Mail,
@@ -14,6 +16,7 @@ import { EducatorNavbar } from "@/components/common/educator-home/EducatorNavbar
 import { TeacherAvatarPicker } from "@/components/common/educator-home/TeacherAvatarPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EDUCATOR_HOME_PATH } from "@/lib/auth-routes";
 import { fetchCurrentUser, updateTeacherProfile } from "@/lib/user-management";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
@@ -108,6 +111,19 @@ export function EducatorProfileView() {
     <div className="flex min-h-full flex-1 flex-col bg-brand-background">
       <EducatorNavbar />
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-3 py-6 sm:px-5">
+        <div className="flex justify-start">
+          <Button
+            asChild
+            variant="outline"
+            className="border-brand-surface bg-white text-brand-text hover:bg-brand-background"
+          >
+            <Link href={EDUCATOR_HOME_PATH}>
+              <ArrowLeft className="size-4" aria-hidden />
+              Home
+            </Link>
+          </Button>
+        </div>
+
         <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-special via-brand-primary to-brand-accent px-5 py-7 text-white sm:px-8 sm:py-8">
           <div
             className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full bg-white/20 blur-2xl"
