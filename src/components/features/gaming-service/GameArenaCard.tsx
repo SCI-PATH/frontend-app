@@ -1,22 +1,52 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Rocket, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
 
 import { buildGamingServiceLaunchUrl } from "./buildGamingServiceLaunchUrl";
+import {
+  fetchFarmProgress,
+  type FarmProgressSnapshot,
+} from "./fetchFarmProgress";
 import { readGamingLaunchParams } from "./getGamingLaunchContext";
 
 export function GameArenaCard() {
   const userId = useUserStore((state) => state.userId);
   const fullName = useUserStore((state) => state.fullName);
   const isAuthenticated = useUserStore((state) => state.isAuthenticated);
+  const [progress, setProgress] = useState<FarmProgressSnapshot | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setProgress(null);
+      return undefined;
+    }
+    let cancelled = false;
+    void fetchFarmProgress(userId).then((snapshot) => {
+      if (!cancelled) setProgress(snapshot);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const currentLevel = Math.max(1, Number(progress?.currentLevel) || 1);
+  const isReturning = Boolean(progress?.isReturning);
+  const canLaunch = Boolean(isAuthenticated && userId && fullName);
 
   const handleLaunch = () => {
     const params = readGamingLaunchParams();
     if (!params) return;
-    window.location.assign(buildGamingServiceLaunchUrl(params));
+    window.location.assign(
+      buildGamingServiceLaunchUrl({
+        ...params,
+        startLevel: currentLevel,
+        cash: progress?.cash ?? null,
+      }),
+    );
   };
 
   return (
@@ -42,18 +72,22 @@ export function GameArenaCard() {
       </p>
       <p className="relative mt-4 flex items-center gap-2 rounded-2xl border border-brand-special/15 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-brand-special">
         <Trophy className="size-4 shrink-0" aria-hidden />
-        SCI-PATH Game Arena
+        {isReturning
+          ? `Continue Level ${currentLevel}`
+          : "Start at Level 1"}
         <span className="ml-auto rounded-full bg-brand-special/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide">
-          Play
+          {isReturning && progress?.highestCompletedLevel
+            ? `L${progress.highestCompletedLevel} done`
+            : "Play"}
         </span>
       </p>
       <Button
         type="button"
         className="relative mt-auto h-11 w-full rounded-2xl bg-brand-special text-base text-white shadow-md shadow-brand-special/20 hover:bg-brand-special/90"
-        disabled={!isAuthenticated || !userId || !fullName}
+        disabled={!canLaunch}
         onClick={handleLaunch}
       >
-        Launch Game Arena
+        {isReturning ? "Continue Game Arena" : "Launch Game Arena"}
         <Rocket className="size-4" aria-hidden />
       </Button>
       {!isAuthenticated ? (

@@ -42,7 +42,6 @@ import {
   logoutStudent,
 } from './data/mockStudents.js';
 import { resolvePlatformLaunch } from './data/platformLaunch.js';
-import { GAME_PLATFORM } from './data/gameBrand.js';
 import {
   syncStudentLogin,
   syncStudentLogout,
