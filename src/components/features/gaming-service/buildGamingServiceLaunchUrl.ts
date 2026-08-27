@@ -17,6 +17,10 @@ export type GamingServiceLaunchParams = {
   /** Science topic id — always required for farm launch */
   topicId: string;
   grade?: number | null;
+  /** Next playable farm level (1 if new) */
+  startLevel?: number | null;
+  /** Wallet / farm cash to resume with */
+  cash?: number | null;
 };
 
 export function getGamingServiceBaseUrl(): string {
@@ -39,6 +43,11 @@ export function buildGamingServiceLaunchUrl(
   url.searchParams.set("topicId", params.topicId.trim());
   if (params.grade != null && Number.isFinite(params.grade)) {
     url.searchParams.set("grade", String(params.grade));
+  }
+  const startLevel = Math.max(1, Number(params.startLevel) || 1);
+  url.searchParams.set("startLevel", String(startLevel));
+  if (params.cash != null && Number.isFinite(params.cash)) {
+    url.searchParams.set("cash", String(Math.max(0, Number(params.cash))));
   }
   url.searchParams.set("source", "frontend-app");
 
