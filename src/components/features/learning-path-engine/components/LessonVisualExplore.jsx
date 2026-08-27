@@ -1,27 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, GalleryHorizontal, Map, PlayCircle, Link2 } from "lucide-react";
+import { ExternalLink, GalleryHorizontal, PlayCircle, Link2 } from "lucide-react";
 import { getLessonAr, getLessonMedia } from "../api/client.js";
 import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
-import ScienceExplorer from "./ScienceExplorer.jsx";
 import LessonVideoLibrary from "./LessonVideoLibrary.jsx";
 
 /**
- * Explore tab — video library, additional material, gallery, and map.
+ * Explore tab — video library, additional material, and gallery.
  */
-export default function LessonVisualExplore({ lessonId, lessonTitle, topicId }) {
+export default function LessonVisualExplore({ lessonId, lessonTitle }) {
   const [tab, setTab] = useState("videos");
   const [media, setMedia] = useState(null);
   const [ar, setAr] = useState(null);
-  const lessonHint = useMemo(
-    () => ({
-      lessonId,
-      topicId,
-      title: lessonTitle,
-    }),
-    [lessonId, topicId, lessonTitle],
-  );
 
   useEffect(() => {
     if (!lessonId) return;
@@ -74,9 +65,6 @@ export default function LessonVisualExplore({ lessonId, lessonTitle, topicId }) 
         <ExploreTab active={tab === "gallery"} onClick={() => setTab("gallery")} icon={GalleryHorizontal}>
           Image gallery
         </ExploreTab>
-        <ExploreTab active={tab === "map"} onClick={() => setTab("map")} icon={Map}>
-          Interactive map
-        </ExploreTab>
       </div>
 
       <div className="lesson-explore-panel__content">
@@ -124,10 +112,6 @@ export default function LessonVisualExplore({ lessonId, lessonTitle, topicId }) 
           ) : (
             <ExploreEmpty title="Gallery coming soon" text="Approved lesson images will appear here." />
           )
-        ) : null}
-
-        {tab === "map" ? (
-          <ScienceExplorer embedded compact lessonHint={lessonHint} title="Interactive map" />
         ) : null}
       </div>
     </div>

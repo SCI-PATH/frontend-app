@@ -13,7 +13,6 @@ import {
   Video,
 } from "lucide-react";
 import {
-  addTeacherLessonImage,
   deleteTeacherLessonImage,
   deleteTeacherLibrary,
   getCurriculum,
@@ -79,7 +78,6 @@ export default function TeacherPanel({
   const [mediaBusy, setMediaBusy] = useState(false);
   const [galleryImages, setGalleryImages] = useState([]);
   const [imageCaption, setImageCaption] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [imageBusy, setImageBusy] = useState(false);
 
   const lessons = useMemo(() => curriculum?.lessons || [], [curriculum]);
@@ -412,26 +410,6 @@ export default function TeacherPanel({
       setMediaNote("Image uploaded to this chapter.");
     } catch (err) {
       notifyUserFacingError(err, "teacher-image-upload", { offline: false });
-    } finally {
-      setImageBusy(false);
-    }
-  }
-
-  async function onAddImageUrl() {
-    if (!lessonId || !imageUrl.trim()) return;
-    setImageBusy(true);
-    try {
-      const data = await addTeacherLessonImage(lessonId, {
-        image_url: imageUrl.trim(),
-        caption: imageCaption,
-        teacher_id: teacherId,
-      });
-      applyMediaPackage(data);
-      setImageUrl("");
-      setImageCaption("");
-      setMediaNote("Image URL saved to this chapter.");
-    } catch (err) {
-      notifyUserFacingError(err, "teacher-image-url", { offline: false });
     } finally {
       setImageBusy(false);
     }
@@ -787,7 +765,7 @@ export default function TeacherPanel({
                 <div>
                   <h2 className="m-0 text-xl font-bold text-brand-text">Images</h2>
                   <p className="m-0 mt-1 text-sm text-brand-text/60">
-                    Upload photos or paste a public image URL. Files are stored with this chapter.
+                    Upload photos from your device. Files are stored with this chapter.
                   </p>
                 </div>
               </div>
@@ -825,28 +803,6 @@ export default function TeacherPanel({
                   placeholder="Optional caption"
                   disabled={!lessonId || imageBusy}
                 />
-              </label>
-              <label className="mt-4 block text-sm font-semibold" htmlFor="imageUrl">
-                Or paste image URL
-                <span className="mt-1.5 flex gap-2">
-                  <input
-                    id="imageUrl"
-                    className="h-11 w-full rounded-xl border border-brand-surface bg-brand-background px-3 outline-none focus:border-brand-special"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://…"
-                    disabled={!lessonId || imageBusy}
-                  />
-                  <button
-                    type="button"
-                    className="m-0 inline-flex w-auto shrink-0 items-center gap-1.5 rounded-xl border-0 bg-brand-special px-4 py-2.5 text-sm font-bold text-white"
-                    disabled={!lessonId || imageBusy || !imageUrl.trim()}
-                    onClick={() => void onAddImageUrl()}
-                  >
-                    <Link2 className="size-4" aria-hidden />
-                    Add
-                  </button>
-                </span>
               </label>
 
               {galleryImages.length ? (

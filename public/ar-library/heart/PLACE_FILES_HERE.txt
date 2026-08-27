@@ -1,0 +1,7 @@
+# Drop assets here
+# - marker.jpg  — image students display/print to scan
+# - app.apk     — Android package for this AR experience
+#
+# Public URLs after drop:
+#   /ar-library/heart/marker.jpg
+#   /ar-library/heart/app.apk

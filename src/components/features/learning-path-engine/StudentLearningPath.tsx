@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   GraduationCap,
+  ScanLine,
   Sparkles,
 } from "lucide-react";
 
@@ -22,7 +23,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getStudentInitialCategory } from "@/lib/api/assessment";
-import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
+import { fetchLatestAnalyticsKnowledgeLevel } from "@/lib/api/learner-mastery";
+import { STUDENT_AR_LIBRARY_PATH, STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import {
   buildGamingServiceLaunchUrl,
   getGamingServiceBaseUrl,
@@ -59,27 +61,42 @@ const PROFILE_LABEL: Record<string, string> = {
   smart: "Advanced",
 };
 
+type ResolveProfileOptions = {
+  lessonId?: string | null;
+  /** Lessons already finished — empty means first chapter after aptitude → IAE. */
+  completedLessonIds?: string[];
+  /** Persist into LPE `/analytics/profile` (do this on real lesson start). */
+  persist?: boolean;
+};
+
 /**
- * Aptitude (IAE Amplitude) is required before any lesson.
- * Always re-fetch on lesson start so post-game quiz level changes apply.
- * Never reuse a stale LPE cache alone — no aptitude ⇒ cannot start.
+ * Aptitude (IAE) is required before any lesson.
+ * First chapter after aptitude → IAE category.
+ * After at least one finished chapter → latest analytics mastery_category
+ * (from finished-chapter quizzes), mapped to basic|intermediate|advanced content.
  */
 async function resolveLearnerProfileForLesson(
   userId: string,
-  grade: number
-): Promise<{ profile: string | null; reason: "ok" | "no_aptitude" | "assessment_unreachable" }> {
+  grade: number,
+  options: ResolveProfileOptions = {}
+): Promise<{
+  profile: string | null;
+  reason: "ok" | "no_aptitude" | "assessment_unreachable";
+  source?: "intelligent_assessment_engine" | "learner_analytics";
+}> {
+  const {
+    lessonId = null,
+    completedLessonIds = [],
+    persist = true,
+  } = options;
+
+  let iaeCategory: string | null = null;
   try {
     const fromIae = await getStudentInitialCategory(userId);
-    if (!fromIae.category) {
+    iaeCategory = fromIae.category;
+    if (!iaeCategory) {
       return { profile: null, reason: "no_aptitude" };
     }
-    await postAnalyticsProfile({
-      user_id: userId,
-      profile: fromIae.category,
-      source: "intelligent_assessment_engine",
-      grade,
-    });
-    return { profile: fromIae.category, reason: "ok" };
   } catch (err) {
     const status = (err as { status?: number })?.status;
     if (status === 404) {
@@ -87,6 +104,38 @@ async function resolveLearnerProfileForLesson(
     }
     return { profile: null, reason: "assessment_unreachable" };
   }
+
+  const hasFinishedAChapter = completedLessonIds.length > 0;
+  let profile = iaeCategory;
+  let source: "intelligent_assessment_engine" | "learner_analytics" =
+    "intelligent_assessment_engine";
+
+  if (hasFinishedAChapter) {
+    try {
+      const fromAnalytics = await fetchLatestAnalyticsKnowledgeLevel(
+        userId,
+        completedLessonIds
+      );
+      if (fromAnalytics) {
+        profile = fromAnalytics;
+        source = "learner_analytics";
+      }
+    } catch {
+      // Analytics down / empty → keep IAE aptitude band.
+    }
+  }
+
+  if (persist) {
+    await postAnalyticsProfile({
+      user_id: userId,
+      profile,
+      source,
+      lesson_id: lessonId || null,
+      grade,
+    }).catch(() => {});
+  }
+
+  return { profile, reason: "ok", source };
 }
 
 const selectClassName =
@@ -207,8 +256,12 @@ export default function StudentLearningPath() {
         setCompletedLessonIds(done);
         const lessons = c?.lessons || [];
         const locked = viewRef.current === "chapterChoice" || viewRef.current === "lesson";
-        // Display-only refresh; lesson start always re-fetches (may change after gaming quiz).
-        const resolved = await resolveLearnerProfileForLesson(userId, grade);
+        // Display-only: first chapter → IAE; later → analytics when evidence exists.
+        const resolved = await resolveLearnerProfileForLesson(userId, grade, {
+          lessonId: p?.current_lesson_id || null,
+          completedLessonIds: done,
+          persist: false,
+        });
         if (cancelled) return;
         if (locked) {
           if (resolved.profile) setProfile(resolved.profile);
@@ -287,10 +340,16 @@ export default function StudentLearningPath() {
       setChoiceError(msg);
       return { ok: false as const, error: msg };
     }
-    void learnerProgress;
+    const done = Array.isArray(learnerProgress?.completed_lesson_ids)
+      ? learnerProgress.completed_lesson_ids
+      : completedLessonIds;
 
-    // Fresh pull every lesson (aptitude gate + post-game level updates).
-    const resolved = await resolveLearnerProfileForLesson(userId, grade);
+    // Fresh pull every lesson: aptitude gate, then latest analytics level after first chapter.
+    const resolved = await resolveLearnerProfileForLesson(userId, grade, {
+      lessonId: lid,
+      completedLessonIds: done,
+      persist: true,
+    });
     if (!resolved.profile) {
       const msg =
         resolved.reason === "assessment_unreachable"
@@ -675,7 +734,15 @@ export default function StudentLearningPath() {
                     Dashboard
                   </Link>
                 </Button>
-                {/* Science map / AR explorer hidden until AR content is ready */}
+                <Button
+                  asChild
+                  className="bg-brand-special text-white hover:bg-brand-special/90"
+                >
+                  <Link href={STUDENT_AR_LIBRARY_PATH}>
+                    <ScanLine className="size-4" aria-hidden />
+                    AR Library
+                  </Link>
+                </Button>
               </div>
             </header>
 

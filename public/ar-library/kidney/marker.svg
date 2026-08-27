@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kidney AR marker placeholder">
+  <rect width="512" height="512" fill="#ffffff"/>
+  <rect x="24" y="24" width="464" height="464" fill="none" stroke="#111827" stroke-width="28"/>
+  <rect x="64" y="64" width="384" height="384" fill="none" stroke="#111827" stroke-width="14"/>
+  <ellipse cx="220" cy="240" rx="70" ry="110" fill="#00A8E8" transform="rotate(-18 220 240)"/>
+  <ellipse cx="300" cy="250" rx="58" ry="96" fill="#0284C7" transform="rotate(16 300 250)"/>
+  <text x="256" y="448" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#111827">KIDNEY MARKER</text>
+  <text x="256" y="478" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#6B7280">Replace with real marker.png</text>
+</svg>

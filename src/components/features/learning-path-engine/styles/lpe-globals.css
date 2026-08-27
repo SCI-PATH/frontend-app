@@ -2732,21 +2732,24 @@ pre.lesson {
 .lesson-explore-video {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1rem;
-  min-height: 320px;
 }
 
 .lesson-explore-video__player {
+  width: min(100%, 40rem);
+  margin-inline: auto;
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid #dbe4ee;
   background: #000;
+  aspect-ratio: 16 / 9;
 }
 
 .lesson-explore-video__iframe {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   border: 0;
 }
 
@@ -2754,6 +2757,8 @@ pre.lesson {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  width: min(100%, 40rem);
+  margin-inline: auto;
 }
 
 .lesson-explore-video__item {

@@ -70,24 +70,27 @@ export function SignupForm() {
 
     setIsSubmitting(true);
     try {
-      const session =
-        role === "student"
-          ? await signupStudent({
-              fullName: fullName.trim(),
-              email: email.trim(),
-              password,
-              grade: Number(grade.replace(/\D/g, "")),
-              classCode: classCode.trim() || undefined,
-            })
-          : await signupTeacher({
-              fullName: fullName.trim(),
-              email: email.trim(),
-              password,
-              sectionName: sectionName.trim(),
-              schoolName: schoolName.trim(),
-            });
-      void session;
-      router.push(`${LOGIN_PATH}?registered=1`);
+      if (role === "student") {
+        await signupStudent({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          grade: Number(grade.replace(/\D/g, "")),
+          classCode: classCode.trim() || undefined,
+        });
+      } else {
+        await signupTeacher({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          sectionName: sectionName.trim(),
+          schoolName: schoolName.trim(),
+        });
+      }
+      // Never auto-login from the signup token — send them to log in with credentials.
+      const params = new URLSearchParams({ registered: "1" });
+      if (email.trim()) params.set("email", email.trim());
+      router.replace(`${LOGIN_PATH}?${params.toString()}`);
     } catch (signupError) {
       setError(signupError instanceof Error ? signupError.message : "Could not create account.");
       setIsSubmitting(false);

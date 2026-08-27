@@ -15,10 +15,16 @@ import { useUserStore } from "@/store/useUserStore";
 const fieldClassName =
   "h-10 border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
 
-export function LoginForm({ registrationComplete = false }: { registrationComplete?: boolean }) {
+export function LoginForm({
+  registrationComplete = false,
+  initialEmail = "",
+}: {
+  registrationComplete?: boolean;
+  initialEmail?: string;
+}) {
   const router = useRouter();
   const login = useUserStore((state) => state.login);
-  const [identifier, setIdentifier] = useState("");
+  const [identifier, setIdentifier] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

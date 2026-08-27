@@ -3,13 +3,14 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { BASE_PATH } from "@/lib/auth-routes";
+import { BASE_PATH, homePathForRole } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 import type { UserRole } from "@/types";
 
 /**
  * Protects student/educator route groups.
- * Missing session, expired session (cleared elsewhere), or wrong role → landing `/`.
+ * - No session → landing `/`
+ * - Wrong role (student↔teacher URL) → that user's own home
  */
 export function RoleGuard({
   allowedRole,
@@ -23,14 +24,24 @@ export function RoleGuard({
   const isAuthenticated = useUserStore((state) => state.isAuthenticated);
   const role = useUserStore((state) => state.role);
 
+  const allowed = Boolean(
+    hasHydrated && isAuthenticated && role === allowedRole
+  );
+
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!isAuthenticated || role !== allowedRole) {
+
+    if (!isAuthenticated || !role) {
       router.replace(BASE_PATH);
+      return;
+    }
+
+    if (role !== allowedRole) {
+      router.replace(homePathForRole(role));
     }
   }, [allowedRole, hasHydrated, isAuthenticated, role, router]);
 
-  if (!hasHydrated || !isAuthenticated || role !== allowedRole) {
+  if (!allowed) {
     return (
       <div className="grid min-h-[40vh] place-items-center text-sm text-brand-text/60">
         Redirecting…

@@ -1,0 +1,7 @@
+# Drop assets here
+# - marker.png  (or marker.jpg) — image students display/print to scan
+# - app.apk     — Android package for this AR experience
+#
+# Public URLs after drop:
+#   /ar-library/kidney/marker.png
+#   /ar-library/kidney/app.apk
