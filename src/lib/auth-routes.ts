@@ -9,6 +9,9 @@ export const REGISTER_PATH = "/register";
 /** Student homepage — `StudentHome` at `/dashboard`. */
 export const STUDENT_HOME_PATH = "/dashboard";
 
+/** Student Socrates tutor at `/tutor`. */
+export const STUDENT_TUTOR_PATH = "/tutor";
+
 /** Educator workspace homepage at `/educator-home`. */
 export const EDUCATOR_HOME_PATH = "/educator-home";
 
