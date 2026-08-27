@@ -1,13 +1,11 @@
-/** Drop real assets here when ready:
- *  - marker.png (or .jpg) — printable / on-screen scan target
- *  - app.apk — Android install for this AR experience
- *
- * Expected public paths:
- *  /ar-library/heart/marker.png
- *  /ar-library/heart/app.apk
- *  /ar-library/kidney/marker.png
- *  /ar-library/kidney/app.apk
+/**
+ * Student AR library catalog.
+ * Markers stay in frontend `public/ar-library/...`.
+ * APKs are hosted on S3 (too large for git): sci-path-demo-assets-dhanushi.
  */
+
+const S3_AR_BASE =
+  "https://sci-path-demo-assets-dhanushi.s3.ap-south-1.amazonaws.com/ar-models/ar-library";
 
 export type ArExperience = {
   id: "heart" | "kidney";
@@ -15,10 +13,11 @@ export type ArExperience = {
   shortTitle: string;
   description: string;
   href: string;
-  /** Preferred marker once you drop the real file */
+  /** Local marker image under /public */
   markerSrc: string;
-  /** Shown until markerSrc loads (placeholder SVG) */
+  /** Shown until markerSrc loads */
   markerFallbackSrc: string;
+  /** Public S3 HTTPS URL for the Android APK */
   apkSrc: string;
   apkDownloadName: string;
   accentClass: string;
@@ -34,7 +33,7 @@ export const AR_EXPERIENCES: ArExperience[] = [
     href: "/ar-library/heart",
     markerSrc: "/ar-library/heart/marker.jpg",
     markerFallbackSrc: "/ar-library/heart/marker.svg",
-    apkSrc: "/ar-library/heart/app.apk",
+    apkSrc: `${S3_AR_BASE}/heart/app.apk`,
     apkDownloadName: "SCI-PATH-Heart-AR.apk",
     accentClass: "border-brand-accent/25 bg-brand-accent/8 text-brand-accent",
   },
@@ -47,7 +46,7 @@ export const AR_EXPERIENCES: ArExperience[] = [
     href: "/ar-library/kidney",
     markerSrc: "/ar-library/kidney/marker.png",
     markerFallbackSrc: "/ar-library/kidney/marker.svg",
-    apkSrc: "/ar-library/kidney/app.apk",
+    apkSrc: `${S3_AR_BASE}/kidney/app.apk`,
     apkDownloadName: "SCI-PATH-Kidney-AR.apk",
     accentClass: "border-brand-primary/25 bg-brand-primary/8 text-brand-primary",
   },

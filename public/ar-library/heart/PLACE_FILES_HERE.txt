@@ -1,7 +1,3 @@
-# Drop assets here
-# - marker.jpg  — image students display/print to scan
-# - app.apk     — Android package for this AR experience
-#
-# Public URLs after drop:
-#   /ar-library/heart/marker.jpg
-#   /ar-library/heart/app.apk
+# Markers stay in this folder (git).
+# APK is on S3:
+#   s3://sci-path-demo-assets-dhanushi/ar-models/ar-library/heart/app.apk

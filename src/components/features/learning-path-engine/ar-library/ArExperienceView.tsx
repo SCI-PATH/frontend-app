@@ -11,26 +11,14 @@ import { cn } from "@/lib/utils";
 
 export function ArExperienceView({ experience }: { experience: ArExperience }) {
   const [markerSrc, setMarkerSrc] = useState(experience.markerSrc);
-  const [apkReady, setApkReady] = useState(false);
-  const [checkingApk, setCheckingApk] = useState(true);
+  const [apkReady, setApkReady] = useState(true);
+  const [checkingApk, setCheckingApk] = useState(false);
 
   useEffect(() => {
     setMarkerSrc(experience.markerSrc);
-    let cancelled = false;
-    setCheckingApk(true);
-    void fetch(experience.apkSrc, { method: "HEAD" })
-      .then((res) => {
-        if (!cancelled) setApkReady(res.ok);
-      })
-      .catch(() => {
-        if (!cancelled) setApkReady(false);
-      })
-      .finally(() => {
-        if (!cancelled) setCheckingApk(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    // S3 APKs are always linked; optional HEAD can fail on CORS so keep download enabled.
+    setApkReady(Boolean(experience.apkSrc));
+    setCheckingApk(false);
   }, [experience.apkSrc, experience.markerSrc]);
 
   return (
@@ -131,10 +119,11 @@ export function ArExperienceView({ experience }: { experience: ArExperience }) {
           />
         </div>
         <p className="mt-3 text-xs text-brand-text/50">
-          Drop the real marker at{" "}
+          Marker image is served from the app (
           <code className="rounded bg-brand-surface px-1.5 py-0.5">
             public{experience.markerSrc}
           </code>
+          ).
         </p>
       </section>
 
@@ -152,7 +141,11 @@ export function ArExperienceView({ experience }: { experience: ArExperience }) {
               asChild
               className="bg-brand-primary text-white hover:bg-brand-primary/90"
             >
-              <a href={experience.apkSrc} download={experience.apkDownloadName}>
+              <a
+                href={experience.apkSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Download className="size-4" aria-hidden />
                 Download {experience.shortTitle} APK
               </a>
@@ -169,10 +162,11 @@ export function ArExperienceView({ experience }: { experience: ArExperience }) {
           )}
         </div>
         <p className="mt-3 text-xs text-brand-text/50">
-          Drop the APK at{" "}
+          App file is served from S3 (
           <code className="rounded bg-brand-surface px-1.5 py-0.5">
-            public/ar-library/{experience.id}/app.apk
+            ar-models/ar-library/{experience.id}/app.apk
           </code>
+          ).
         </p>
       </section>
     </div>

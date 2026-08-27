@@ -1,0 +1,2 @@
+# Markers stay in git; APKs are hosted on S3 (see ar-library/catalog.ts).
+*.apk
