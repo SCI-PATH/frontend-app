@@ -92,6 +92,7 @@ interface TutorState {
   setPersonaId: (personaId: TutorPersonaId) => void;
   setTopicLocked: (locked: boolean) => void;
   dismissLessonNotice: () => void;
+  primeFarmLesson: (topicId: string | null | undefined) => void;
   sendMessage: (content: string) => Promise<void>;
   requestHint: (prompt?: string) => Promise<void>;
   resetConversation: () => void;
@@ -198,6 +199,17 @@ export const useTutorStore = create<TutorState>((set, get) => ({
   },
 
   dismissLessonNotice: () => set({ lessonNotice: null }),
+
+  primeFarmLesson: (topicId) => {
+    const id = topicId?.trim() || null;
+    if (!id) return;
+    rememberTopicForFarm(id);
+    set({
+      activeTopicId: id,
+      topicLocked: true,
+      lessonNotice: "Picked up your farm lesson — ask anything about it.",
+    });
+  },
 
   sendMessage: async (content) => {
     await postTurn(content, false, get, set);

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { TutorPageView } from "@/components/features/learner-analytics/TutorPageView";
 
 export const metadata = {
@@ -7,5 +9,9 @@ export const metadata = {
 };
 
 export default function TutorPage() {
-  return <TutorPageView />;
+  return (
+    <Suspense fallback={null}>
+      <TutorPageView />
+    </Suspense>
+  );
 }
