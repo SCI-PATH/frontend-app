@@ -14,8 +14,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, ChevronDown, Gauge, ListChecks, Target, Timer } from "lucide-react";
+import { AlertTriangle, ChevronDown, Gauge, Timer } from "lucide-react";
 
+import { CollapsibleSection } from "@/components/features/learner-analytics/educator/CollapsibleSection";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -42,6 +43,7 @@ import { compactTopicLabel } from "@/lib/educator/topicGrade";
 import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { cn } from "@/lib/utils";
 import type {
+  ChatHistoryTurn,
   ClassroomStudentMeta,
   DiagnosticSkillRow,
   RecentAttemptRow,
@@ -196,6 +198,74 @@ function FocusAreaList({ areas }: { areas: StudentFocusArea[] }) {
       })}
     </ul>
   );
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function seriesDirection(values: number[]): "up" | "down" | "flat" | null {
+  if (values.length < 2) return null;
+  const delta = values[values.length - 1] - values[0];
+  if (delta >= 8) return "up";
+  if (delta <= -8) return "down";
+  return "flat";
+}
+
+function summarizeQuizVsChat(
+  points: { mastery: number | null; engagement: number | null }[],
+  gapFlagged: boolean
+): string {
+  const quiz = points
+    .map((point) => point.mastery)
+    .filter((value): value is number => value !== null);
+  const chat = points
+    .map((point) => point.engagement)
+    .filter((value): value is number => value !== null);
+  const quizAvg = average(quiz);
+  const chatAvg = average(chat);
+
+  if (quizAvg === null && chatAvg === null) {
+    return "No quiz or tutor-chat scores yet for this learner.";
+  }
+  if (quizAvg === null) {
+    return `Tutor chat scores average ${Math.round(chatAvg!)}% so far. Quiz mastery has not appeared on this chart yet.`;
+  }
+  if (chatAvg === null) {
+    const direction = seriesDirection(quiz);
+    if (direction === "up") {
+      return `Quiz mastery is rising and currently averages ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+    }
+    if (direction === "down") {
+      return `Quiz mastery has slipped and currently averages ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+    }
+    return `Quiz mastery is holding around ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+  }
+  if (gapFlagged) {
+    return `This learner chats well with the tutor (about ${Math.round(chatAvg)}%), but quiz mastery is still low (about ${Math.round(quizAvg)}%). Check whether they can do the work without the tutor.`;
+  }
+  const quizDirection = seriesDirection(quiz);
+  if (quizAvg >= 70 && chatAvg >= 60) {
+    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) both look healthy. Keep regular practice going.`;
+  }
+  if (quizAvg < 50 && chatAvg < 50) {
+    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) are both on the low side. Plan a short reteach on this skill.`;
+  }
+  if (quizDirection === "up") {
+    return `Quiz mastery is trending up (about ${Math.round(quizAvg)}%). Tutor chat scores average about ${Math.round(chatAvg)}%. Keep checking that quiz gains hold without tutor help.`;
+  }
+  if (quizDirection === "down") {
+    return `Quiz mastery is trending down (about ${Math.round(quizAvg)}%). Tutor chat scores average about ${Math.round(chatAvg)}%. Follow up before the drop continues.`;
+  }
+  return `Quiz mastery averages about ${Math.round(quizAvg)}%; tutor chat scores average about ${Math.round(chatAvg)}%. Use the chart to see whether quizzes and chat are moving together.`;
+}
+
+function clipStudentMessage(text?: string | null, maxChars = 140): string | null {
+  const trimmed = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, maxChars).trimEnd()}…`;
 }
 
 function formatErrorCategory(value?: string | null): string {
@@ -382,7 +452,8 @@ function TutoringActivitySummary({
 }: {
   profile: StudentProfileResponse | null;
 }) {
-  const confusionCount = profile?.critical_confusion_turns?.length ?? 0;
+  const confusionTurns = profile?.critical_confusion_turns ?? [];
+  const confusionCount = confusionTurns.length;
   const recentTurns = profile?.engagement_timeline_last_10_turns ?? [];
   const recentTopics = useMemo(() => {
     const seen = new Set<string>();
@@ -442,9 +513,47 @@ function TutoringActivitySummary({
           ))}
         </ul>
       ) : null}
+      {confusionCount > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
+            What the confusion was about
+          </p>
+          <ul className="space-y-2">
+            {confusionTurns.map((turn: ChatHistoryTurn, index) => {
+              const topicId = String(turn.topic_id ?? "");
+              const utterance = clipStudentMessage(turn.student_message);
+              const score =
+                typeof turn.interaction_score === "number"
+                  ? Math.round(turn.interaction_score * 100)
+                  : null;
+              return (
+                <li
+                  key={`${topicId}-${turn.timestamp ?? index}`}
+                  className="rounded-xl border border-red-200 bg-red-50/70 px-3 py-2.5"
+                >
+                  <p className="text-sm font-medium text-brand-text">
+                    {topicId ? getCurriculumTitle(topicId) : "Unknown topic"}
+                  </p>
+                  <p className="mt-0.5 text-[0.65rem] text-brand-text/55">
+                    Chat score {score !== null ? `${score}%` : "n/a"}
+                    {turn.timestamp
+                      ? ` · ${formatEducatorTimestamp(turn.timestamp)}`
+                      : ""}
+                  </p>
+                  <p className="mt-1 text-sm text-brand-text/80">
+                    {utterance ??
+                      "Low tutor score on this turn, but the student line was not stored."}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
       <p className="text-xs leading-relaxed text-brand-text/50">
-        Topic and signal counts only — student chat messages are not shown here to
-        protect learner privacy.
+        A critical confusion signal is a tutor turn whose chat score was below 30%
+        (vague, stuck, or a likely wrong idea). Only that short student line is
+        shown — not the full conversation.
       </p>
     </div>
   );
@@ -514,6 +623,11 @@ export function StudentDeepDive({
       typeof profile?.engagement_average_last_10 === "number" &&
       masteryAvg < 0.5 &&
       profile.engagement_average_last_10 >= 0.7);
+
+  const quizVsChatSummary = useMemo(
+    () => summarizeQuizVsChat(compareData, showEngagementGap),
+    [compareData, showEngagementGap]
+  );
 
   const focusAreas = profile?.focus_areas ?? [];
   const timeOnTaskTrends = profile?.engagement_metrics?.time_on_task_trends ?? [];
@@ -631,12 +745,7 @@ export function StudentDeepDive({
             >
               {studentIds.map((studentId) => (
                 <DropdownMenuRadioItem key={studentId} value={studentId}>
-                  <span className="flex flex-col gap-0.5">
-                    <span>{getStudentDisplayName(studentId, students)}</span>
-                    <span className="font-mono text-[0.65rem] text-brand-text/45">
-                      {studentId}
-                    </span>
-                  </span>
+                  {getStudentDisplayName(studentId, students)}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -674,9 +783,6 @@ export function StudentDeepDive({
           <CardTitle className="text-base">
             Quiz progress vs chat activity
           </CardTitle>
-          <CardDescription>
-            How well they are learning on quizzes compared with how active they are with the tutor.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -689,14 +795,10 @@ export function StudentDeepDive({
             </p>
           ) : (
             <>
-              {showEngagementGap ? (
-                <div className="mb-4 flex items-start gap-2 rounded-xl border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                  <p>
-                    This learner chats well with the tutor, but quiz scores are still low.
-                  </p>
-                </div>
-              ) : null}
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-brand-accent/30 bg-brand-accent/10 px-3 py-2.5 text-sm leading-relaxed text-brand-accent">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <p>{quizVsChatSummary}</p>
+              </div>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={compareData}>
@@ -732,24 +834,19 @@ export function StudentDeepDive({
         </CardContent>
       </Card>
 
-      <Card className="border-brand-surface">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ListChecks className="size-4 text-brand-primary" />
-            Recent Attempts
-          </CardTitle>
-          <CardDescription>
-            Latest quiz answers for this learner — what they got right or wrong, and common mistake patterns.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="py-4 text-sm text-brand-text/60">Loading attempts…</p>
-          ) : (
-            <RecentAttemptsTable attempts={recentAttempts} />
-          )}
-        </CardContent>
-      </Card>
+      <CollapsibleSection
+        title="Recent Attempts"
+        description="Latest quiz answers for this learner — what they got right or wrong, and common mistake patterns."
+        badge={recentAttempts.length}
+        defaultOpen={false}
+        accent="primary"
+      >
+        {isLoading ? (
+          <p className="py-4 text-sm text-brand-text/60">Loading attempts…</p>
+        ) : (
+          <RecentAttemptsTable attempts={recentAttempts} />
+        )}
+      </CollapsibleSection>
 
       <Card className="border-brand-surface">
         <CardHeader>
@@ -802,24 +899,19 @@ export function StudentDeepDive({
         </CardContent>
       </Card>
 
-      <Card className="border-brand-surface">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Target className="size-4 text-brand-special" />
-            Learner Focus Areas
-          </CardTitle>
-          <CardDescription>
-            Topics this learner needs help with right now.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="py-4 text-sm text-brand-text/60">Loading focus areas…</p>
-          ) : (
-            <FocusAreaList areas={focusAreas} />
-          )}
-        </CardContent>
-      </Card>
+      <CollapsibleSection
+        title="Learner Focus Areas"
+        description="A topic lands here when at least 2 of 3 signals fire: mastery below 45%, last 3 quiz/chat scores falling, or recent performance average below 40%."
+        badge={focusAreas.length}
+        defaultOpen={false}
+        accent="special"
+      >
+        {isLoading ? (
+          <p className="py-4 text-sm text-brand-text/60">Loading focus areas…</p>
+        ) : (
+          <FocusAreaList areas={focusAreas} />
+        )}
+      </CollapsibleSection>
 
       <Card className="border-brand-surface">
         <CardHeader>
@@ -828,7 +920,9 @@ export function StudentDeepDive({
             Tricky skills
           </CardTitle>
           <CardDescription>
-            Skills where answers look inconsistent — they may know more (or less) than scores suggest.
+            From the BKT skill model, not a live streak. Slip (p_s &gt; 0.15): the
+            model thinks they know it but still miss. Guess (p_g &gt; 0.20): a
+            correct answer may be lucky.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -878,7 +972,8 @@ export function StudentDeepDive({
         <CardHeader>
           <CardTitle className="text-base">Tutor help summary</CardTitle>
           <CardDescription>
-            Topics they asked about and whether they seemed confused — private messages are not shown.
+            Topics they asked the tutor about. A critical confusion signal is a chat
+            turn scored below 30% — the student line for that turn is listed below.
           </CardDescription>
         </CardHeader>
         <CardContent>

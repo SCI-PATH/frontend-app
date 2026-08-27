@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -21,7 +20,6 @@ import {
   masteryPercent,
 } from "@/lib/educator/bkt";
 import { getStudentDisplayName } from "@/lib/educator/students";
-import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
 import {
   cellMatchesStatusFilter,
   countCellsByStatus,
@@ -55,6 +53,46 @@ interface HoverState {
   probability: number | null;
   x: number;
   y: number;
+}
+
+function MatrixColorKey() {
+  return (
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.65rem] text-brand-text/60">
+      <li className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-sm bg-red-600" aria-hidden />
+        Support &lt;50%
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-sm bg-brand-primary" aria-hidden />
+        Learning 50–79%
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-sm bg-brand-secondary" aria-hidden />
+        Mastered ≥80%
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-sm bg-slate-200 ring-1 ring-slate-300" aria-hidden />
+        Not attempted
+      </li>
+    </ul>
+  );
+}
+
+function MatrixFilterGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <p className="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-brand-text/45">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
 }
 
 export function MasteryMatrix({
@@ -123,101 +161,86 @@ export function MasteryMatrix({
   }, [hover, catalogById, students]);
 
   return (
-    <section aria-label="Classroom mastery matrix" className="space-y-4">
+    <section aria-label="Classroom mastery matrix" className="space-y-3">
       {showHeader ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-brand-text">
-              Classroom Mastery Matrix
-            </h2>
-            <p className="text-sm text-brand-text/65">
-              Filter by grade or scroll horizontally within a grade band.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge className={EDUCATOR_AT_RISK.badge}>At Risk &lt; 50%</Badge>
-            <Badge className="bg-brand-primary text-white hover:bg-brand-primary">
-              Learning 50–79%
-            </Badge>
-            <Badge className="bg-brand-secondary text-brand-text hover:bg-brand-secondary">
-              Mastered ≥ 80%
-            </Badge>
-            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
-              Not attempted
-            </Badge>
-          </div>
+        <div>
+          <h2 className="text-xl font-semibold text-brand-text">
+            Classroom Mastery Matrix
+          </h2>
+          <p className="text-sm text-brand-text/65">
+            Filter by grade or learning status, then hover a cell for the full skill title.
+          </p>
         </div>
-      ) : (
-        <div className="flex flex-wrap gap-2 pb-1">
-          <Badge className={EDUCATOR_AT_RISK.badge}>Needs support &lt; 50%</Badge>
-          <Badge className="bg-brand-primary text-white hover:bg-brand-primary">
-            Still learning 50–79%
-          </Badge>
-          <Badge className="bg-brand-secondary text-brand-text hover:bg-brand-secondary">
-            Mastered ≥ 80%
-          </Badge>
-          <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
-            Not attempted
-          </Badge>
-        </div>
-      )}
+      ) : null}
 
-      <Tabs
-        value={gradeFilter}
-        onValueChange={(value) => setGradeFilter(value as MatrixGradeFilter)}
-      >
-        <TabsList className="h-auto flex-wrap gap-1 bg-brand-background p-1">
-          {MATRIX_GRADE_FILTERS.map(({ value, label }) => {
-            const count =
-              value === "all"
-                ? topicIds.length
-                : filterTopicIdsByGrade(topicIds, value).length;
-            return (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="gap-1.5 data-[state=active]:bg-brand-primary data-[state=active]:text-white"
-              >
-                {label}
-                <span className="rounded-full bg-brand-text/10 px-1.5 py-0.5 text-[0.65rem] tabular-nums">
-                  {count}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
-
-      <Tabs
-        value={statusFilter}
-        onValueChange={(value) => setStatusFilter(value as MatrixStatusFilter)}
-      >
-        <TabsList className="h-auto flex-wrap gap-1 bg-brand-background p-1">
-          {MATRIX_STATUS_FILTERS.map(({ value, label }) => {
-            const count =
-              value === "all"
-                ? studentIds.length * visibleTopicIds.length
-                : countCellsByStatus(
-                    matrix,
-                    studentIds,
-                    visibleTopicIds,
-                    value
+      <div className="flex flex-col gap-2 rounded-xl border border-brand-surface bg-brand-background/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <MatrixFilterGroup label="Grade">
+            <Tabs
+              value={gradeFilter}
+              onValueChange={(value) =>
+                setGradeFilter(value as MatrixGradeFilter)
+              }
+            >
+              <TabsList className="h-8 max-w-full overflow-x-auto bg-white p-0.5">
+                {MATRIX_GRADE_FILTERS.map(({ value, shortLabel }) => {
+                  const count =
+                    value === "all"
+                      ? topicIds.length
+                      : filterTopicIdsByGrade(topicIds, value).length;
+                  return (
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className="h-7 min-w-8 px-2 text-xs data-[state=active]:bg-brand-primary data-[state=active]:text-white"
+                    >
+                      {shortLabel}
+                      <span className="text-[0.6rem] tabular-nums opacity-70">
+                        {count}
+                      </span>
+                    </TabsTrigger>
                   );
-            return (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="gap-1.5 data-[state=active]:bg-brand-text data-[state=active]:text-white"
-              >
-                {label}
-                <span className="rounded-full bg-brand-text/10 px-1.5 py-0.5 text-[0.65rem] tabular-nums">
-                  {count}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
+                })}
+              </TabsList>
+            </Tabs>
+          </MatrixFilterGroup>
+
+          <MatrixFilterGroup label="Status">
+            <Tabs
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as MatrixStatusFilter)
+              }
+            >
+              <TabsList className="h-8 max-w-full overflow-x-auto bg-white p-0.5">
+                {MATRIX_STATUS_FILTERS.map(({ value, shortLabel }) => {
+                  const count =
+                    value === "all"
+                      ? studentIds.length * visibleTopicIds.length
+                      : countCellsByStatus(
+                          matrix,
+                          studentIds,
+                          visibleTopicIds,
+                          value
+                        );
+                  return (
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className="h-7 px-2 text-xs data-[state=active]:bg-brand-text data-[state=active]:text-white"
+                    >
+                      {shortLabel}
+                      <span className="text-[0.6rem] tabular-nums opacity-70">
+                        {count}
+                      </span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+          </MatrixFilterGroup>
+        </div>
+      </div>
 
       {unknownTopicIds.length > 0 ? (
         <Card className="border-red-200 bg-red-50">
@@ -229,19 +252,24 @@ export function MasteryMatrix({
       ) : null}
 
       <Card className="overflow-hidden border-brand-surface bg-white">
-        <CardHeader className="border-b border-brand-surface pb-4">
-          <CardTitle className="text-base text-brand-text">
-            Mastery grid · {visibleTopicIds.length} skills ·{" "}
-            {visibleStudentIds.length} learner
-            {visibleStudentIds.length === 1 ? "" : "s"}
-            {statusFilter !== "all"
-              ? ` · ${matchingCellCount} matching cells`
-              : null}
-          </CardTitle>
-          <CardDescription>
-            Combine grade and learning-status filters. Non-matching cells are
-            dimmed when a status filter is active. Hover for full skill title.
-          </CardDescription>
+        <CardHeader className="border-b border-brand-surface pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <CardTitle className="text-base text-brand-text">
+              Mastery grid · {visibleTopicIds.length} skills ·{" "}
+              {visibleStudentIds.length} learner
+              {visibleStudentIds.length === 1 ? "" : "s"}
+              {statusFilter !== "all"
+                ? ` · ${matchingCellCount} matching cells`
+                : null}
+            </CardTitle>
+            <MatrixColorKey />
+          </div>
+          {statusFilter !== "all" ? (
+            <CardDescription>
+              Cells that do not match this status are dimmed. Hover a cell for the
+              full skill title.
+            </CardDescription>
+          ) : null}
         </CardHeader>
         <CardContent className="relative p-0">
           {visibleTopicIds.length === 0 ? (
@@ -283,9 +311,6 @@ export function MasteryMatrix({
                       <th className="sticky left-0 z-20 max-w-[11rem] bg-white px-3 py-1 text-left font-medium text-brand-text shadow-sm">
                         <span className="block truncate">
                           {getStudentDisplayName(studentId, students)}
-                        </span>
-                        <span className="block truncate font-mono text-[0.62rem] font-normal text-brand-text/45">
-                          {studentId}
                         </span>
                       </th>
                       {visibleTopicIds.map((topicId) => {
@@ -356,7 +381,7 @@ export function MasteryMatrix({
                                 });
                               }}
                               onBlur={() => setHover(null)}
-                              aria-label={`${studentId} ${topicId} estimated mastery ${showValue ? (percent ?? "unknown") : "filtered out"} percent`}
+                              aria-label={`${getStudentDisplayName(studentId, students)} ${topicId} estimated mastery ${showValue ? (percent ?? "unknown") : "filtered out"} percent`}
                             >
                               {showValue ? (percent ?? "—") : "·"}
                             </button>
@@ -382,9 +407,6 @@ export function MasteryMatrix({
               }}
             >
               <p className="font-semibold text-brand-text">{tooltip.studentName}</p>
-              <p className="font-mono text-[0.62rem] text-brand-text/45">
-                {tooltip.studentId}
-              </p>
               <p className="mt-1 font-mono text-[0.68rem] text-brand-primary">
                 {tooltip.topicId}
               </p>

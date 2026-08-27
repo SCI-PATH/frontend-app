@@ -23,6 +23,7 @@ export function SocraticChatView({
   const compact = variant === "compact";
   const messages = useTutorStore((state) => state.messages);
   const personaId = useTutorStore((state) => state.personaId);
+  const preferredPersonaId = useTutorStore((state) => state.preferredPersonaId);
   const activeTopicId = useTutorStore((state) => state.activeTopicId);
   const topicLocked = useTutorStore((state) => state.topicLocked);
   const metadata = useTutorStore((state) => state.metadata);
@@ -55,6 +56,7 @@ export function SocraticChatView({
     >
       <ChatHeader
         personaId={personaId}
+        preferredPersonaId={preferredPersonaId}
         activeTopicId={activeTopicId}
         topicLocked={topicLocked}
         metadata={metadata}

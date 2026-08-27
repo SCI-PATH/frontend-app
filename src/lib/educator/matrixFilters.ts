@@ -14,11 +14,12 @@ export type MatrixStatusFilter = "all" | MasteryCategory;
 export const MATRIX_STATUS_FILTERS: readonly {
   value: MatrixStatusFilter;
   label: string;
+  shortLabel: string;
 }[] = [
-  { value: "all", label: "All statuses" },
-  { value: "at_risk", label: "Needs support" },
-  { value: "learning", label: "Still learning" },
-  { value: "mastered", label: "Mastered" },
+  { value: "all", label: "All statuses", shortLabel: "All" },
+  { value: "at_risk", label: "Needs support", shortLabel: "Support" },
+  { value: "learning", label: "Still learning", shortLabel: "Learning" },
+  { value: "mastered", label: "Mastered", shortLabel: "Mastered" },
 ];
 
 export function cellMatchesStatusFilter(

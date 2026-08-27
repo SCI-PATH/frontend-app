@@ -3,12 +3,13 @@ export type MatrixGradeFilter = "all" | "6" | "7" | "8" | "9";
 export const MATRIX_GRADE_FILTERS: readonly {
   value: MatrixGradeFilter;
   label: string;
+  shortLabel: string;
 }[] = [
-  { value: "all", label: "All" },
-  { value: "6", label: "Grade 6" },
-  { value: "7", label: "Grade 7" },
-  { value: "8", label: "Grade 8" },
-  { value: "9", label: "Grade 9" },
+  { value: "all", label: "All", shortLabel: "All" },
+  { value: "6", label: "Grade 6", shortLabel: "G6" },
+  { value: "7", label: "Grade 7", shortLabel: "G7" },
+  { value: "8", label: "Grade 8", shortLabel: "G8" },
+  { value: "9", label: "Grade 9", shortLabel: "G9" },
 ];
 
 export function topicMatchesGrade(

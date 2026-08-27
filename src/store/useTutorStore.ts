@@ -56,7 +56,10 @@ function toHistory(messages: ChatMessage[]): TutorHistoryTurn[] {
 
 function buildRequest(
   studentAnswer: string,
-  state: Pick<TutorState, "messages" | "personaId" | "activeTopicId" | "topicLocked">
+  state: Pick<
+    TutorState,
+    "messages" | "preferredPersonaId" | "activeTopicId" | "topicLocked"
+  >
 ): HintAutoTopicRequest {
   const userId = useUserStore.getState().user?.id ?? "student_demo";
   const conversationHistory = toHistory(state.messages);
@@ -66,7 +69,7 @@ function buildRequest(
     user_id: userId,
     student_answer: studentAnswer,
     context_k: 4,
-    persona_id: state.personaId,
+    persona_id: state.preferredPersonaId,
     ...(conversationHistory.length > 0
       ? { conversation_history: conversationHistory }
       : {}),
@@ -76,6 +79,9 @@ function buildRequest(
 
 interface TutorState {
   messages: ChatMessage[];
+  /** Student's saved coaching style; always sent as persona_id. */
+  preferredPersonaId: TutorPersonaId;
+  /** Persona the last tutor turn actually used (may be Encourager under high frustration). */
   personaId: TutorPersonaId;
   activeTopicId: string | null;
   topicLocked: boolean;
@@ -116,6 +122,7 @@ function applySuccessfulTurn(
       createChatMessage("tutor", hintText, { isHint }),
     ],
     personaId: response.persona_id,
+    preferredPersonaId: state.preferredPersonaId,
     activeTopicId: nextTopicId,
     metadata: {
       topicRouting: response.topic_routing,
@@ -173,6 +180,7 @@ async function postTurn(
 
 export const useTutorStore = create<TutorState>((set, get) => ({
   messages: [createWelcomeMessage()],
+  preferredPersonaId: DEFAULT_TUTOR_PERSONA_ID,
   personaId: DEFAULT_TUTOR_PERSONA_ID,
   activeTopicId: null,
   topicLocked: false,
@@ -181,7 +189,8 @@ export const useTutorStore = create<TutorState>((set, get) => ({
   isSending: false,
   error: null,
 
-  setPersonaId: (personaId) => set({ personaId }),
+  setPersonaId: (personaId) =>
+    set({ preferredPersonaId: personaId, personaId }),
 
   setTopicLocked: (locked) => {
     if (locked && !get().activeTopicId) return;
@@ -201,6 +210,7 @@ export const useTutorStore = create<TutorState>((set, get) => ({
   resetConversation: () =>
     set({
       messages: [createWelcomeMessage()],
+      personaId: get().preferredPersonaId,
       activeTopicId: null,
       topicLocked: false,
       metadata: EMPTY_METADATA,
