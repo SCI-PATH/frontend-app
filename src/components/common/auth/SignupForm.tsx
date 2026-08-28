@@ -6,6 +6,7 @@ import { FormEvent, useState } from "react";
 import { GraduationCap, School } from "lucide-react";
 
 import { RedirectToHomeIfAuthenticated } from "@/components/common/auth/RedirectToHomeIfAuthenticated";
+import { TermsOverlay } from "@/components/common/legal/TermsOverlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LOGIN_PATH } from "@/lib/auth-routes";
@@ -36,6 +37,7 @@ export function SignupForm() {
   const [schoolName, setSchoolName] = useState("");
   const [sectionName, setSectionName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -320,23 +322,30 @@ export function SignupForm() {
         </div>
       )}
 
-      <label className="flex items-start gap-2 rounded-lg border border-brand-surface bg-brand-background/50 px-3 py-2.5 text-sm text-brand-text/80">
+      <div className="flex items-start gap-2 rounded-lg border border-brand-surface bg-brand-background/50 px-3 py-2.5 text-sm text-brand-text/80">
         <input
+          id="signup-accept-terms"
           type="checkbox"
           checked={acceptedTerms}
           onChange={(event) => setAcceptedTerms(event.target.checked)}
           className="mt-0.5 size-4 rounded border-brand-surface accent-brand-primary"
         />
-        <span>
-          I agree to the{" "}
-          <Link
-            href="#"
-            className="font-medium text-brand-primary transition-colors hover:text-brand-special hover:underline"
+        <span className="leading-relaxed">
+          <label htmlFor="signup-accept-terms">I agree to the </label>
+          <button
+            type="button"
+            className="font-medium text-brand-primary underline-offset-2 transition-colors hover:text-brand-special hover:underline"
+            onClick={() => setTermsOpen(true)}
           >
             Terms and Conditions
-          </Link>
+          </button>
         </span>
-      </label>
+      </div>
+      <TermsOverlay
+        open={termsOpen}
+        onOpenChange={setTermsOpen}
+        onAccept={() => setAcceptedTerms(true)}
+      />
 
       {error ? (
         <p
