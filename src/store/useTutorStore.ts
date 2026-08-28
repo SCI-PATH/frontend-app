@@ -93,6 +93,7 @@ interface TutorState {
   setTopicLocked: (locked: boolean) => void;
   dismissLessonNotice: () => void;
   primeFarmLesson: (topicId: string | null | undefined) => void;
+  noteFarmHandoff: () => void;
   sendMessage: (content: string) => Promise<void>;
   requestHint: (prompt?: string) => Promise<void>;
   resetConversation: () => void;
@@ -210,6 +211,13 @@ export const useTutorStore = create<TutorState>((set, get) => ({
       lessonNotice: "Picked up your farm lesson — ask anything about it.",
     });
   },
+
+  noteFarmHandoff: () =>
+    set({
+      topicLocked: false,
+      lessonNotice:
+        "You're coming from the farm. Ask about whatever you're stuck on — this chat is not locked to a lesson.",
+    }),
 
   sendMessage: async (content) => {
     await postTurn(content, false, get, set);

@@ -12,15 +12,20 @@ export function TutorPageView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const primeFarmLesson = useTutorStore((state) => state.primeFarmLesson);
+  const noteFarmHandoff = useTutorStore((state) => state.noteFarmHandoff);
 
   useEffect(() => {
     const fromFarm = searchParams.get("from") === "farm";
     const topicId =
       searchParams.get("topicId") || searchParams.get("topic_id") || "";
-    if (fromFarm || topicId.trim()) {
+    if (topicId.trim()) {
       primeFarmLesson(topicId);
+      return;
     }
-  }, [primeFarmLesson, searchParams]);
+    if (fromFarm) {
+      noteFarmHandoff();
+    }
+  }, [noteFarmHandoff, primeFarmLesson, searchParams]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-brand-background">
