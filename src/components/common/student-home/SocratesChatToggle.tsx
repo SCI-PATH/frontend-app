@@ -18,6 +18,17 @@ export function SocratesChatToggle() {
 
   useEffect(() => {
     if (!open) return;
+    void import("@/lib/api/frustration")
+      .then(({ syncHomepageFrustrationFromGaming }) =>
+        syncHomepageFrustrationFromGaming()
+      )
+      .catch(() => {
+        /* Gaming GET is optional; chat still works without a cue. */
+      });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") close();
