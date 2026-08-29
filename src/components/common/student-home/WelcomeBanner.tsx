@@ -1,11 +1,12 @@
 "use client";
 
-import { Flag, Flame, Sparkles } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 
 import { StudentAvatar } from "@/components/common/StudentAvatar";
-import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/store/useUserStore";
 import type { TeacherClass } from "@/types";
+
+import "./welcome-banner.css";
 
 export function WelcomeBanner({
   enrolledClass,
@@ -17,33 +18,42 @@ export function WelcomeBanner({
   const grade = user?.grade || "Grade 7";
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-primary via-brand-special to-brand-accent px-6 py-7 text-white shadow-lg shadow-brand-primary/20 sm:px-8 sm:py-8">
-      <div
-        className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full bg-white/20 blur-2xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -bottom-10 left-1/4 size-44 rounded-full bg-brand-secondary/35 blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute right-1/3 top-1/2 size-24 rounded-full bg-white/10 blur-xl"
-        aria-hidden
-      />
+    <section className="welcome-banner">
+      <div className="welcome-banner__inner px-6 py-10 text-white sm:px-10 sm:py-12">
+        <div className="welcome-banner__speed-line" aria-hidden />
+        <div
+          className="welcome-banner__speed-line welcome-banner__speed-line--delay"
+          aria-hidden
+        />
+        <div className="welcome-banner__orb welcome-banner__orb--cyan" aria-hidden />
+        <div className="welcome-banner__orb welcome-banner__orb--purple" aria-hidden />
+        <div className="welcome-banner__orb welcome-banner__orb--pink" aria-hidden />
+        <span className="welcome-banner__star welcome-banner__star--1" aria-hidden />
+        <span className="welcome-banner__star welcome-banner__star--2" aria-hidden />
+        <span className="welcome-banner__star welcome-banner__star--3" aria-hidden />
+        <span className="welcome-banner__star welcome-banner__star--4" aria-hidden />
+        <span className="welcome-banner__spark welcome-banner__spark--1" aria-hidden />
+        <span className="welcome-banner__spark welcome-banner__spark--2" aria-hidden />
 
-      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-5 sm:gap-7">
-          <StudentAvatar size="hero" className="ring-2 ring-white/70 shadow-lg" />
-          <div className="space-y-2">
-            <p className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide backdrop-blur-sm">
-              <Sparkles className="size-4 shrink-0" aria-hidden />
+        <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-5 text-center sm:gap-6">
+          <div className="welcome-rise-1 welcome-banner__avatar-wrap">
+            <div className="welcome-banner__halo" aria-hidden />
+            <StudentAvatar
+              size="hero"
+              className="relative z-10 ring-4 ring-white/80 shadow-2xl shadow-black/20"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <p className="welcome-rise-2 welcome-banner__badge inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold uppercase tracking-wide backdrop-blur-md">
+              <Sparkles className="size-4 shrink-0 text-white" aria-hidden />
               {grade}
               {enrolledClass ? (
                 <>
                   <span className="font-semibold normal-case tracking-normal">
                     · {enrolledClass.class_name}
                   </span>
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 font-mono text-[11px] font-bold normal-case tracking-wide">
+                  <span className="welcome-banner__code rounded-full px-2 py-0.5 font-mono text-[11px] font-bold normal-case tracking-wide">
                     {enrolledClass.class_code}
                   </span>
                 </>
@@ -51,30 +61,24 @@ export function WelcomeBanner({
                 " · Grades 6–9 Science"
               )}
             </p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Welcome back, {firstName}
+
+            <h1 className="welcome-rise-3 welcome-banner__title text-3xl font-black tracking-tight drop-shadow-sm sm:text-4xl lg:text-[2.85rem]">
+              Welcome back, {firstName}!
             </h1>
-            <p className="max-w-xl text-base leading-snug text-white/90 sm:text-lg">
-              {enrolledClass
-                ? `You're enrolled in ${enrolledClass.class_name}. Pick up where you left off or explore a new skill.`
-                : "Join your teacher's class with a class code, then dive into lessons and quizzes."}
-            </p>
-            <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium backdrop-blur-sm">
-              <Flame className="size-4 text-brand-secondary" aria-hidden />
-              <span>Streak &amp; next topic</span>
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-                Soon
+
+            <p className="welcome-rise-4 mx-auto flex max-w-lg items-start justify-center gap-2 text-base leading-relaxed text-white/95 sm:text-lg">
+              <Zap
+                className="mt-1 size-5 shrink-0 text-[#ccefff] drop-shadow"
+                aria-hidden
+              />
+              <span>
+                {enrolledClass
+                  ? `You're in ${enrolledClass.class_name}. Explore lessons, games, and quizzes from your learning hub below.`
+                  : "Your science adventure starts here — join a class, then dive into lessons, games, and quizzes."}
               </span>
             </p>
           </div>
         </div>
-        <Button
-          size="lg"
-          className="h-12 shrink-0 rounded-2xl bg-white px-6 text-base font-semibold text-brand-primary shadow-md hover:bg-brand-background"
-        >
-          Resume Last Topic
-          <Flag className="size-5" aria-hidden />
-        </Button>
       </div>
     </section>
   );
