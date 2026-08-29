@@ -174,6 +174,7 @@ export interface QuizQuestion {
   paragraph?: string;
   blanks?: number;
   dok_level?: number;
+  chapter_name?: string;
   question_number?: number;
   total_questions?: number;
   questions_asked?: number;
