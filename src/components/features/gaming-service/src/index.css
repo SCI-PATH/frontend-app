@@ -4042,6 +4042,11 @@ body {
   backdrop-filter: blur(3px);
 }
 
+.avatar-assistant-overlay.has-map-split {
+  overflow: hidden;
+  align-items: center;
+}
+
 .avatar-assistant-card {
   box-sizing: border-box;
   width: min(560px, 100%);
@@ -4078,7 +4083,8 @@ body {
 }
 
 .avatar-assistant-card.is-voice-shell.has-map-split {
-  width: min(960px, 100%);
+  width: min(1080px, calc(100vw - 16px));
+  height: calc(100dvh - 16px);
   max-height: calc(100dvh - 16px);
 }
 
@@ -4103,7 +4109,17 @@ body {
   overflow: visible;
   padding: 18px 4px 4px;
   flex: 1 1 auto;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.avatar-solo-sage.is-voice-only .sage-lesson {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 38vh;
+  overflow-y: auto;
 }
 
 .avatar-letter-row {
@@ -4111,9 +4127,82 @@ body {
   grid-template-columns: 1fr;
   gap: 6px;
   flex-shrink: 0;
-  max-height: min(220px, 32vh);
+  max-height: min(360px, 48vh);
   overflow: auto;
   padding: 0 2px;
+}
+
+.avatar-active-miss {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(46, 92, 62, 0.16);
+}
+
+.avatar-active-miss-kicker {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a6a52;
+}
+
+.avatar-active-miss-q {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1f3d2a;
+}
+
+.avatar-active-miss-choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.avatar-active-miss-choices li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: start;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f6faf7;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #24362c;
+}
+
+.avatar-active-miss-choices li.is-yours {
+  background: #fdecea;
+}
+
+.avatar-active-miss-choices li.is-ok {
+  background: #e7f6ec;
+}
+
+.avatar-active-miss-letter {
+  font-weight: 800;
+  color: #5a6e60;
+}
+
+.avatar-active-miss-text {
+  overflow-wrap: break-word;
+}
+
+.avatar-active-miss-choices em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5a6e60;
+  white-space: nowrap;
 }
 
 .avatar-letter-chip {
@@ -4174,6 +4263,105 @@ body {
 .avatar-letter-chip:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.sage-lesson {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sage-lesson-block {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(46, 92, 62, 0.14);
+}
+
+.sage-lesson-title {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a6a52;
+}
+
+.sage-lesson-quote {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1f3d2a;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+.sage-lesson-body {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: #24362c;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+.sage-lesson-kicker {
+  margin: 8px 0 2px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6a8070;
+}
+
+.sage-lesson-quote + .sage-lesson-kicker,
+.sage-lesson-body + .sage-lesson-kicker {
+  margin-top: 8px;
+}
+
+.sage-lesson-block .sage-lesson-body + .sage-lesson-diff,
+.sage-lesson-block .sage-lesson-diff + .sage-lesson-body {
+  margin-top: 6px;
+}
+
+.sage-lesson-diff {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.sage-lesson-diff li {
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 6px 8px;
+  align-items: start;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.sage-lesson-diff span {
+  font-weight: 800;
+  color: #5a6e60;
+}
+
+.sage-lesson-diff strong {
+  font-weight: 650;
+  color: #1f3d2a;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+.sage-lesson-block.is-check {
+  border-color: rgba(46, 92, 62, 0.28);
+  background: #f4faf5;
 }
 
 .avatar-compose.is-voice-compose {
@@ -4260,7 +4448,7 @@ body {
 }
 
 .avatar-assistant-card.has-map-split {
-  width: min(1040px, 100%);
+  width: min(1080px, calc(100vw - 16px));
   height: calc(100vh - 16px);
   height: calc(100dvh - 16px);
   max-height: calc(100vh - 16px);
@@ -4277,7 +4465,8 @@ body {
 
 .avatar-assistant-card.has-map-split .avatar-section-label,
 .avatar-assistant-card.has-map-split .avatar-quick-prompts,
-.avatar-assistant-card.has-map-split .avatar-formats {
+.avatar-assistant-card.has-map-split .avatar-formats,
+.avatar-assistant-card.has-map-split .avatar-focus-question {
   display: none;
 }
 
@@ -4291,9 +4480,61 @@ body {
   display: none;
 }
 
-.avatar-assistant-card.has-map-split .avatar-compose {
+.avatar-action-dock {
   flex-shrink: 0;
-  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.avatar-action-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.avatar-assistant-card.has-map-split .avatar-action-dock {
+  padding-top: 4px;
+  border-top: 1px solid rgba(180, 150, 80, 0.22);
+}
+
+.avatar-assistant-card.has-map-split .avatar-letter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  max-height: min(128px, 22vh);
+  overflow: auto;
+}
+
+.avatar-assistant-card.has-map-split .avatar-action-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.avatar-assistant-card.has-map-split .avatar-socrates-row {
+  margin: 0;
+  min-width: 0;
+}
+
+.avatar-assistant-card.has-map-split .avatar-socrates-btn {
+  width: auto;
+  height: 100%;
+  white-space: nowrap;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  box-shadow: none;
+}
+
+.avatar-assistant-card.has-map-split .avatar-socrates-hint {
+  display: none;
+}
+
+.avatar-assistant-card.has-map-split .avatar-compose {
+  margin: 0;
 }
 
 .avatar-section-label {
@@ -4339,7 +4580,6 @@ body {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.45),
     0 10px 24px rgba(0, 0, 0, 0.28);
-  flex-shrink: 0;
 }
 
 .mm-empty {
@@ -4396,6 +4636,36 @@ body {
   margin: 6px 0 0;
   font-size: 0.65rem;
   color: #6a5a40;
+}
+
+.mm-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  border: 1px solid #8a7348;
+  background: linear-gradient(180deg, #ead7a8, #c9a66a);
+  color: #2c1a0c;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mm-download:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.mm-download:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.mm-download.is-done {
+  background: linear-gradient(180deg, #cfe8c4, #8fbf78);
+  border-color: #4f7a3d;
 }
 
 .mm-load {
@@ -4712,7 +4982,7 @@ body {
   line-height: 1.25;
 }
 
-.mm-card-row span {
+.mm-card-row > span {
   display: block;
   font-size: 0.55rem;
   font-weight: 800;
@@ -4723,6 +4993,9 @@ body {
 
 .mm-card-row strong {
   font-weight: 700;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
 }
 
 .mm-card-row.is-bad {
@@ -4835,6 +5108,10 @@ body {
     grid-template-columns: 1fr !important;
   }
 
+  .mm.is-compact .mm-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  }
+
   .mm-hub-core {
     width: 52px;
     height: 52px;
@@ -4887,7 +5164,7 @@ body {
 /* Main stage: LEFT mind map Â· RIGHT speaking avatar */
 .avatar-split-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.95fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.55fr);
   gap: 10px;
   align-items: stretch;
   flex: 1 1 0;
@@ -4909,6 +5186,10 @@ body {
   overflow: hidden;
 }
 
+.avatar-split-left {
+  position: relative;
+}
+
 .avatar-split-right {
   align-items: stretch;
   justify-content: stretch;
@@ -4923,9 +5204,10 @@ body {
 /* Right pane â€” professional circular AI agent */
 .avatar-split-right.is-sage-only {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 16px 28px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 12px 10px 12px;
   border: 1px solid rgba(80, 160, 200, 0.22);
   border-radius: 16px;
   background:
@@ -4936,9 +5218,10 @@ body {
 
 .avatar-split-right.is-sage-only .sage-avatar {
   width: 100%;
-  height: 100%;
+  height: auto;
   max-width: none;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  max-height: 42%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -4947,6 +5230,14 @@ body {
   position: relative;
   gap: 12px;
   padding: 0;
+}
+
+.avatar-split-right.is-sage-only .sage-lesson {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 8px 0 0;
+  padding-right: 4px;
 }
 
 /* Agent wrap: portrait + rings */
@@ -5243,30 +5534,137 @@ body {
 }
 
 .avatar-split-map-scroll {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
   border-radius: 10px;
-  -webkit-overflow-scrolling: touch;
 }
 
-.avatar-split-map-scroll .mm {
+.avatar-split-map-scroll .mm,
+.mm.is-compact {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
-  padding: 8px;
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.avatar-split-map-scroll .mm-top h3 {
-  font-size: 0.95rem;
+.avatar-split-map-scroll .mm-top,
+.mm.is-compact .mm-top {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding-right: 188px;
 }
 
-.avatar-split-map-scroll .mm-lead,
-.avatar-split-map-scroll .mm-note {
-  font-size: 0.68rem;
+.avatar-split-map-scroll .mm-top h3,
+.mm.is-compact .mm-top h3 {
+  font-size: 1.05rem;
+  margin: 2px 0 0;
+}
+
+.mm.is-compact .mm-lead,
+.mm.is-compact .mm-big,
+.mm.is-compact .mm-note,
+.mm.is-compact .mm-path,
+.mm.is-compact .mm-load,
+.mm.is-compact .mm-focus {
+  display: none;
+}
+
+.mm.is-compact .mm-hub-row,
+.avatar-split-map-scroll .mm-hub-row {
+  flex-shrink: 0;
+  margin: 0;
+  gap: 6px;
+}
+
+.mm.is-compact .mm-grid,
+.avatar-split-map-scroll .mm.is-compact .mm-grid {
+  flex: 1 1 auto;
+  margin: 0;
+  gap: 8px;
+  align-content: start;
+}
+
+.mm.is-compact .mm-card {
+  min-height: 0;
+  overflow: visible;
+  padding: 10px;
+  gap: 6px;
+  display: grid;
+}
+
+.mm.is-compact .mm-card-q {
+  -webkit-line-clamp: 4;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.mm.is-compact .mm-card-row {
+  padding: 6px 8px;
+  font-size: 0.74rem;
+}
+
+.mm.is-compact .mm-card-row strong {
+  display: block;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+.mm.is-compact .mm-card-key,
+.mm.is-compact .mm-card-why {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #3a3428;
+}
+
+.mm.is-compact .mm-card-why {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(40, 50, 60, 0.12);
+}
+
+.mm.is-compact .mm-card-why span,
+.mm.is-compact .mm-card-key span {
+  display: inline;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  color: #5a4e38;
 }
 
 .avatar-split-left .avatar-map-voice-note,
 .avatar-split-left .avatar-mindmap-toggle {
   flex-shrink: 0;
+}
+
+.avatar-split-left .avatar-mindmap-toggle.is-subtle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  background: rgba(20, 28, 16, 0.82);
+}
+
+.mm.is-compact .mm-download {
+  position: absolute;
+  top: 8px;
+  right: 96px;
+  z-index: 4;
+  margin-top: 0;
+  padding: 4px 10px;
+  font-size: 0.68rem;
 }
 
 .avatar-split-right .sage-avatar {
@@ -5450,12 +5848,12 @@ body {
 
   .avatar-split-right {
     order: -1;
-    max-height: 48%;
-    min-height: 220px;
+    max-height: 28%;
+    min-height: 120px;
   }
 
   .avatar-split-right.is-sage-only .sage-agent {
-    width: min(84%, 310px);
+    width: min(70%, 240px);
   }
 
   .avatar-split-left {

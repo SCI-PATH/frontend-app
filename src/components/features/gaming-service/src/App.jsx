@@ -437,8 +437,11 @@ export default function App() {
       recordAvatarAnswer({
         isCorrect: Boolean(attempt.isCorrect),
         selectedText: attempt.selectedText || null,
+        studentAnswer: attempt.studentAnswer || attempt.selectedText || null,
         questionData: attempt.questionData || null,
         responseTimeMs: attempt.responseTimeMs ?? null,
+        correctAnswer: attempt.correctAnswer || null,
+        gradeFeedback: attempt.gradeFeedback || null,
       });
     },
     [recordAvatarAnswer],

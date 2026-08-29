@@ -23,6 +23,11 @@ import {
 } from './createSpeechEngine.js';
 import ConceptMindMap from './ConceptMindMap.jsx';
 import SageAvatar from './SageAvatar.jsx';
+import SageLessonPanel from './SageLessonPanel.jsx';
+import {
+  formatLessonSpeech,
+  teachingLessonFromMiss,
+} from './explainMisconception.js';
 import MindMapHistoryDrawer from './MindMapHistoryDrawer.jsx';
 import { buildPersonalizedMindMap } from './buildMindMap.js';
 import {
@@ -36,6 +41,7 @@ import {
   describeFocusCode,
 } from './interventionFocus.js';
 import {
+  asQuestionText,
   friendlyStudentName,
   friendlyWhyOpened,
   sanitizeKidSpeech,
@@ -50,7 +56,99 @@ import {
   formatDiagnosticText,
   getBehaviorProbe,
 } from './behaviorDiagnostics.js';
+import { inferConceptFromText } from './conceptMaps.js';
 import { handoffToSocrates } from '../data/socratesHandoff.js';
+
+function choiceText(opt) {
+  if (opt == null) return '';
+  if (typeof opt === 'string') return opt.replace(/\s+/g, ' ').trim();
+  return String(opt.text || opt.label || opt.value || opt.option || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sameChoice(a, b) {
+  const x = choiceText(a)
+    .replace(/^\(?[A-Da-d]\)?[.)]\s+/, '')
+    .toLowerCase();
+  const y = choiceText(b)
+    .replace(/^\(?[A-Da-d]\)?[.)]\s+/, '')
+    .toLowerCase();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (x.length >= 8 && y.length >= 8 && (x.includes(y) || y.includes(x))) return true;
+  return false;
+}
+
+function quizChoicesForMiss(miss) {
+  if (!miss) return [];
+  const raw = miss.options || miss.attempt?.options || [];
+  const labels = (Array.isArray(raw) ? raw : []).map(choiceText).filter(Boolean);
+  const student = choiceText(miss.studentAnswer);
+  const correct = choiceText(miss.correctAnswer);
+  if (labels.length) {
+    return labels.map((text, i) => ({
+      letter: String.fromCharCode(65 + i),
+      text,
+      isStudent: sameChoice(text, student),
+      isCorrect: sameChoice(text, correct),
+    }));
+  }
+  if (/^(true|false|t|f)$/i.test(student) || /^(true|false|t|f)$/i.test(correct)) {
+    return ['True', 'False'].map((text) => ({
+      letter: text[0],
+      text,
+      isStudent: sameChoice(text, student),
+      isCorrect: sameChoice(text, correct),
+    }));
+  }
+  const rows = [];
+  if (student) {
+    rows.push({ letter: '', text: student, isStudent: true, isCorrect: false });
+  }
+  if (correct && !sameChoice(correct, student)) {
+    rows.push({ letter: '', text: correct, isStudent: false, isCorrect: true });
+  }
+  return rows;
+}
+
+function ActiveMissQuiz({ miss }) {
+  if (!miss) return null;
+  const question = asQuestionText(miss.prompt || miss.question, 280);
+  const choices = quizChoicesForMiss(miss);
+  if (!question && !choices.length) return null;
+  return (
+    <div className="avatar-active-miss" aria-label="This miss">
+      <p className="avatar-active-miss-kicker">
+        {miss.index ? `Miss ${miss.index}` : 'This miss'}
+        {miss.topic ? ` · ${miss.topic}` : ''}
+      </p>
+      {question ? <p className="avatar-active-miss-q">{question}</p> : null}
+      {choices.length ? (
+        <ul className="avatar-active-miss-choices">
+          {choices.map((c, i) => (
+            <li
+              key={`${c.letter || i}-${c.text.slice(0, 24)}`}
+              className={
+                c.isStudent ? 'is-yours' : c.isCorrect ? 'is-ok' : ''
+              }
+            >
+              {c.letter ? (
+                <span className="avatar-active-miss-letter">{c.letter}</span>
+              ) : null}
+              <span className="avatar-active-miss-text">{c.text}</span>
+              {c.isStudent ? (
+                <em>Your pick</em>
+              ) : c.isCorrect ? (
+                <em>Correct</em>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 export default function AvatarAssistantModal({
   open = false,
@@ -135,6 +233,11 @@ export default function AvatarAssistantModal({
       mindMap: mindMapProp || telemetry.mindMap,
       lastWrongAnswer:
         telemetry.lastWrongAnswer || fromTrigger?.last_wrong_answer || null,
+      correctAnswer:
+        telemetry.lastCorrectAnswer ||
+        fromTrigger?.correct_answer ||
+        quiz?.correctAnswer ||
+        null,
       metrics: {
         ...m,
         evaluated_tier: null,
@@ -271,6 +374,7 @@ export default function AvatarAssistantModal({
   const [streamingText, setStreamingText] = useState('');
   /** A–D choices while we learn why the student is stuck */
   const [behaviorOptions, setBehaviorOptions] = useState([]);
+  const [probePrompt, setProbePrompt] = useState('');
   // Session map only — never preload history store into live view
   const [mapVisible, setMapVisible] = useState(false);
   const [localMap, setLocalMap] = useState(null);
@@ -281,8 +385,10 @@ export default function AvatarAssistantModal({
   const [spokenSoFar, setSpokenSoFar] = useState('');
   const [spokenCurrentWord, setSpokenCurrentWord] = useState('');
   const [speechMapFocus, setSpeechMapFocus] = useState(null);
+  const [activeMissId, setActiveMissId] = useState(null);
   const [voiceMuted, setVoiceMuted] = useState(false);
   const [ttsSupported, setTtsSupported] = useState(false);
+  const [tutorTurn, setTutorTurn] = useState(null);
   const subtitleCuesRef = useRef([]);
   const focusTermsRef = useRef([]);
   const spokenWordsRef = useRef([]);
@@ -295,7 +401,13 @@ export default function AvatarAssistantModal({
     if (misconceptions?.length) {
       return (
         localMap ||
-        buildPersonalizedMindMap({ misconceptions }) ||
+        buildPersonalizedMindMap({
+          misconceptions,
+          frustrationScore:
+            telemetry.frustrationScore ?? m.frustration_score ?? null,
+          frustrationLevel:
+            telemetry.frustrationLevel || m.frustration_level || null,
+        }) ||
         mindMapProp ||
         telemetry.mindMap
       );
@@ -309,6 +421,79 @@ export default function AvatarAssistantModal({
     telemetry.mindMap,
   ]);
 
+  const activeMiss = useMemo(() => {
+    const branches = mindMap?.branches || [];
+    if (!branches.length || !activeMissId) return null;
+    return (
+      branches.find(
+        (b) =>
+          b.id === activeMissId ||
+          `miss-${Number(b.index) - 1}` === activeMissId,
+      ) || null
+    );
+  }, [mindMap, activeMissId]);
+
+  const sageLesson = useMemo(() => {
+    const voice = {
+      frustrationLevel:
+        telemetry.frustrationLevel || m.frustration_level || 'moderate',
+    };
+    if (activeMiss) {
+      if (activeMiss.lesson?.sections?.length) return activeMiss.lesson;
+      return teachingLessonFromMiss(
+        {
+          prompt: activeMiss.prompt || activeMiss.question,
+          studentAnswer: activeMiss.studentAnswer,
+          correctAnswer: activeMiss.correctAnswer,
+          topic: activeMiss.topic,
+          hint: activeMiss.hint,
+        },
+        voice,
+      );
+    }
+    const fromTurn =
+      tutorTurn?.structured?.teaching?.sections ||
+      tutorTurn?.teaching_session?.sections;
+    if (Array.isArray(fromTurn) && fromTurn.length) {
+      return { sections: fromTurn, check: tutorTurn.interactionQuestion };
+    }
+    const q = quiz?.questionData || quiz || {};
+    const b = mindMap?.branches?.[0] || {};
+    const ev = performanceSessionRef.current?.evidence || {};
+    return teachingLessonFromMiss(
+      {
+        prompt:
+          interventionFocus?.current_question ||
+          ev.farm_question ||
+          q.prompt ||
+          q.question ||
+          b.prompt ||
+          b.question,
+        studentAnswer:
+          interventionFocus?.last_wrong_answer ||
+          ev.last_wrong ||
+          b.studentAnswer ||
+          q.studentAnswer,
+        correctAnswer:
+          interventionFocus?.correct_answer ||
+          ev.correct_answer ||
+          b.correctAnswer ||
+          q.correctAnswer,
+        topic: interventionFocus?.concept_topic || q.topic || b.topic,
+        hint: q.hint || b.hint,
+      },
+      voice,
+    );
+  }, [
+    activeMiss,
+    tutorTurn,
+    quiz,
+    mindMap,
+    interventionFocus,
+    telemetry.frustrationLevel,
+    m.frustration_level,
+  ]);
+
   // Keep latest input for stop-to-send (avoids stale React state on Mic release)
   const inputValueRef = useRef('');
   useEffect(() => {
@@ -320,6 +505,27 @@ export default function AvatarAssistantModal({
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
+
+  useEffect(() => {
+    if (!activeMiss) return;
+    const probe = getBehaviorProbe(
+      performanceSessionRef.current?.code ||
+        interventionFocus?.code ||
+        'SAME_CONCEPT_STRUGGLE',
+      {
+        concept: activeMiss.topic,
+        concept_topic: activeMiss.topic,
+        last_wrong: activeMiss.studentAnswer,
+        miss_count: 1,
+        farm_question: activeMiss.prompt || activeMiss.question,
+        questionText: activeMiss.prompt || activeMiss.question,
+      },
+    );
+    if (probe?.prompt) setProbePrompt(probe.prompt);
+    setBehaviorOptions((prev) =>
+      prev?.length && probe?.options?.length ? probe.options : prev,
+    );
+  }, [activeMiss, interventionFocus?.code]);
 
   useEffect(() => {
     const capture = createRealtimeSpeechCapture({
@@ -434,6 +640,9 @@ export default function AvatarAssistantModal({
     }
     const highlights = uniqueHighlightTerms(segment.highlights || []);
     focusTermsRef.current = highlights;
+    if (segment.kind === 'branch' && segment.branchId) {
+      setActiveMissId(segment.branchId);
+    }
     setSpeechMapFocus({
       kind: segment.kind || 'branch',
       branchId: segment.branchId || null,
@@ -569,7 +778,9 @@ export default function AvatarAssistantModal({
 
   const handleMissSelect = useCallback(
     async (branch) => {
-      if (!branch || voiceMuted || mutedRef.current) return;
+      if (!branch) return;
+      setActiveMissId(branch.id || null);
+      if (voiceMuted || mutedRef.current) return;
       const segment = buildMissCardNarration(branch);
       if (!segment?.text) return;
 
@@ -603,6 +814,7 @@ export default function AvatarAssistantModal({
       setProviderNote(null);
       setStreamingText('');
       setBehaviorOptions([]);
+      setProbePrompt('');
       setMood(moodForMode(resolvedMode, evaluatedTier));
       setLocalMap(null);
       setMapVisible(false);
@@ -613,6 +825,7 @@ export default function AvatarAssistantModal({
       setSpokenSoFar('');
       setSpokenCurrentWord('');
       setSpeechMapFocus(null);
+      setActiveMissId(null);
       subtitleCuesRef.current = [];
       focusTermsRef.current = [];
       narratingRef.current = false;
@@ -660,13 +873,50 @@ export default function AvatarAssistantModal({
         interventionFocus?.current_question ||
         quiz?.prompt ||
         quiz?.question ||
+        quiz?.questionData?.prompt ||
+        quiz?.questionData?.question ||
         null,
       lastWrong:
         interventionFocus?.last_wrong_answer ||
         telemetry.lastWrongAnswer ||
         null,
+      correctAnswer:
+        interventionFocus?.correct_answer ||
+        telemetry.lastCorrectAnswer ||
+        quiz?.correctAnswer ||
+        quiz?.questionData?.correctAnswer ||
+        null,
     });
+    if (frozen && !frozen.correct_answer) {
+      frozen.correct_answer =
+        interventionFocus?.correct_answer ||
+        telemetry.lastCorrectAnswer ||
+        quiz?.correctAnswer ||
+        null;
+    }
+    if (frozen?.evidence) {
+      frozen.evidence.frustration_score =
+        telemetry.frustrationScore ?? m.frustration_score ?? null;
+      frozen.evidence.question_type =
+        quiz?.questionType || quiz?.questionData?.questionType || null;
+      frozen.evidence.options =
+        quiz?.options || quiz?.questionData?.options || [];
+      frozen.evidence.hint = quiz?.hint || quiz?.questionData?.hint || null;
+    }
     performanceSessionRef.current = frozen;
+    setTutorTurn(null);
+
+    const liveStem =
+      frozen.evidence?.farm_question ||
+      frozen.current_question ||
+      interventionFocus?.current_question ||
+      quiz?.prompt ||
+      quiz?.question ||
+      quiz?.questionData?.prompt ||
+      quiz?.questionData?.question ||
+      null;
+    const liveTopic = inferConceptFromText(liveStem);
+    if (liveTopic) frozen.concept_topic = liveTopic;
 
     // Mind map for wrong-answer / concept struggle — show it with the mentor
     const focusCode = String(
@@ -693,6 +943,10 @@ export default function AvatarAssistantModal({
                 null,
               misconceptions,
               attempts: misconceptions.flatMap((x) => x.attempts || []),
+              frustrationScore:
+                telemetry.frustrationScore ?? m.frustration_score ?? null,
+              frustrationLevel:
+                telemetry.frustrationLevel || m.frustration_level || null,
             })
           : null)
       : null;
@@ -715,7 +969,19 @@ export default function AvatarAssistantModal({
         frozen.concept_miss_count ||
         interventionFocus?.concept_miss_count ||
         0,
-      farm_question: frozen.evidence?.farm_question || frozen.current_question,
+      farm_question: liveStem,
+      questionText: liveStem,
+      skill: quiz?.skill || quiz?.questionData?.skill || frozen.skill || null,
+      sub_concept:
+        quiz?.sub_concept ||
+        quiz?.questionData?.sub_concept ||
+        frozen.sub_concept ||
+        null,
+      chapter_name:
+        quiz?.chapter_name ||
+        quiz?.chapter ||
+        quiz?.questionData?.chapter_name ||
+        null,
     };
     const probeCode =
       frozen.code ||
@@ -769,6 +1035,7 @@ export default function AvatarAssistantModal({
     setMessages([{ role: 'assistant', content: opener }]);
     messagesRef.current = [{ role: 'assistant', content: opener }];
     setBehaviorOptions(options);
+    setProbePrompt(probe.prompt || frozen.diagnostic_prompt || '');
     setProviderNote(null);
 
     // Speak opener + brief read of A–D so kids hear choices without chat dump
@@ -899,7 +1166,13 @@ export default function AvatarAssistantModal({
     }
     let map =
       (misconceptions?.length
-        ? buildPersonalizedMindMap({ misconceptions })
+        ? buildPersonalizedMindMap({
+            misconceptions,
+            frustrationScore:
+              telemetry.frustrationScore ?? m.frustration_score ?? null,
+            frustrationLevel:
+              telemetry.frustrationLevel || m.frustration_level || null,
+          })
         : null) || mindMap;
     if (!map && onShowMindMap) {
       map = onShowMindMap();
@@ -992,6 +1265,10 @@ export default function AvatarAssistantModal({
                   null,
                 misconceptions,
                 attempts: misconceptions.flatMap((x) => x.attempts || []),
+                frustrationScore:
+                  telemetry.frustrationScore ?? m.frustration_score ?? null,
+                frustrationLevel:
+                  telemetry.frustrationLevel || m.frustration_level || null,
               })
             : null)
         : null;
@@ -1009,10 +1286,19 @@ export default function AvatarAssistantModal({
           farmQuestion:
             interventionFocus?.current_question ||
             quiz?.prompt ||
+            quiz?.question ||
+            quiz?.questionData?.prompt ||
+            quiz?.questionData?.question ||
             null,
           lastWrong:
             interventionFocus?.last_wrong_answer ||
             telemetry.lastWrongAnswer ||
+            null,
+          correctAnswer:
+            interventionFocus?.correct_answer ||
+            telemetry.lastCorrectAnswer ||
+            quiz?.correctAnswer ||
+            quiz?.questionData?.correctAnswer ||
             null,
         },
       );
@@ -1030,6 +1316,7 @@ export default function AvatarAssistantModal({
             mapForPayload ||
             performanceSessionRef.current?.require_mind_map,
         ),
+        teaching_session: performanceSessionRef.current?.teaching_session || null,
         scenario: resolvedScenario,
         non_wrong_scenario_code:
           performanceSessionRef.current?.code || nonWrongCode,
@@ -1072,6 +1359,8 @@ export default function AvatarAssistantModal({
           diagnostic_prompt:
             performanceSessionRef.current?.diagnostic_prompt || null,
           spoken_opener: performanceSessionRef.current?.spoken_opener || null,
+          teaching_session:
+            performanceSessionRef.current?.teaching_session || null,
         },
         require_mind_map: Boolean(
           performanceSessionRef.current?.require_mind_map ||
@@ -1131,17 +1420,30 @@ export default function AvatarAssistantModal({
       });
       if (resolved.session && !silentUser) {
         performanceSessionRef.current = resolved.session;
+        setTutorTurn(resolved.tutor_turn || resolved.session.last_tutor_turn || null);
         setBehaviorOptions(
           resolved.session.phase === 'behavior_probe' &&
             !resolved.session.student_reason_key
             ? resolved.session.diagnostic_options || []
             : [],
         );
+        setProbePrompt(
+          resolved.session.phase === 'behavior_probe' &&
+            !resolved.session.student_reason_key
+            ? resolved.session.diagnostic_prompt || ''
+            : '',
+        );
       }
       let reply = sanitizeKidSpeech(
         resolved.reply ||
           "I'm still with you. Say that idea again in one short sentence?",
       );
+      if (
+        sageLesson?.sections?.length &&
+        resolved.session?.phase === 'support'
+      ) {
+        reply = sanitizeKidSpeech(formatLessonSpeech(sageLesson));
+      }
 
       if (result.avatarMood) setMood(result.avatarMood);
 
@@ -1211,6 +1513,12 @@ export default function AvatarAssistantModal({
             !recovered.session.student_reason_key
             ? recovered.session.diagnostic_options || []
             : [],
+        );
+        setProbePrompt(
+          recovered.session.phase === 'behavior_probe' &&
+            !recovered.session.student_reason_key
+            ? recovered.session.diagnostic_prompt || ''
+            : '',
         );
       }
       const failLine =
@@ -1291,9 +1599,27 @@ export default function AvatarAssistantModal({
         : 'Listening…'
       : '';
 
+  const focusQuestion = asQuestionText(
+    activeMiss?.prompt ||
+      activeMiss?.question ||
+      interventionFocus?.current_question ||
+      quiz?.questionData?.prompt ||
+      quiz?.questionData?.question ||
+      quiz?.prompt ||
+      quiz?.question ||
+      quiz?.question_text ||
+      mindMap?.branches?.[0]?.prompt ||
+      mindMap?.branches?.[0]?.question ||
+      misconceptions?.[0]?.attempts?.[0]?.prompt ||
+      null,
+    280,
+  );
+
   return (
     <div
-      className="avatar-assistant-overlay"
+      className={`avatar-assistant-overlay${
+        mapVisible && mindMap ? ' has-map-split' : ''
+      }`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -1326,6 +1652,7 @@ export default function AvatarAssistantModal({
                 <ConceptMindMap
                   map={mindMap}
                   misconceptions={misconceptions}
+                  compact
                   onNodeSelect={handleMissSelect}
                   onMapChange={handleMapChange}
                   speechFocus={speechMapFocus}
@@ -1333,6 +1660,16 @@ export default function AvatarAssistantModal({
                   currentWord={spokenCurrentWord}
                   activePhrase={spokenSubtitle}
                   segmentText={spokenCaption}
+                  frustrationScore={
+                    telemetry.frustrationScore ??
+                    m.frustration_score ??
+                    null
+                  }
+                  frustrationLevel={
+                    telemetry.frustrationLevel ||
+                    m.frustration_level ||
+                    null
+                  }
                 />
               </div>
               <button
@@ -1362,6 +1699,9 @@ export default function AvatarAssistantModal({
                 onStop={stopSpeaking}
                 size="hero"
               />
+              {sageLesson?.sections?.length ? (
+                <SageLessonPanel sections={sageLesson.sections} />
+              ) : null}
             </aside>
           </div>
         ) : (
@@ -1383,6 +1723,9 @@ export default function AvatarAssistantModal({
               onStop={stopSpeaking}
               size="lg"
             />
+            {sageLesson?.sections?.length ? (
+              <SageLessonPanel sections={sageLesson.sections} />
+            ) : null}
           </div>
         )}
 
@@ -1403,13 +1746,43 @@ export default function AvatarAssistantModal({
           </p>
         ) : null}
 
-        {/* Compact letter picks during behavior probe (no full option dump) */}
+        {focusQuestion && !activeMiss ? (
+          <section
+            className="avatar-focus-question"
+            aria-label="Farm science question"
+          >
+            <p className="avatar-focus-question-kicker">
+              {quiz?.questionData?.chapter_name ||
+                quiz?.chapter_name ||
+                quiz?.chapter ||
+                inferConceptFromText(focusQuestion) ||
+                (interventionFocus?.concept_topic &&
+                !/science idea|^science$/i.test(
+                  String(interventionFocus.concept_topic),
+                )
+                  ? interventionFocus.concept_topic
+                  : 'Farm question')}
+            </p>
+            <p className="avatar-focus-question-text">{focusQuestion}</p>
+          </section>
+        ) : null}
+
+        <div className="avatar-action-dock">
+        {/* Compact letter picks during behavior probe (not science answers) */}
         {behaviorOptions?.length && !busy ? (
           <div
             className="avatar-letter-row"
             role="group"
-            aria-label="Answer choices"
+            aria-label="Tell Sage what you need"
           >
+            <ActiveMissQuiz miss={activeMiss} />
+            {probePrompt ? (
+              <p className="avatar-probe-prompt">{probePrompt}</p>
+            ) : null}
+            <p className="avatar-probe-hint">
+              These choices tell Sage how to help — they are not answers to the
+              farm question.
+            </p>
             {behaviorOptions.map((opt) => (
               <button
                 key={opt.id || opt.letter}
@@ -1426,8 +1799,49 @@ export default function AvatarAssistantModal({
               </button>
             ))}
           </div>
+        ) : activeMiss ? (
+          <div className="avatar-letter-row is-miss-only" aria-label="This miss">
+            <ActiveMissQuiz miss={activeMiss} />
+          </div>
         ) : null}
 
+        {tutorTurn && !behaviorOptions.length ? (
+          <div className="avatar-tutor-panel" aria-live="polite">
+            {tutorTurn.nextAction === 'INSUFFICIENT_KNOWLEDGE' ? (
+              <p className="avatar-tutor-fallback">
+                Sage will not guess a new science fact here. Re-read the farm
+                question, or try a different angle.
+              </p>
+            ) : null}
+            <div className="avatar-tutor-actions">
+              {tutorTurn.nextAction !== 'INSUFFICIENT_KNOWLEDGE' &&
+              tutorTurn.nextAction !== 'CONTINUE' ? (
+                <button
+                  type="button"
+                  className="avatar-tutor-chip"
+                  disabled={busy}
+                  onClick={() => {
+                    void sendMessage('I need a hint');
+                  }}
+                >
+                  Hint
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="avatar-tutor-chip"
+                disabled={busy}
+                onClick={() => {
+                  void sendMessage('I am ready to try the farm question again');
+                }}
+              >
+                Try the farm again
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="avatar-action-bar">
         <div className="avatar-socrates-row">
           <button
             type="button"
@@ -1532,6 +1946,8 @@ export default function AvatarAssistantModal({
             Send
           </button>
         </form>
+        </div>
+        </div>
 
         {error ? (
           <p className="avatar-error" role="alert">
@@ -1593,11 +2009,12 @@ function bootstrapMessage(
     'a detected learning difficulty';
 
   return (
-    `Private coach note (never read ranks to the student). ` +
+    `Private coach note. ` +
     `Why opened: ${problem}. ` +
-    `${focus?.mentor_brief || 'Ask a behavior probe first; support the reason.'} ` +
+    `${focus?.mentor_brief || 'Help the student recover the science idea.'} ` +
     `Greet with the student's first name. Explain why you came. ` +
-    `Do NOT open with a science quiz. Ask the problem-focused diagnostic. Never rank. Never give quiz answers.`
+    `If you know the correct quiz answer, do not dump it on open. First understand the hang-up.` +
+    `Do NOT open with another science quiz. Never rank the student.`
   );
 }
 

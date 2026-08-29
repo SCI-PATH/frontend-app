@@ -21,6 +21,15 @@ export type GamingServiceLaunchParams = {
   startLevel?: number | null;
   /** Wallet / farm cash to resume with */
   cash?: number | null;
+  /** LPE lesson id this farm level belongs to */
+  lessonId?: string | null;
+  chapterTitle?: string | null;
+  nextLessonId?: string | null;
+  nextChapterTitle?: string | null;
+  /** Farm catalog item granted for completing this chapter lesson */
+  rewardItem?: string | null;
+  /** Absolute URL back to /learning-path */
+  returnUrl?: string | null;
 };
 
 export function getGamingServiceBaseUrl(): string {
@@ -49,6 +58,12 @@ export function buildGamingServiceLaunchUrl(
   if (params.cash != null && Number.isFinite(params.cash)) {
     url.searchParams.set("cash", String(Math.max(0, Number(params.cash))));
   }
+  if (params.lessonId) url.searchParams.set("lessonId", params.lessonId);
+  if (params.chapterTitle) url.searchParams.set("chapterTitle", params.chapterTitle);
+  if (params.nextLessonId) url.searchParams.set("nextLessonId", params.nextLessonId);
+  if (params.nextChapterTitle) url.searchParams.set("nextTitle", params.nextChapterTitle);
+  if (params.rewardItem) url.searchParams.set("rewardItem", params.rewardItem);
+  if (params.returnUrl) url.searchParams.set("returnUrl", params.returnUrl);
   url.searchParams.set("source", "frontend-app");
 
   return url.toString();

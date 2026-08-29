@@ -7,7 +7,9 @@ import {
   BookOpen,
   Check,
   ChevronRight,
+  Gamepad2,
   GraduationCap,
+  Lock,
   ScanLine,
   Sparkles,
 } from "lucide-react";
@@ -30,7 +32,19 @@ import {
   buildGamingServiceLaunchUrl,
   getGamingServiceBaseUrl,
 } from "@/components/features/gaming-service/buildGamingServiceLaunchUrl";
-import { readGamingLaunchParams } from "@/components/features/gaming-service/getGamingLaunchContext";
+import { readGamingLaunchParams, buildChapterGameLaunchParams } from "@/components/features/gaming-service/getGamingLaunchContext";
+import {
+  chapterRewardItemId,
+  chapterRewardLabel,
+  farmLevelFromLessonId,
+  findPendingChapterGame,
+  isChapterUnlockedForLearning,
+  lessonTitleOf,
+  parseGameReturnSearch,
+  stripGameReturnParams,
+  type GameReturnPayload,
+  type QuizByLesson,
+} from "@/components/features/gaming-service/chapterGameProgress";
 import { useUserStore } from "@/store/useUserStore";
 import type { CurriculumLesson, CurriculumResponse, LessonResponse } from "@/types";
 
@@ -172,6 +186,9 @@ export default function StudentLearningPath() {
   const [finishedLessonId, setFinishedLessonId] = useState("");
   const [testKnowledgeOpen, setTestKnowledgeOpen] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [quizByLesson, setQuizByLesson] = useState<QuizByLesson>({});
+  const [gameReturn, setGameReturn] = useState<GameReturnPayload | null>(null);
+  const gameReturnHandledRef = useRef(false);
   const lastSavedRef = useRef({ lessonId: "", step: -1 });
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -245,6 +262,20 @@ export default function StudentLearningPath() {
     return gradeLessons[idx + 1] || null;
   }, [finishedLessonId, gradeLessons]);
 
+  const pendingChapterGame = useMemo(
+    () => findPendingChapterGame(gradeLessons, completedLessonIds, quizByLesson),
+    [gradeLessons, completedLessonIds, quizByLesson],
+  );
+
+  function isLessonUnlocked(index: number) {
+    return isChapterUnlockedForLearning(
+      index,
+      gradeLessons,
+      quizByLesson,
+      completedLessonIds,
+    );
+  }
+
   useEffect(() => {
     if (!userId) return undefined;
     let cancelled = false;
@@ -255,6 +286,11 @@ export default function StudentLearningPath() {
         setCurriculum(c);
         const done = Array.isArray(p?.completed_lesson_ids) ? p.completed_lesson_ids : [];
         setCompletedLessonIds(done);
+        setQuizByLesson(
+          p?.quiz_by_lesson && typeof p.quiz_by_lesson === "object"
+            ? p.quiz_by_lesson
+            : {},
+        );
         const lessons = c?.lessons || [];
         const locked = viewRef.current === "chapterChoice" || viewRef.current === "lesson";
         // Display-only: first chapter → IAE; later → analytics when evidence exists.
@@ -265,6 +301,53 @@ export default function StudentLearningPath() {
         });
         if (cancelled) return;
         if (locked) {
+          if (resolved.profile) setProfile(resolved.profile);
+          return;
+        }
+
+        const returned =
+          typeof window !== "undefined" && !gameReturnHandledRef.current
+            ? parseGameReturnSearch(window.location.search)
+            : null;
+        if (returned) {
+          gameReturnHandledRef.current = true;
+          setFinishedLessonId(returned.lessonId);
+          setGameReturn(returned);
+          setPickedLessonId(returned.nextLessonId || "");
+          setView("chapterChoice");
+          try {
+            const nextProgress = await postProgress({
+              user_id: userId,
+              action: "record_quiz",
+              lesson_id: returned.lessonId,
+              score: 1,
+              grade,
+            });
+            if (cancelled) return;
+            if (Array.isArray(nextProgress?.completed_lesson_ids)) {
+              setCompletedLessonIds(nextProgress.completed_lesson_ids);
+            }
+            if (nextProgress?.quiz_by_lesson) {
+              setQuizByLesson(nextProgress.quiz_by_lesson);
+            }
+            if (nextProgress?.current_lesson_id) {
+              setLessonId(nextProgress.current_lesson_id);
+              setPickedLessonId(nextProgress.current_lesson_id);
+            }
+          } catch {
+            /* keep URL payload — student can still continue */
+          }
+          if (typeof window !== "undefined" && window.history?.replaceState) {
+            try {
+              window.history.replaceState(
+                {},
+                "",
+                stripGameReturnParams(new URL(window.location.href)),
+              );
+            } catch {
+              /* ignore */
+            }
+          }
           if (resolved.profile) setProfile(resolved.profile);
           return;
         }
@@ -344,6 +427,24 @@ export default function StudentLearningPath() {
     const done = Array.isArray(learnerProgress?.completed_lesson_ids)
       ? learnerProgress.completed_lesson_ids
       : completedLessonIds;
+    const quizzes =
+      learnerProgress?.quiz_by_lesson && typeof learnerProgress.quiz_by_lesson === "object"
+        ? learnerProgress.quiz_by_lesson
+        : quizByLesson;
+    setCompletedLessonIds(done);
+    setQuizByLesson(quizzes);
+
+    const targetIndex = gradeLessons.findIndex((l) => l.lesson_id === lid);
+    if (
+      targetIndex >= 0 &&
+      !isChapterUnlockedForLearning(targetIndex, gradeLessons, quizzes, done)
+    ) {
+      const prev = gradeLessons[targetIndex - 1];
+      const prevTitle = lessonTitleOf(prev) || "the previous chapter";
+      const msg = `Finish the ${prevTitle} farm game first. That unlocks this chapter.`;
+      setChoiceError(msg);
+      return { ok: false as const, error: msg };
+    }
 
     // Fresh pull every lesson: aptitude gate, then latest analytics level after first chapter.
     const resolved = await resolveLearnerProfileForLesson(userId, grade, {
@@ -438,6 +539,7 @@ export default function StudentLearningPath() {
     setResult(null);
     setChoiceError("");
     setFinishedLessonId("");
+    setGameReturn(null);
     lastSavedRef.current = { lessonId: "", step: -1 };
   }
 
@@ -498,10 +600,34 @@ export default function StudentLearningPath() {
     }
   }
 
-  /** After a lesson, OK opens the Discovery Grove start screen (Vite farm). */
+  /** After a lesson, OK opens that chapter's farm level. */
   function onTestKnowledgeOk() {
     setTestKnowledgeOpen(false);
-    const params = readGamingLaunchParams();
+    const finished = gradeLessons.find(
+      (l) => l.lesson_id === (finishedLessonId || result?.lesson_id || lessonId),
+    );
+    const params = buildChapterGameLaunchParams({
+      lesson: finished || currentLessonMeta,
+      gradeLessons,
+    });
+    if (params) {
+      window.location.assign(buildGamingServiceLaunchUrl(params));
+      return;
+    }
+    const fallback = readGamingLaunchParams();
+    if (fallback) {
+      window.location.assign(buildGamingServiceLaunchUrl(fallback));
+      return;
+    }
+    window.location.assign(getGamingServiceBaseUrl());
+  }
+
+  function launchPendingChapterGame() {
+    if (!pendingChapterGame) return;
+    const params = buildChapterGameLaunchParams({
+      lesson: pendingChapterGame.lesson,
+      gradeLessons,
+    });
     if (params) {
       window.location.assign(buildGamingServiceLaunchUrl(params));
       return;
@@ -567,39 +693,64 @@ export default function StudentLearningPath() {
                 Learning path
               </p>
               <h1 className="mb-4 text-2xl font-bold tracking-tight text-brand-text">
-                Chapter complete
+                {gameReturn ? "Farm complete — next chapter unlocked" : "Chapter complete"}
               </h1>
               <Card className="border-brand-secondary/25 bg-white shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-brand-text">Nice work</CardTitle>
                   <CardDescription>
-                    You finished <strong>{finishedTitle}</strong> (Grade {grade}). Continue in
-                    order, or pick any chapter. Level:{" "}
-                    <strong>{PROFILE_LABEL[profile || ""] || profile}</strong>.
+                    You finished the farm for{" "}
+                    <strong>
+                      {gameReturn?.chapterTitle || finishedTitle}
+                    </strong>
+                    {gameReturn?.levelId ? ` (Game level ${gameReturn.levelId})` : ""}.
+                    {nextMeta ? (
+                      <>
+                        {" "}
+                        <strong>{nextTitle}</strong> is now unlocked. Learn it to open Game
+                        level {farmLevelFromLessonId(nextMeta.lesson_id, gradeLessons)}.
+                      </>
+                    ) : (
+                      " That was the last chapter in this grade."
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
+                  {gameReturn?.unlockedLabels?.length ? (
+                    <div className="rounded-xl border border-brand-secondary/25 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/55">
+                        Items unlocked
+                      </p>
+                      <p className="mt-1 font-medium">
+                        {gameReturn.unlockedLabels.join(", ")}
+                      </p>
+                      <p className="mt-1 text-xs text-brand-text/60">
+                        These will appear on your next chapter farm.
+                      </p>
+                    </div>
+                  ) : null}
+
                   {nextMeta?.lesson_id ? (
                     <Button
                       disabled={choiceBusy}
                       className="bg-brand-primary text-white hover:bg-brand-primary/90"
                       onClick={() => void loadChosenChapter(nextMeta.lesson_id)}
                     >
-                      {choiceBusy ? "Loading…" : `Continue to next: ${nextTitle}`}
+                      {choiceBusy ? "Loading…" : `Learn next chapter: ${nextTitle}`}
                     </Button>
                   ) : (
                     <p className="text-sm text-brand-text/70">
-                      That was the last chapter in this grade — pick any chapter to review, or go
-                      home.
+                      That was the last chapter in this grade — pick a finished chapter to
+                      review, or go home.
                     </p>
                   )}
 
                   <label htmlFor="pickChapter" className="text-sm font-medium text-brand-text">
-                    Or pick any chapter
+                    Or pick an unlocked chapter
                   </label>
                   <p className="text-xs text-brand-text/70">
-                    ✓ = finished ({completedInGrade} of {gradeLessons.length}). You can still
-                    relearn.
+                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). Next
+                    chapter unlocks after you complete its farm game.
                   </p>
                   <select
                     id="pickChapter"
@@ -612,12 +763,16 @@ export default function StudentLearningPath() {
                     disabled={choiceBusy}
                   >
                     <option value="">Choose a chapter…</option>
-                    {gradeLessons.map((l, i) => (
-                      <option key={l.lesson_id} value={l.lesson_id}>
-                        {chapterOptionLabel(l, i)}
-                        {l.lesson_id === finishedLessonId ? " · just finished" : ""}
-                      </option>
-                    ))}
+                    {gradeLessons.map((l, i) => {
+                      const unlocked = isLessonUnlocked(i);
+                      return (
+                        <option key={l.lesson_id} value={l.lesson_id} disabled={!unlocked}>
+                          {chapterOptionLabel(l, i)}
+                          {l.lesson_id === finishedLessonId ? " · farm just finished" : ""}
+                          {!unlocked ? " · locked" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
 
                   {choiceError ? (
@@ -680,6 +835,12 @@ export default function StudentLearningPath() {
           <TestKnowledgeModal
             open={testKnowledgeOpen}
             lessonTitle={lessonTitle}
+            levelId={farmLevelFromLessonId(result?.lesson_id || lessonId, gradeLessons)}
+            rewardLabel={chapterRewardLabel(
+              chapterRewardItemId(
+                farmLevelFromLessonId(result?.lesson_id || lessonId, gradeLessons),
+              ),
+            )}
             onOk={onTestKnowledgeOk}
           />
         </FeatureShell>
@@ -696,6 +857,9 @@ export default function StudentLearningPath() {
     ? Math.round((completedInGrade / totalLessons) * 100)
     : 0;
   const selectedLesson = gradeLessons.find((lesson) => lesson.lesson_id === lessonId);
+  const selectedIndex = gradeLessons.findIndex((l) => l.lesson_id === lessonId);
+  const selectedUnlocked =
+    selectedIndex < 0 ? Boolean(lessonId) : isLessonUnlocked(selectedIndex);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-brand-background">
@@ -722,8 +886,8 @@ export default function StudentLearningPath() {
                     Your science chapters
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm text-brand-text/65 sm:text-base">
-                    Pick a chapter to start or revise. Completed lessons stay open whenever you want
-                    another pass.
+                    Pick a chapter to start or revise. The next chapter unlocks after you
+                    finish that chapter&apos;s farm game.
                   </p>
                 </div>
               </div>
@@ -820,7 +984,8 @@ export default function StudentLearningPath() {
                     Choose a chapter
                   </h2>
                   <p className="mt-1 text-sm text-brand-text/60">
-                    Completed chapters stay open so you can revise any time.
+                    Completed chapters stay open so you can revise. New chapters unlock after
+                    you finish the previous chapter&apos;s farm game.
                   </p>
                 </div>
                 {sessionGrade == null ? (
@@ -843,14 +1008,43 @@ export default function StudentLearningPath() {
                 ) : null}
               </div>
 
+              {pendingChapterGame ? (
+                <div className="flex flex-col gap-3 rounded-2xl border border-brand-special/25 bg-brand-special/8 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-brand-special">
+                      Game level {pendingChapterGame.levelId} ready
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-brand-text">
+                      Play the farm for {pendingChapterGame.title}
+                    </p>
+                    <p className="mt-1 text-xs text-brand-text/60">
+                      Finish this farm to unlock the next chapter. {pendingChapterGame.rewardLabel}{" "}
+                      is waiting on the farm.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    className="bg-brand-special text-white hover:bg-brand-special/90"
+                    onClick={launchPendingChapterGame}
+                  >
+                    <Gamepad2 className="size-4" aria-hidden />
+                    Play Game Level {pendingChapterGame.levelId}
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-brand-text/60">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-3 rounded-full bg-brand-secondary" aria-hidden />
-                  Completed
+                  Lesson finished
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-3 rounded-full bg-brand-surface ring-1 ring-brand-text/15" aria-hidden />
-                  Not started
+                  Unlocked
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Lock className="size-3" aria-hidden />
+                  Locked until previous farm is done
                 </span>
               </div>
 
@@ -858,41 +1052,77 @@ export default function StudentLearningPath() {
                 <ul className="grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
                   {gradeLessons.map((lesson, index) => {
                     const complete = completedSet.has(lesson.lesson_id);
+                    const unlocked = isLessonUnlocked(index);
                     const selected = lesson.lesson_id === lessonId;
                     const title = lesson.display_title || lesson.title || lesson.lesson_id;
+                    const pending =
+                      pendingChapterGame?.lessonId === lesson.lesson_id;
+                    const status = !unlocked
+                      ? "Locked — finish the previous farm first"
+                      : pending
+                        ? `Farm level ${pendingChapterGame.levelId} ready`
+                        : complete
+                          ? "Completed — revise"
+                          : "Not started";
                     return (
                       <li key={lesson.lesson_id}>
                         <button
                           type="button"
-                          onClick={() => setLessonId(lesson.lesson_id)}
+                          onClick={() => {
+                            if (!unlocked) {
+                              setChoiceError(status);
+                              return;
+                            }
+                            setLessonId(lesson.lesson_id);
+                            setChoiceError("");
+                          }}
                           aria-pressed={selected}
-                          className={`m-0 flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 ${
-                            selected
+                          aria-disabled={!unlocked}
+                          className={`m-0 flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
+                            !unlocked
+                              ? "cursor-not-allowed border-brand-surface bg-brand-surface/40 opacity-75"
+                              : "hover:-translate-y-0.5"
+                          } ${
+                            unlocked && selected
                               ? "border-brand-primary bg-brand-primary/5 shadow-sm"
-                              : complete
+                              : unlocked && complete
                                 ? "border-brand-secondary/40 bg-brand-secondary/5 hover:border-brand-secondary"
-                                : "border-brand-surface bg-white hover:border-brand-primary"
+                                : unlocked
+                                  ? "border-brand-surface bg-white hover:border-brand-primary"
+                                  : ""
                           }`}
                         >
                           <span
                             className={`flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
-                              complete
-                                ? "bg-brand-secondary text-brand-text"
-                                : selected
-                                  ? "bg-brand-primary text-white"
-                                  : "bg-brand-surface text-brand-text/70"
+                              !unlocked
+                                ? "bg-brand-surface text-brand-text/50"
+                                : complete
+                                  ? "bg-brand-secondary text-brand-text"
+                                  : selected
+                                    ? "bg-brand-primary text-white"
+                                    : "bg-brand-surface text-brand-text/70"
                             }`}
                           >
-                            {complete ? <Check className="size-5" aria-hidden /> : index + 1}
+                            {!unlocked ? (
+                              <Lock className="size-4" aria-hidden />
+                            ) : complete ? (
+                              <Check className="size-5" aria-hidden />
+                            ) : (
+                              index + 1
+                            )}
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block font-semibold text-brand-text">{title}</span>
                             <span className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-brand-text/55">
-                              <BookOpen className="size-3.5" aria-hidden />
-                              {complete ? "Completed — revise" : "Not started"}
+                              {pending ? (
+                                <Gamepad2 className="size-3.5" aria-hidden />
+                              ) : (
+                                <BookOpen className="size-3.5" aria-hidden />
+                              )}
+                              {status}
                             </span>
                           </span>
-                          {selected ? (
+                          {selected && unlocked ? (
                             <ChevronRight
                               className="mt-1 size-4 shrink-0 text-brand-primary"
                               aria-hidden
@@ -938,7 +1168,13 @@ export default function StudentLearningPath() {
                 </div>
                 <Button
                   type="submit"
-                  disabled={loading || !lessonId || !backendOnline || !userId}
+                  disabled={
+                    loading ||
+                    !lessonId ||
+                    !backendOnline ||
+                    !userId ||
+                    !selectedUnlocked
+                  }
                   className="m-0 h-12 w-full shrink-0 border-0 bg-brand-primary px-8 text-base text-white hover:bg-brand-primary/90 sm:w-auto"
                 >
                   {loading ? "Preparing lesson…" : "Start lesson"}

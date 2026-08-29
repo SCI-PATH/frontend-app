@@ -5,12 +5,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAiMindMap } from './fetchAiMindMap.js';
 import { buildPersonalizedMindMap } from './buildMindMap.js';
+import { softProviderNote, safeScienceLine, friendlyWrongAnswer } from './kidFriendlySpeech.js';
 import {
   alignSpeechToText,
   buildReadingTimeline,
   resolveLiveSpeechIndex,
   tokenizeMapText,
 } from './speechSync.js';
+import { downloadMindMap } from './downloadMindMap.js';
+import SageLessonPanel from './SageLessonPanel.jsx';
 
 const COLORS = [
   { stroke: '#c45c5c', fill: '#fde8e8', bar: '#c45c5c' },
@@ -48,9 +51,14 @@ function attemptsFromProps(map, misconceptions) {
   return [];
 }
 
-function localMapFromAttempts(attempts, misconceptions) {
+function localMapFromAttempts(attempts, misconceptions, frustration = {}) {
   if (attempts.length) {
-    return buildPersonalizedMindMap({ attempts, misconceptions });
+    return buildPersonalizedMindMap({
+      attempts,
+      misconceptions,
+      frustrationScore: frustration.score ?? null,
+      frustrationLevel: frustration.level || null,
+    });
   }
   return null;
 }
@@ -64,13 +72,38 @@ function toDisplayBranches(map) {
       topic: b.topic || b.label || 'Science',
       icon: b.icon || '🔬',
       question: b.prompt || b.question || '',
-      studentAnswer: b.studentAnswer || b.student_answer || '',
-      correctAnswer: b.correctAnswer || b.correct_answer || '',
-      why: b.why || b.why_wrong || '',
-      keyConcept: b.keyConcept || b.key_concept || b.correctAnswer || b.topic,
-      keyExplain: b.keyExplain || b.key_concept_explain || b.summary || '',
+      studentAnswer:
+        friendlyWrongAnswer(
+          b.studentAnswer || b.student_answer || '',
+          96,
+        ) ||
+        (/^(id|guid|uuid)$/i.test(
+          String(b.studentAnswer || b.student_answer || '').trim(),
+        )
+          ? 'unclear pick'
+          : 'no pick yet'),
+      correctAnswer:
+        safeScienceLine(b.correctAnswer || b.correct_answer, null) ||
+        (String(b.prompt || b.question || '').trim()
+          ? 'see the idea in this farm question'
+          : 'see the lesson key idea'),
+      why: safeScienceLine(b.why || b.why_wrong, '') || '',
+      keyConcept:
+        safeScienceLine(
+          b.keyConcept || b.key_concept || b.correctAnswer || b.topic,
+          b.topic || 'Science',
+        ),
+      keyExplain:
+        safeScienceLine(
+          b.keyExplain || b.key_concept_explain || b.summary,
+          '',
+        ) || '',
       farmLink: b.farmLink || b.farm_link || '',
       colorIndex: b.colorIndex ?? b.color_index ?? i % 6,
+      lesson: b.lesson || null,
+      options: b.options || b.attempt?.options || [],
+      hint: b.hint || null,
+      prompt: b.prompt || b.question || '',
     }));
   }
   return [];
@@ -140,18 +173,30 @@ export default function ConceptMindMap({
   /** Current subtitle sentence being spoken */
   activePhrase = '',
   segmentText = '',
+  frustrationScore = null,
+  frustrationLevel = null,
 }) {
   const seedAttempts = useMemo(
     () => attemptsFromProps(seedMap, misconceptions),
     [seedMap, misconceptions],
   );
 
+  const resolvedFrustrationScore =
+    frustrationScore ??
+    seedMap?.frustrationScore ??
+    null;
+  const resolvedFrustrationLevel =
+    frustrationLevel ||
+    seedMap?.frustrationLevel ||
+    null;
+
   const attemptKey = useMemo(
     () =>
       seedAttempts
         .map((a) => `${a.prompt}|${a.studentAnswer}|${a.correctAnswer}`)
-        .join('||'),
-    [seedAttempts],
+        .join('||') +
+      `|fr:${resolvedFrustrationScore ?? ''}:${resolvedFrustrationLevel || ''}`,
+    [seedAttempts, resolvedFrustrationScore, resolvedFrustrationLevel],
   );
 
   const [liveMap, setLiveMap] = useState(null);
@@ -159,6 +204,7 @@ export default function ConceptMindMap({
   const [note, setNote] = useState('');
   const [activeId, setActiveId] = useState(null);
   const [explored, setExplored] = useState(() => new Set());
+  const [downloadState, setDownloadState] = useState('idle');
   const cardRefs = useRef({});
   const focusPaneRef = useRef(null);
 
@@ -167,7 +213,10 @@ export default function ConceptMindMap({
     const fallback =
       seedMap?.layout === 'all-misses-ai'
         ? seedMap
-        : localMapFromAttempts(seedAttempts, misconceptions) || seedMap;
+        : localMapFromAttempts(seedAttempts, misconceptions, {
+            score: resolvedFrustrationScore,
+            level: resolvedFrustrationLevel,
+          }) || seedMap;
 
     if (!seedAttempts.length && !seedMap) {
       setLiveMap(null);
@@ -199,6 +248,8 @@ export default function ConceptMindMap({
         const result = await fetchAiMindMap({
           attempts: seedAttempts,
           misconceptions,
+          frustrationScore: resolvedFrustrationScore,
+          frustrationLevel: resolvedFrustrationLevel,
         });
         if (cancelled) return;
         if (result.mindMap) {
@@ -208,16 +259,15 @@ export default function ConceptMindMap({
           onMapChange?.(result.mindMap);
         }
         setNote(
-          result.note ||
+          softProviderNote(result.note) ||
             `AI map with all ${seedAttempts.length} incorrect answers.`,
         );
         setStatus('ready');
       } catch (err) {
         if (cancelled) return;
         setNote(
-          err instanceof Error
-            ? `Using local map (AI: ${err.message})`
-            : 'Using local map of all misses.',
+          softProviderNote(err?.message) ||
+            'Using local map of all misses.',
         );
         setStatus('ready');
       }
@@ -239,6 +289,7 @@ export default function ConceptMindMap({
       next.add(id);
       return next;
     });
+    if (compact) return;
     const el = cardRefs.current[id];
     if (el && typeof el.scrollIntoView === 'function') {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -249,7 +300,7 @@ export default function ConceptMindMap({
         block: 'nearest',
       });
     }, 200);
-  }, [speechFocus?.branchId]);
+  }, [speechFocus?.branchId, compact]);
 
   const map = liveMap || seedMap;
   const branches = toDisplayBranches(map);
@@ -332,6 +383,16 @@ export default function ConceptMindMap({
   };
 
   const n = branches.length;
+  const gridColumns =
+    n <= 1
+      ? '1fr'
+      : n === 2
+        ? '1fr 1fr'
+        : compact && n >= 5
+          ? '1fr 1fr 1fr'
+          : n === 3 && !compact
+            ? '1fr 1fr 1fr'
+            : '1fr 1fr';
   const speechBranchId = speechFocus?.branchId || null;
   const overviewOn =
     speechFocus?.kind === 'overview' || speechFocus?.kind === 'intro';
@@ -381,18 +442,20 @@ export default function ConceptMindMap({
             on={overviewOn}
           />
         </h3>
-        <p className="mm-lead">
-          <Sync
-            fieldKey="summary"
-            text={
-              map.summary ||
-              map.personalizedNote ||
-              `One card per wrong answer. All ${n} are shown together.`
-            }
-            on={overviewOn}
-          />
-        </p>
-        {map.bigPicture || map.centralIdea ? (
+        {compact ? null : (
+          <p className="mm-lead">
+            <Sync
+              fieldKey="summary"
+              text={
+                map.summary ||
+                map.personalizedNote ||
+                `One card per wrong answer. All ${n} are shown together.`
+              }
+              on={overviewOn}
+            />
+          </p>
+        )}
+        {!compact && (map.bigPicture || map.centralIdea) ? (
           <p
             className={`mm-big${speechFocus?.kind === 'overview' ? ' is-speech' : ''}`}
           >
@@ -410,9 +473,33 @@ export default function ConceptMindMap({
             Building AI mind map for every miss…
           </div>
         ) : null}
-        {note && status !== 'loading' ? (
-          <p className="mm-note">{note}</p>
+        {!compact && note && status !== 'loading' && softProviderNote(note) ? (
+          <p className="mm-note">{softProviderNote(note)}</p>
         ) : null}
+        <button
+          type="button"
+          className={`mm-download${downloadState === 'done' ? ' is-done' : ''}`}
+          aria-label="Download mind map as an image"
+          disabled={!branches.length || downloadState === 'saving'}
+          onClick={() => {
+            if (downloadState === 'saving') return;
+            setDownloadState('saving');
+            void downloadMindMap(map, branches)
+              .then(() => {
+                setDownloadState('done');
+                window.setTimeout(() => setDownloadState('idle'), 1800);
+              })
+              .catch(() => {
+                setDownloadState('idle');
+              });
+          }}
+        >
+          {downloadState === 'saving'
+            ? 'Saving…'
+            : downloadState === 'done'
+              ? 'Saved'
+              : 'Download map'}
+        </button>
       </header>
 
       <div className="mm-hub-row" role="tablist" aria-label="All misses">
@@ -451,14 +538,11 @@ export default function ConceptMindMap({
       <div
         className="mm-grid"
         style={{
-          gridTemplateColumns:
-            n === 1
+          gridTemplateColumns: compact
+            ? n <= 1
               ? '1fr'
-              : n === 2
-                ? '1fr 1fr'
-                : n === 3
-                  ? '1fr 1fr 1fr'
-                  : '1fr 1fr',
+              : '1fr 1fr'
+            : gridColumns,
         }}
       >
         {branches.map((b) => {
@@ -519,22 +603,44 @@ export default function ConceptMindMap({
                   )}
                 </strong>
               </div>
-              {b.keyConcept ? (
-                <p className="mm-card-key">
-                  <span>Key idea</span>{' '}
-                  {speechOn ? (
-                    <Sync fieldKey="key" text={b.keyConcept} on />
-                  ) : (
-                    b.keyConcept
-                  )}
-                </p>
-              ) : null}
+              {b.lesson?.sections?.length ? (
+                compact && selected ? (
+                  <SageLessonPanel sections={b.lesson.sections} lesson={b.lesson} />
+                ) : null
+              ) : (
+                <>
+                  {b.keyConcept ? (
+                    <p className="mm-card-key">
+                      <span className="mm-card-kicker">Key idea</span>{' '}
+                      {speechOn ? (
+                        <Sync fieldKey="key" text={b.keyConcept} on />
+                      ) : (
+                        b.keyConcept
+                      )}
+                    </p>
+                  ) : null}
+                  {compact && selected && (b.why || b.keyExplain) && !/one is about/i.test(b.why || '') ? (
+                    <p className="mm-card-why">
+                      <span className="mm-card-kicker">Let's look</span>{' '}
+                      {speechOn ? (
+                        <Sync
+                          fieldKey={b.why ? 'why' : 'explain'}
+                          text={b.why || b.keyExplain}
+                          on
+                        />
+                      ) : (
+                        b.why || b.keyExplain
+                      )}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </button>
           );
         })}
       </div>
 
-      {active ? (
+      {active && !compact ? (
         <article
           ref={focusPaneRef}
           className={`mm-focus${speechBranchId === active.id ? ' is-speech' : ''}`}
@@ -545,27 +651,10 @@ export default function ConceptMindMap({
           </p>
           <h4>
             {active.icon}{' '}
-            {active.keyConcept || active.correctAnswer || active.topic}
+            {active.studentAnswer || active.keyConcept || active.topic}
           </h4>
-          {active.why ? (
-            <p className="mm-focus-p">
-              <strong>Why that pick was weak:</strong>{' '}
-              {speechBranchId === active.id ? (
-                <Sync fieldKey="why" text={active.why} on />
-              ) : (
-                active.why
-              )}
-            </p>
-          ) : null}
-          {active.keyExplain ? (
-            <p className="mm-focus-p">
-              <strong>Correct idea:</strong>{' '}
-              {speechBranchId === active.id ? (
-                <Sync fieldKey="explain" text={active.keyExplain} on />
-              ) : (
-                active.keyExplain
-              )}
-            </p>
+          {active.lesson?.sections?.length ? (
+            <SageLessonPanel sections={active.lesson.sections} lesson={active.lesson} />
           ) : null}
           {active.farmLink ? (
             <p className="mm-focus-p is-farm">
@@ -588,7 +677,7 @@ export default function ConceptMindMap({
         </article>
       ) : null}
 
-      {Array.isArray(map.studyPath) && map.studyPath.length ? (
+      {!compact && Array.isArray(map.studyPath) && map.studyPath.length ? (
         <ol className="mm-path">
           {map.studyPath.map((step, i) => (
             <li key={`${step}-${i}`}>{step}</li>

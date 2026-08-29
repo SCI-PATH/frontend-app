@@ -4,7 +4,13 @@ import { Gamepad2 } from "lucide-react";
  * Shown after a student finishes a lesson (Done).
  * OK opens the gaming farm start screen.
  */
-export default function TestKnowledgeModal({ open, onOk, lessonTitle = "" }) {
+export default function TestKnowledgeModal({
+  open,
+  onOk,
+  lessonTitle = "",
+  levelId = 1,
+  rewardLabel = "",
+}) {
   if (!open) return null;
 
   const chapterLabel = (lessonTitle || "this chapter").trim();
@@ -25,11 +31,17 @@ export default function TestKnowledgeModal({ open, onOk, lessonTitle = "" }) {
           Test your knowledge!
         </h2>
         <p className="user-error-modal__body">
-          Nice work on <strong>{chapterLabel}</strong>. Tap OK when you&apos;re ready for a quick
-          game to practice what you learned.
+          Nice work on <strong>{chapterLabel}</strong>. Game level {levelId} is ready.
+          Finish the farm, then you&apos;ll return here so the next chapter can unlock.
+          {rewardLabel ? (
+            <>
+              {" "}
+              Completing this lesson unlocked <strong>{rewardLabel}</strong> on the farm.
+            </>
+          ) : null}
         </p>
         <button type="button" className="user-error-modal__ok" onClick={() => onOk?.()}>
-          OK
+          Play Game Level {levelId}
         </button>
       </div>
     </div>

@@ -672,9 +672,14 @@ export default class GameScene extends Phaser.Scene {
     // Make sure browser captures from older Phaser defaults are cleared
     try {
       this.input.keyboard.removeCapture([
+        Phaser.Input.Keyboard.KeyCodes.W,
+        Phaser.Input.Keyboard.KeyCodes.A,
+        Phaser.Input.Keyboard.KeyCodes.S,
+        Phaser.Input.Keyboard.KeyCodes.D,
         Phaser.Input.Keyboard.KeyCodes.E,
         Phaser.Input.Keyboard.KeyCodes.Q,
         Phaser.Input.Keyboard.KeyCodes.SPACE,
+        Phaser.Input.Keyboard.KeyCodes.BACKSPACE,
         Phaser.Input.Keyboard.KeyCodes.UP,
         Phaser.Input.Keyboard.KeyCodes.DOWN,
         Phaser.Input.Keyboard.KeyCodes.LEFT,
@@ -700,29 +705,55 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * True when focus is in React text fields / overlays (avatar, quiz, shopâ€¦).
+   * True when a React overlay owns the keyboard (quiz typing, Sage, shop…).
+   */
+  isTextOverlayOpen() {
+    return Boolean(
+      this.isScienceQuizOpen() ||
+        this.isUnlockShopOpen() ||
+        this.isQuestScrollOpen() ||
+        this.isMotivationOpen() ||
+        document.querySelector('.avatar-assistant-overlay') ||
+        document.querySelector('.farm-pause-overlay') ||
+        document.querySelector('.student-login'),
+    );
+  }
+
+  /**
+   * True when WASD / Q / E / Space must reach the DOM (typed quiz answers).
+   * Checks both event.target and activeElement — capture-phase handlers can
+   * see the canvas as target while the input still has focus.
+   */
+  shouldPassKeysToDom(event = null) {
+    if (
+      this.isTypingTarget(event?.target) ||
+      this.isTypingTarget(document.activeElement)
+    ) {
+      return true;
+    }
+    if (this.isTextOverlayOpen()) return true;
+    const overlaySel = [
+      '.avatar-assistant-overlay',
+      '.science-quiz-overlay',
+      '.unlock-shop-overlay',
+      '.farm-pause-overlay',
+      '.quest-scroll-overlay',
+      '.motivation-overlay',
+      '.student-login',
+    ].join(',');
+    return Boolean(
+      event?.target?.closest?.(overlaySel) ||
+        document.activeElement?.closest?.(overlaySel),
+    );
+  }
+
+  /**
+   * True when focus is in React text fields / overlays (avatar, quiz, shop…).
    * Prevents Phaser from eating Space, E, Q, and other letters while typing.
    */
   shouldIgnoreGameKeys(event = null) {
-    const el = event?.target || document.activeElement;
-    if (this.isTypingTarget(el)) return true;
-    if (this.uiInputLocked) {
-      const tag = el?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-      if (el?.isContentEditable) return true;
-      if (
-        el?.closest?.(
-          [
-            '.avatar-assistant-overlay',
-            '.science-quiz-overlay',
-            '.unlock-shop-overlay',
-            '.student-login',
-          ].join(','),
-        )
-      ) {
-        return true;
-      }
-    }
+    if (this.shouldPassKeysToDom(event)) return true;
+    if (this.uiInputLocked) return true;
     return false;
   }
 
@@ -778,6 +809,9 @@ export default class GameScene extends Phaser.Scene {
     };
 
     this._onWindowKeyDown = (event) => {
+      // Capture-phase: never preventDefault while a typed quiz (or other overlay) is open.
+      if (this.shouldPassKeysToDom(event)) return;
+
       const { code } = event;
       const isMove =
         code === 'ArrowUp' ||
@@ -789,7 +823,6 @@ export default class GameScene extends Phaser.Scene {
         code === 'KeyS' ||
         code === 'KeyD';
       if (isMove) {
-        if (this.isTypingTarget(event.target || document.activeElement)) return;
         event.preventDefault();
         setMove(code, true);
         try {
@@ -3151,6 +3184,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   focusGameCanvas() {
+    if (this.shouldPassKeysToDom()) return;
     const canvas = this.game?.canvas;
     if (!canvas) return;
     if (!canvas.hasAttribute('tabindex')) canvas.setAttribute('tabindex', '0');

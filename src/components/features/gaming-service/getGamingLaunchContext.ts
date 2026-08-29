@@ -2,6 +2,12 @@ import { CURRICULUM_TOPICS } from "@/lib/curriculum/topics";
 import { useTutorStore } from "@/store/useTutorStore";
 import { useUserStore } from "@/store/useUserStore";
 
+import {
+  chapterRewardItemId,
+  farmLevelFromLessonId,
+  lessonTitleOf,
+  type CurriculumLessonLike,
+} from "./chapterGameProgress";
 import type { GamingServiceLaunchParams } from "./buildGamingServiceLaunchUrl";
 
 const FARM_SESSION_PREFIX = "scipath_farm_session__";
@@ -92,5 +98,47 @@ export function readGamingLaunchParams(): GamingServiceLaunchParams | null {
     sessionId: getOrCreateFarmSessionId(userId),
     topicId: resolveFarmTopicId(userId, grade),
     grade,
+  };
+}
+
+export type ChapterGameLaunchInput = {
+  lesson: CurriculumLessonLike | null | undefined;
+  gradeLessons?: CurriculumLessonLike[];
+  cash?: number | null;
+};
+
+/**
+ * Launch the farm for a specific LPE chapter (level N, chapter topic, reward item).
+ */
+export function buildChapterGameLaunchParams(
+  input: ChapterGameLaunchInput,
+): GamingServiceLaunchParams | null {
+  const base = readGamingLaunchParams();
+  if (!base) return null;
+  const lesson = input.lesson;
+  const lessonId = String(lesson?.lesson_id || "").trim();
+  const gradeLessons = input.gradeLessons || [];
+  const levelId = farmLevelFromLessonId(lessonId, gradeLessons);
+  const idx = gradeLessons.findIndex((l) => String(l.lesson_id || "") === lessonId);
+  const next = idx >= 0 ? gradeLessons[idx + 1] : null;
+  const topicId = String(lesson?.topic_id || "").trim() || base.topicId;
+  persistTopicId(base.studentId, topicId);
+
+  const returnUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/learning-path`
+      : "/learning-path";
+
+  return {
+    ...base,
+    topicId,
+    startLevel: levelId,
+    cash: input.cash ?? null,
+    lessonId: lessonId || null,
+    chapterTitle: lessonTitleOf(lesson) || `Chapter ${levelId}`,
+    nextLessonId: next?.lesson_id || null,
+    nextChapterTitle: lessonTitleOf(next) || null,
+    rewardItem: chapterRewardItemId(levelId),
+    returnUrl,
   };
 }

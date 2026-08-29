@@ -5,9 +5,25 @@
 import { bandFromMastery, getMasteryForLevelStart } from '../data/masteryModel.js';
 import { DDA_BANDS } from '../data/dda.js';
 import {
+  buildFrustrationAdaptation,
+  frustrationLevelFromScore,
+} from '../data/frustrationModel.js';
+import {
   CONCEPT_CATALOG,
+  inferConceptFromText,
   resolveTopicKey,
 } from './conceptMaps.js';
+import { safeScienceLine, friendlyWrongAnswer } from './kidFriendlySpeech.js';
+import {
+  explainWhyWrong,
+  explainCorrectIdea,
+  scienceKeyIdea,
+  shortConceptLabel,
+  composeFiveStepLesson,
+  validateStructuredLesson,
+} from './explainMisconception.js';
+
+export { explainWhyWrong, explainCorrectIdea, scienceKeyIdea } from './explainMisconception.js';
 
 const BRANCH_COLORS = [
   { key: 'rose', stroke: '#c45c5c', fill: '#fde8e8', accent: '#9a3030' },
@@ -44,13 +60,21 @@ export function extractQuestionFacts(questionData) {
 
   return {
     id: questionData.id || null,
-    topic: resolveTopicKey(questionData.topic) || questionData.topic || 'Science',
+    topic:
+      inferConceptFromText(questionData.prompt || questionData.question) ||
+      inferConceptFromText(questionData.skill || questionData.chapter_name) ||
+      resolveTopicKey(questionData.topic) ||
+      questionData.topic ||
+      'Science',
     prompt: questionData.prompt || questionData.question || '',
     hint: questionData.hint || null,
     grade: questionData.grade || null,
     options: options.map((o) => o.text),
     correctIndex,
-    correctAnswer: correct?.text || null,
+    correctAnswer:
+      questionData.correctAnswer ||
+      correct?.text ||
+      null,
   };
 }
 
@@ -74,53 +98,12 @@ export function buildMissAttempt(questionData, selectedText = null) {
     prompt: facts.prompt,
     options: facts.options,
     correctIndex: facts.correctIndex,
-    correctAnswer: facts.correctAnswer,
+    correctAnswer: safeScienceLine(facts.correctAnswer, null),
     studentAnswer: selectedText || '(timed out / no selection)',
     hint: facts.hint,
     grade: facts.grade,
     at: Date.now(),
   };
-}
-
-export function explainWhyWrong(attempt) {
-  const wrong = String(attempt.studentAnswer || '').trim();
-  const right = String(attempt.correctAnswer || '').trim();
-
-  if (!wrong || wrong.startsWith('(')) {
-    return `You need the correct science idea: ${right || 'see the lesson key idea'}.`;
-  }
-  if (right && wrong.toLowerCase() === right.toLowerCase()) {
-    return `That matches the correct idea (${right}).`;
-  }
-
-  const w = wrong.toLowerCase();
-  if (/petal|leaf tip|leaf vein/.test(w)) {
-    return `"${wrong}" is a plant part, but not the pollen-maker.`;
-  }
-  if (/oxygen|nitrogen|helium/.test(w) && /carbon dioxide|co2/i.test(right)) {
-    return `Plants mainly take in carbon dioxide for food-making—not "${wrong}".`;
-  }
-  if (/evaporation|erosion|condensation/.test(w)) {
-    return `"${wrong}" is a different Earth process—not pollen transfer.`;
-  }
-  if (/making metal|rocks|soil disappear|thunder/.test(w)) {
-    return `"${wrong}" is not a real job for this farm science idea.`;
-  }
-  return `You chose "${wrong}". The correct idea is "${right || '…'}".`;
-}
-
-export function explainCorrectIdea(attempt) {
-  const right = attempt.correctAnswer;
-  const hint = attempt.hint;
-  const topic = attempt.topic || 'Science';
-  if (right && hint) {
-    return `Correct: ${right}. ${hint}`;
-  }
-  if (right) {
-    return `Correct: ${right}. Link it to ${topic} on the farm.`;
-  }
-  if (hint) return hint;
-  return `Re-read the key idea under ${topic}.`;
 }
 
 function collectAttempts({
@@ -188,7 +171,31 @@ function collectAttempts({
   });
 }
 
-function mindMapProfile({ mastery, band } = {}) {
+function mindMapProfile({ mastery, band, frustrationScore, frustrationLevel } = {}) {
+  // Frustration personalization takes priority when available (CSF adaptation).
+  const frScore =
+    frustrationScore != null && Number.isFinite(Number(frustrationScore))
+      ? Number(frustrationScore)
+      : null;
+  const frLevel =
+    frustrationLevel ||
+    (frScore != null ? frustrationLevelFromScore(frScore) : null);
+
+  if (frLevel) {
+    const adapt = buildFrustrationAdaptation(frScore ?? frLevel);
+    const mm = adapt.mindMap || {};
+    return {
+      maxAttempts: mm.maxBranches ?? 5,
+      extraLinks: Boolean(mm.extraLinks),
+      tone: mm.tone || 'practice',
+      label: mm.label || 'Personalized map',
+      explainDepth: mm.explainDepth || 'medium',
+      simplifyLanguage: Boolean(mm.simplifyLanguage),
+      frustrationLevel: adapt.level,
+      complexity: mm.complexity || 'focused',
+    };
+  }
+
   const resolved = band || bandFromMastery(mastery ?? 0.5);
   if (resolved === DDA_BANDS.WEAK || resolved === DDA_BANDS.EMERGING) {
     return {
@@ -272,6 +279,8 @@ export function buildPersonalizedMindMap({
   masteryBand = null,
   masterySource = null,
   levelId = 1,
+  frustrationScore = null,
+  frustrationLevel = null,
 } = {}) {
   const masteryInfo = resolveMindMapMastery({
     mastery: masteryIn,
@@ -279,7 +288,11 @@ export function buildPersonalizedMindMap({
     masterySource,
     levelId,
   });
-  const profile = mindMapProfile(masteryInfo);
+  const profile = mindMapProfile({
+    ...masteryInfo,
+    frustrationScore,
+    frustrationLevel,
+  });
 
   const attempts = collectAttempts({
     attemptsIn,
@@ -295,8 +308,12 @@ export function buildPersonalizedMindMap({
     return buildEmptyTopicMap(topic || 'Science', prompt, profile, masteryInfo);
   }
 
-  // Cap for layout — weaker mastery gets a shorter, more scaffolded map
-  const list = attempts.slice(0, profile.maxAttempts);
+  // Cap for layout — high frustration maps THIS miss only
+  const complexity = profile.complexity || 'focused';
+  const list =
+    complexity === 'micro' || complexity === 'simplified'
+      ? attempts.slice(-1)
+      : attempts.slice(0, profile.maxAttempts);
   const usedRelated = new Set();
   const topicsSeen = new Set();
 
@@ -304,43 +321,85 @@ export function buildPersonalizedMindMap({
     const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
     const t = resolveTopicKey(a.topic) || a.topic || 'Science';
     topicsSeen.add(t);
-    const related = catalogRelated(t, a.correctAnswer, usedRelated);
-    const why = explainWhyWrong(a);
-    const rightExplain = explainCorrectIdea(a);
+    const cleanWrong =
+      shortConceptLabel(a.studentAnswer, 48) ||
+      friendlyWrongAnswer(a.studentAnswer, 80) ||
+      a.studentAnswer ||
+      'no pick yet';
+    const cleanRight =
+      shortConceptLabel(a.correctAnswer, 48) ||
+      safeScienceLine(a.correctAnswer, null) ||
+      'see the lesson key idea';
+    const related = catalogRelated(t, cleanRight, usedRelated);
+    const conceptual = {
+      ...a,
+      studentAnswer: a.studentAnswer,
+      correctAnswer: a.correctAnswer,
+    };
+    const lesson = composeFiveStepLesson(conceptual, {
+      tone: profile.tone,
+      frustrationLevel: profile.frustrationLevel,
+      explainDepth: profile.explainDepth,
+    });
+    const lessonOk = validateStructuredLesson(lesson);
+    const why = '';
+    const rightExplain = lessonOk
+      ? lesson.correctAnswer.scientificDefinition
+      : explainCorrectIdea(conceptual, {
+          tone: profile.tone,
+          frustrationLevel: profile.frustrationLevel,
+          explainDepth: profile.explainDepth,
+        });
+    const keyIdea = lessonOk
+      ? lesson.studentAnswer.concept
+      : scienceKeyIdea(conceptual);
     const catalog = CONCEPT_CATALOG[resolveTopicKey(t)];
 
-    const nodes = [
+    let nodes = [
       {
         id: `m${i}-wrong`,
         kind: 'wrong',
-        label: shortLabel(a.studentAnswer, 22) || 'Your pick',
-        title: 'Your pick',
+        label: shortLabel(cleanWrong, 22) || 'Your pick',
+        title: 'Your answer',
         icon: '✗',
         body: why,
-        meta: { studentAnswer: a.studentAnswer },
+        meta: { studentAnswer: cleanWrong },
+      },
+      {
+        id: `m${i}-diff`,
+        kind: 'ask',
+        label: 'Difference',
+        title: "What's the difference?",
+        icon: '↔',
+        body: why,
+        meta: {},
       },
       {
         id: `m${i}-right`,
         kind: 'right',
-        label: shortLabel(a.correctAnswer, 22) || 'Correct idea',
+        label: shortLabel(cleanRight, 22) || 'Correct idea',
         title: 'Correct idea',
         icon: '✓',
         body: rightExplain,
         meta: {
-          correctAnswer: a.correctAnswer,
+          correctAnswer: cleanRight,
           hint: a.hint,
         },
       },
-      {
+    ];
+    if (complexity !== 'micro') {
+      nodes.push({
         id: `m${i}-ask`,
         kind: 'ask',
         label: shortLabel(clip(a.prompt, 26), 26) || 'The question',
         title: 'What was asked',
         icon: '❓',
-        body: `You missed this: “${clip(a.prompt, 220)}”`,
+        body: clip(a.prompt, 180),
         meta: { prompt: a.prompt },
-      },
-      {
+      });
+    }
+    if (complexity === 'broader') {
+      nodes.push({
         id: `m${i}-link`,
         kind: 'link',
         label: shortLabel(related.label, 22),
@@ -348,10 +407,10 @@ export function buildPersonalizedMindMap({
         icon: '🔗',
         body: related.explanation,
         meta: {},
-      },
-    ];
-    if (profile.extraLinks) {
-      const extra = catalogRelated(t, a.correctAnswer, usedRelated);
+      });
+    }
+    if (profile.extraLinks && complexity === 'broader') {
+      const extra = catalogRelated(t, cleanRight, usedRelated);
       nodes.push({
         id: `m${i}-link2`,
         kind: 'link',
@@ -374,16 +433,18 @@ export function buildPersonalizedMindMap({
       colorIndex: i,
       prompt: a.prompt,
       question: a.prompt,
-      studentAnswer: a.studentAnswer,
-      correctAnswer: a.correctAnswer,
+      studentAnswer: cleanWrong,
+      correctAnswer: cleanRight,
+      options: Array.isArray(a.options) ? a.options : [],
       hint: a.hint,
       why,
       why_wrong: why,
       rightExplain,
-      keyConcept: shortLabel(a.correctAnswer, 32) || t,
-      key_concept: shortLabel(a.correctAnswer, 32) || t,
+      keyConcept: clip(keyIdea, 90) || t,
+      key_concept: clip(keyIdea, 90) || t,
       keyExplain: rightExplain,
       key_concept_explain: rightExplain,
+      lesson: lessonOk ? lesson : null,
       farmLink: related.explanation,
       farm_link: related.explanation,
       summary:
@@ -436,16 +497,22 @@ export function buildPersonalizedMindMap({
     focusIds: branches.map((b) => b.id),
     missCount: totalMisses,
     conceptCount,
+    complexity,
     sourceAttempts: list,
     primaryAttempt: list[0],
     samplePrompts: list.map((a) => a.prompt).filter(Boolean),
-    personalizedNote: `${profile.label} map (${Math.round((masteryInfo.mastery || 0) * 100)}%, ${masteryInfo.source || 'mastery'}). ${totalMisses} miss${totalMisses === 1 ? '' : 'es'}.`,
+    personalizedNote: profile.frustrationLevel
+      ? `${profile.label} (${profile.frustrationLevel}). ${totalMisses} miss${totalMisses === 1 ? '' : 'es'}.`
+      : `${profile.label} map (${Math.round((masteryInfo.mastery || 0) * 100)}%, ${masteryInfo.source || 'mastery'}). ${totalMisses} miss${totalMisses === 1 ? '' : 'es'}.`,
     learningPath: branches.map((b) => b.id),
     layout: 'all-misses-ai',
     generatedBy: 'local',
     mastery: masteryInfo.mastery,
     masteryBand: masteryInfo.band,
     masterySource: masteryInfo.source,
+    frustrationScore:
+      frustrationScore != null ? Number(frustrationScore) : null,
+    frustrationLevel: profile.frustrationLevel || frustrationLevel || null,
   };
 }
 
