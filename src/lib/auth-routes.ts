@@ -5,6 +5,7 @@ export const BASE_PATH = "/";
 
 export const LOGIN_PATH = "/login";
 export const REGISTER_PATH = "/register";
+export const TERMS_PATH = "/terms";
 
 /** Student homepage — `StudentHome` at `/dashboard`. */
 export const STUDENT_HOME_PATH = "/dashboard";
@@ -39,7 +40,7 @@ export const STUDENT_LEARNING_PATH = "/learning-path";
 /** Student marker AR library (heart / kidney APKs). */
 export const STUDENT_AR_LIBRARY_PATH = "/ar-library";
 
-const PUBLIC_PATHS = new Set([BASE_PATH, LOGIN_PATH, REGISTER_PATH]);
+const PUBLIC_PATHS = new Set([BASE_PATH, LOGIN_PATH, REGISTER_PATH, TERMS_PATH]);
 
 function normalizePath(pathname: string | null | undefined): string {
   if (!pathname) return BASE_PATH;

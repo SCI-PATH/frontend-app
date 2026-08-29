@@ -29,7 +29,107 @@ import {
 } from "@/lib/user-management";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
-import type { StudentProfileResponse, TeacherClass } from "@/types";
+import type { BktParameterRow, StudentProfileResponse, TeacherClass } from "@/types";
+
+function isUserLevelTopic(topicId: string | null | undefined): boolean {
+  return String(topicId || "").trim().toUpperCase() === "USER";
+}
+
+/** Skills with quiz evidence only — Socrates chat does not update BKT. */
+function quizMasteryRows(
+  profile: StudentProfileResponse | null
+): BktParameterRow[] {
+  const rows = (profile?.bkt_parameters ?? []).filter(
+    (row) => row.topic_id && !isUserLevelTopic(row.topic_id)
+  );
+  const quizIds = new Set<string>();
+  for (const attempt of profile?.recent_attempts ?? []) {
+    if (attempt.topic_id && !isUserLevelTopic(attempt.topic_id)) {
+      quizIds.add(attempt.topic_id);
+    }
+  }
+  for (const point of profile?.mastery_timeline_last_10_attempts ?? []) {
+    if (point.topic_id && !isUserLevelTopic(point.topic_id)) {
+      quizIds.add(point.topic_id);
+    }
+  }
+  const chatIds = new Set<string>();
+  for (const turn of profile?.chat_history_last_5 ?? []) {
+    if (turn.topic_id && !isUserLevelTopic(turn.topic_id)) {
+      chatIds.add(turn.topic_id);
+    }
+  }
+  for (const turn of profile?.engagement_timeline_last_10_turns ?? []) {
+    if (turn.topic_id && !isUserLevelTopic(turn.topic_id)) {
+      chatIds.add(turn.topic_id);
+    }
+  }
+  if (quizIds.size === 0 && chatIds.size === 0) return rows;
+  return rows.filter(
+    (row) => quizIds.has(row.topic_id) || !chatIds.has(row.topic_id)
+  );
+}
+
+function ProfileLoadingOverlay() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="relative overflow-hidden rounded-[1.75rem] border border-brand-primary/20 bg-white px-5 py-12 shadow-sm sm:px-8 sm:py-16"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-16 -top-20 size-52 rounded-full bg-brand-primary/15 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-24 -right-12 size-56 rounded-full bg-brand-special/15 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-8 size-32 -translate-x-1/2 rounded-full bg-brand-accent/10 blur-2xl"
+      />
+      <div className="relative mx-auto flex max-w-md flex-col items-center text-center">
+        <div className="relative mb-5 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary/15 to-brand-special/20 shadow-inner">
+          <Loader2
+            className="size-8 animate-spin text-brand-primary"
+            aria-hidden
+          />
+          <Sparkles
+            className="absolute -right-1 -top-1 size-4 text-brand-accent"
+            aria-hidden
+          />
+        </div>
+        <p className="text-lg font-semibold text-brand-text">
+          Loading your mastery profile
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-brand-text/60">
+          Pulling quiz mastery, class details, and skills to practise…
+        </p>
+        <div className="mt-6 flex w-full max-w-xs gap-1.5">
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="h-1.5 flex-1 animate-pulse rounded-full bg-brand-primary/30"
+              style={{ animationDelay: `${index * 180}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="relative mx-auto mt-10 grid w-full max-w-3xl gap-3 sm:grid-cols-3">
+        {[0, 1, 2, 3, 4, 5].map((index) => (
+          <div
+            key={index}
+            className="h-24 animate-pulse rounded-2xl border border-brand-surface bg-brand-background/80"
+            style={{ animationDelay: `${index * 90}ms` }}
+          />
+        ))}
+      </div>
+      <span className="sr-only">Loading your learner profile</span>
+    </div>
+  );
+}
 
 export function StudentProfileView() {
   const user = useUserStore((state) => state.user);
@@ -71,23 +171,25 @@ export function StudentProfileView() {
     void load();
   }, [load]);
 
+  const quizSkills = useMemo(() => quizMasteryRows(profile), [profile]);
+
   const bands = useMemo(() => {
-    const topicIds = (profile?.bkt_parameters ?? []).map((row) => row.topic_id);
+    const topicIds = quizSkills.map((row) => row.topic_id);
     const row = Object.fromEntries(
-      (profile?.bkt_parameters ?? []).map((entry) => [entry.topic_id, entry.p_l])
+      quizSkills.map((entry) => [entry.topic_id, entry.p_l])
     );
     return countStudentTopicBands(row, topicIds);
-  }, [profile]);
+  }, [quizSkills]);
 
   const overallMastery = useMemo(() => {
-    const values = (profile?.bkt_parameters ?? [])
+    const values = quizSkills
       .map((row) => row.p_l)
       .filter((value): value is number => typeof value === "number");
     if (values.length === 0) return null;
     return Math.round(
       (values.reduce((sum, value) => sum + value, 0) / values.length) * 100
     );
-  }, [profile]);
+  }, [quizSkills]);
 
   const focusAreas = profile?.focus_areas ?? [];
   const enrolled = enrolledClasses[0] ?? null;
@@ -140,10 +242,7 @@ export function StudentProfileView() {
       </section>
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-brand-surface bg-white py-16 text-brand-text/70">
-          <Loader2 className="size-5 animate-spin text-brand-primary" />
-          Loading your mastery profile…
-        </div>
+        <ProfileLoadingOverlay />
       ) : error ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           {error}
@@ -156,11 +255,11 @@ export function StudentProfileView() {
               <StatCard
                 label="Overall mastery"
                 value={overallMastery != null ? `${overallMastery}%` : "—"}
-                hint="Average P(L) across practised skills"
+                hint="Average P(L) from lesson quizzes"
               />
               <StatCard
                 label="Skills practised"
-                value={String(profile?.topics_covered_count ?? 0)}
+                value={String(quizSkills.length)}
               />
               <StatCard
                 label="Mastered"
@@ -267,16 +366,16 @@ export function StudentProfileView() {
           <section className="rounded-2xl border border-brand-surface bg-white p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-brand-text">Skill mastery</h2>
             <p className="mb-4 text-sm text-brand-text/60">
-              Current P(L) for skills you have practised.
+              Current P(L) for skills scored on lesson quizzes. Socrates chat does
+              not change these values.
             </p>
-            {(profile?.bkt_parameters ?? []).length === 0 ? (
+            {quizSkills.length === 0 ? (
               <p className="text-sm text-brand-text/65">
-                No quiz or tutor evidence yet. Complete a lesson quiz to see mastery
-                here.
+                No quiz evidence yet. Complete a lesson quiz to see mastery here.
               </p>
             ) : (
               <ul className="divide-y divide-brand-surface">
-                {(profile?.bkt_parameters ?? []).map((row) => {
+                {quizSkills.map((row) => {
                   const pct = masteryPercent(row.p_l);
                   return (
                     <li
