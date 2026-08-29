@@ -61,7 +61,16 @@ function buildRequest(
     "messages" | "preferredPersonaId" | "activeTopicId" | "topicLocked"
   >
 ): HintAutoTopicRequest {
-  const userId = useUserStore.getState().user?.id ?? "student_demo";
+  const user = useUserStore.getState().user;
+  const userId = user?.id ?? "student_demo";
+  const gradeRaw = useUserStore.getState().grade;
+  const grade =
+    typeof gradeRaw === "number" &&
+    Number.isFinite(gradeRaw) &&
+    gradeRaw >= 6 &&
+    gradeRaw <= 9
+      ? Math.trunc(gradeRaw)
+      : null;
   const conversationHistory = toHistory(state.messages);
   const shouldSendTopic = Boolean(state.topicLocked && state.activeTopicId);
 
@@ -70,6 +79,7 @@ function buildRequest(
     student_answer: studentAnswer,
     context_k: 4,
     persona_id: state.preferredPersonaId,
+    ...(grade != null ? { grade } : {}),
     ...(conversationHistory.length > 0
       ? { conversation_history: conversationHistory }
       : {}),

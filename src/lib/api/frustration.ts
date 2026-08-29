@@ -83,19 +83,42 @@ export async function postFrustrationCue(input: {
 
 /**
  * Pull the student's latest farm frustration and store it for Socrates tone.
- * Safe to call on overlay open; no-ops if gaming has no snapshot yet.
+ * Safe to call on overlay / tutor open; no-ops if gaming has no snapshot yet.
+ *
+ * @param source Producer tag stored on the cue row
+ * @param scoreOverride Optional 0–1 score from farm handoff URL (skips gaming GET)
  */
-export async function syncHomepageFrustrationFromGaming(): Promise<boolean> {
+export async function syncHomepageFrustrationFromGaming(
+  source = "homepage_socrates_open",
+  scoreOverride?: number | null
+): Promise<boolean> {
   const { userId } = useUserStore.getState();
   if (!userId) return false;
 
-  const snapshot = await fetchGamingFrustration(userId);
-  const score = snapshot?.frustrationScore;
+  let score =
+    typeof scoreOverride === "number" && Number.isFinite(scoreOverride)
+      ? Math.max(0, Math.min(1, scoreOverride > 1 ? scoreOverride / 100 : scoreOverride))
+      : null;
+
+  if (score == null) {
+    const snapshot = await fetchGamingFrustration(userId);
+    score = snapshot?.frustrationScore ?? null;
+  }
   if (score == null) return false;
 
   return postFrustrationCue({
     userId,
     frustrationScore: score,
-    source: "homepage_socrates_open",
+    source,
   });
+}
+
+/** Same as homepage sync; used when /tutor opens from the farm Ask Socrates button. */
+export async function syncFarmFrustrationFromGaming(
+  scoreOverride?: number | null
+): Promise<boolean> {
+  return syncHomepageFrustrationFromGaming(
+    "gaming_socrates_unlock",
+    scoreOverride
+  );
 }

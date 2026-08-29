@@ -18,12 +18,26 @@ export function TutorPageView() {
     const fromFarm = searchParams.get("from") === "farm";
     const topicId =
       searchParams.get("topicId") || searchParams.get("topic_id") || "";
+    const frustrationRaw =
+      searchParams.get("frustrationScore") ||
+      searchParams.get("frustration_score") ||
+      "";
+    const frustrationOverride = Number(frustrationRaw);
     if (topicId.trim()) {
       primeFarmLesson(topicId);
-      return;
+    } else if (fromFarm) {
+      noteFarmHandoff();
     }
     if (fromFarm) {
-      noteFarmHandoff();
+      void import("@/lib/api/frustration")
+        .then(({ syncFarmFrustrationFromGaming }) =>
+          syncFarmFrustrationFromGaming(
+            Number.isFinite(frustrationOverride) ? frustrationOverride : null
+          )
+        )
+        .catch(() => {
+          /* Gaming GET is optional; chat still works without a cue. */
+        });
     }
   }, [noteFarmHandoff, primeFarmLesson, searchParams]);
 
