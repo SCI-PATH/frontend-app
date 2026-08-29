@@ -15,6 +15,7 @@ export function QuizExitGuard({
   title = "Leave this quiz?",
   description = "Your progress on unanswered questions will be lost. Answers you already submitted are saved.",
   confirmLabel = "Quit quiz",
+  cancelLabel = "Keep playing",
   onConfirmLeave,
   children,
 }: {
@@ -22,6 +23,7 @@ export function QuizExitGuard({
   title?: string;
   description?: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   /** Called after the student confirms. Should terminate the session. */
   onConfirmLeave: () => Promise<void> | void;
   children?: React.ReactNode;
@@ -156,7 +158,7 @@ export function QuizExitGuard({
                 onClick={handleCancel}
                 className="border-brand-surface"
               >
-                Keep playing
+                {cancelLabel}
               </Button>
               <Button
                 type="button"

@@ -204,6 +204,7 @@ export function normalizeTeacherQuestion(
     status: (raw.status as QuestionStatus) || "pending",
     topic_id: raw.topic_id,
     chapter_name: raw.chapter_name,
+    origin: raw.origin,
     rejection_reason: raw.rejection_reason,
     rejection_notes: raw.rejection_notes,
     rejection_confirmed_ai: raw.rejection_confirmed_ai,

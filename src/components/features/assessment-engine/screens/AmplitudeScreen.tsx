@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
   Check,
   Clock,
-  GraduationCap,
   Loader2,
+  Rocket,
+  Send,
   Sparkles,
   Target,
+  Trophy,
 } from "lucide-react";
 
+import { Navbar } from "@/components/common/Navbar";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +24,8 @@ import {
   fetchAmplitudeChapters,
   fetchAmplitudeQuiz,
   fetchInitialCategory,
+  fetchPlacementStatus,
+  resolveInitialCategory,
   submitAmplitudeSurvey,
 } from "../api/amplitude";
 import { useAssessmentUser } from "../store/useAssessmentUser";
@@ -28,16 +34,19 @@ import type {
   AmplitudeChapter,
   AmplitudeEvaluateResponse,
   AmplitudeQuizQuestion,
+  AmplitudeSurveyRequest,
   PastGradeMarksRange,
 } from "../types";
 import { AssessmentApiError } from "../types";
 import { STUDENT_HOME_PATH, STUDENT_LEARNING_PATH } from "@/lib/auth-routes";
+import { useUserStore } from "@/store/useUserStore";
 import { AssessmentShell } from "../components/AssessmentShell";
+import { QuizExitGuard } from "../components/QuizExitGuard";
 import { hasAnswer, QuestionRenderer } from "../components/QuestionRenderer";
 import { ACCENT_STYLES } from "@/components/common/landing/landing-content";
 import { cn } from "@/lib/utils";
 
-type Step = "survey" | "quiz" | "evaluating" | "result";
+type Step = "boot" | "survey" | "quiz" | "evaluating" | "result";
 
 const MARKS: { value: PastGradeMarksRange; label: string }[] = [
   { value: "BELOW_50", label: "Below 50%" },
@@ -71,14 +80,32 @@ const CATEGORY_STYLE: Record<
   },
 };
 
+function formatPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return value <= 1 ? `${Math.round(value * 100)}%` : `${Math.round(value)}%`;
+}
+
+function formatChapterId(id: string): string {
+  const match = /^G(\d+)_C(\d+)/i.exec(id.trim());
+  if (match) return `Chapter ${match[2]}`;
+  return id.replace(/_/g, " ");
+}
+
+function serializeCurrent(current: string | string[]): string {
+  return Array.isArray(current)
+    ? current.map((v) => v.trim()).join(" | ")
+    : String(current);
+}
+
 export function AmplitudeScreen() {
   const user = useAssessmentUser();
+  const hasHydrated = useUserStore((s) => s.hasHydrated);
   const grade = user.grade ?? 7;
   const [chapters, setChapters] = useState<AmplitudeChapter[]>([]);
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(false);
 
-  const [step, setStep] = useState<Step>("survey");
+  const [step, setStep] = useState<Step>("boot");
   const [marks, setMarks] = useState<PastGradeMarksRange>("50_75");
   const [hours, setHours] = useState(5);
   const [confidence, setConfidence] = useState(3);
@@ -94,8 +121,101 @@ export function AmplitudeScreen() {
   const [result, setResult] = useState<AmplitudeEvaluateResponse | null>(null);
   const [persistedCategory, setPersistedCategory] =
     useState<AmplitudeCategory | null>(null);
+  const [savedScore, setSavedScore] = useState<number | null>(null);
+  const [evaluatedThisVisit, setEvaluatedThisVisit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const answersRef = useRef(answers);
+  const currentRef = useRef(current);
+  const qiRef = useRef(qi);
+  const questionsRef = useRef(questions);
+  answersRef.current = answers;
+  currentRef.current = current;
+  qiRef.current = qi;
+  questionsRef.current = questions;
+
+  const prereqCount = prereqChecks.filter(Boolean).length;
+  const primary = ACCENT_STYLES.primary;
+  const special = ACCENT_STYLES.special;
+  const accent = ACCENT_STYLES.accent;
+
+  const surveyBody = useMemo<AmplitudeSurveyRequest>(
+    () => ({
+      user_id: user.userId,
+      grade,
+      completed_chapters_count: selectedChapters.length,
+      completed_chapter_ids: selectedChapters,
+      past_grade_marks_range: marks,
+      study_hours_per_week: hours,
+      self_confidence: confidence,
+      science_self_efficacy: efficacy,
+      prerequisite_ready_count: prereqCount,
+    }),
+    [
+      user.userId,
+      grade,
+      selectedChapters,
+      marks,
+      hours,
+      confidence,
+      efficacy,
+      prereqCount,
+    ]
+  );
+  const surveyBodyRef = useRef(surveyBody);
+  surveyBodyRef.current = surveyBody;
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
+    let cancelled = false;
+    async function boot() {
+      // Already in this visit's quiz — don't bounce back to survey/result.
+      if (
+        step === "quiz" ||
+        step === "evaluating" ||
+        (step === "result" && evaluatedThisVisit)
+      ) {
+        return;
+      }
+
+      if (!user.userId || !user.isAuthenticated) {
+        setStep("survey");
+        return;
+      }
+      try {
+        const status = await fetchPlacementStatus(user.userId);
+        if (cancelled) return;
+        if (status.completed && status.category) {
+          setPersistedCategory(status.category);
+          try {
+            const persisted = await fetchInitialCategory(user.userId);
+            if (cancelled) return;
+            const category =
+              resolveInitialCategory(persisted) ?? status.category;
+            setPersistedCategory(category);
+            setSavedScore(
+              persisted.initial_category_score ?? persisted.weighted_score ?? null
+            );
+          } catch {
+            if (!cancelled) setSavedScore(null);
+          }
+          setStep("result");
+          return;
+        }
+      } catch {
+        /* fall through to survey */
+      }
+      if (!cancelled) setStep("survey");
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+    // step / evaluatedThisVisit are read as a guard; boot should re-run on auth.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.userId, user.isAuthenticated, hasHydrated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,26 +241,42 @@ export function AmplitudeScreen() {
     };
   }, [grade]);
 
-  const prereqCount = prereqChecks.filter(Boolean).length;
-  const accent = ACCENT_STYLES.accent;
-  const primary = ACCENT_STYLES.primary;
-  const special = ACCENT_STYLES.special;
-
-  const surveyBody = {
-    user_id: user.userId,
-    grade,
-    completed_chapters_count: selectedChapters.length,
-    completed_chapter_ids: selectedChapters,
-    past_grade_marks_range: marks,
-    study_hours_per_week: hours,
-    self_confidence: confidence,
-  };
+  const sortedChapters = useMemo(
+    () =>
+      [...chapters].sort(
+        (a, b) =>
+          (a.chapter ?? 0) - (b.chapter ?? 0) ||
+          a.chapter_id.localeCompare(b.chapter_id)
+      ),
+    [chapters]
+  );
+  const allChaptersSelected =
+    chapters.length > 0 && selectedChapters.length === chapters.length;
 
   function toggleChapter(id: string) {
     setSelectedChapters((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
+
+  async function persistEvaluation(res: AmplitudeEvaluateResponse) {
+    setResult(res);
+    setEvaluatedThisVisit(true);
+    setPersistedCategory(res.category);
+    try {
+      const persisted = await fetchInitialCategory(user.userId);
+      setPersistedCategory(
+        resolveInitialCategory(persisted) ?? res.category
+      );
+      setSavedScore(
+        persisted.initial_category_score ?? res.weighted_score ?? null
+      );
+    } catch {
+      setSavedScore(res.weighted_score);
+    }
+  }
+  const persistEvaluationRef = useRef(persistEvaluation);
+  persistEvaluationRef.current = persistEvaluation;
 
   async function startQuiz() {
     if (user.role !== "student") {
@@ -154,7 +290,7 @@ export function AmplitudeScreen() {
     setBusy(true);
     setError(null);
     try {
-      await submitAmplitudeSurvey(surveyBody);
+      await submitAmplitudeSurvey(surveyBodyRef.current);
       const quiz = await fetchAmplitudeQuiz(grade);
       const list = quiz.questions ?? [];
       if (list.length === 0) {
@@ -189,21 +325,10 @@ export function AmplitudeScreen() {
     setBusy(true);
     try {
       const res = await evaluateAmplitude({
-        ...surveyBody,
+        ...surveyBodyRef.current,
         answers: nextAnswers,
       });
-      setResult(res);
-      try {
-        const persisted = await fetchInitialCategory(user.userId);
-        setPersistedCategory(
-          persisted.initial_category ??
-            persisted.placement_category ??
-            persisted.category ??
-            null
-        );
-      } catch {
-        setPersistedCategory(null);
-      }
+      await persistEvaluation(res);
       setStep("result");
     } catch (err) {
       setError(
@@ -218,36 +343,72 @@ export function AmplitudeScreen() {
   function submitCurrent() {
     const q = questions[qi];
     if (!q || !hasAnswer(current)) return;
-    const serialized = Array.isArray(current)
-      ? current.map((v) => v.trim()).join(" | ")
-      : String(current);
-    const nextAnswers = { ...answers, [q.question_id]: serialized };
+    const nextAnswers = {
+      ...answers,
+      [q.question_id]: serializeCurrent(current),
+    };
     setAnswers(nextAnswers);
     void advanceOrEvaluate(nextAnswers);
   }
 
-  function reset() {
-    setStep("survey");
-    setResult(null);
-    setPersistedCategory(null);
-    setQuestions([]);
-    setQi(0);
-    setAnswers({});
-    setError(null);
+  const placeWithCurrentAnswers = useCallback(async () => {
+    const q = questionsRef.current[qiRef.current];
+    const cur = currentRef.current;
+    let nextAnswers = { ...answersRef.current };
+    if (q && hasAnswer(cur)) {
+      nextAnswers = {
+        ...nextAnswers,
+        [q.question_id]: serializeCurrent(cur),
+      };
+    }
+    const body = surveyBodyRef.current;
+    if (!body.user_id) {
+      throw new AssessmentApiError(401, "Sign in to save placement.");
+    }
+    const res = await evaluateAmplitude({
+      ...body,
+      answers: nextAnswers,
+    });
+    await persistEvaluationRef.current(res);
+  }, []);
+
+  const displayCategory: AmplitudeCategory =
+    result?.category ?? persistedCategory ?? "INTERMEDIATE";
+
+  if (step === "boot") {
+    return (
+      <>
+        <Navbar />
+        <AssessmentShell maxWidth="2xl" hideHeader title="">
+          <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+            <BrandGradientBar />
+            <div className="flex flex-col items-center gap-3 px-6 py-16">
+              <Loader2
+                className="size-8 animate-spin text-brand-primary"
+                aria-hidden
+              />
+              <p className="text-sm font-medium text-brand-text">
+                Checking placement…
+              </p>
+            </div>
+          </div>
+        </AssessmentShell>
+      </>
+    );
   }
 
-  const displayCategory =
-    result?.category ?? persistedCategory ?? ("INTERMEDIATE" as AmplitudeCategory);
-
   if (step === "quiz" && questions[qi]) {
-    return (
-      <AssessmentShell
-        title="Aptitude quiz"
-        subtitle={`Grade ${grade} · Question ${qi + 1} of ${questions.length}`}
-        maxWidth="2xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
-      >
+    const q = questions[qi];
+    const progressDen = questions.length;
+    const progressNum = qi + 1;
+    const progressPct = Math.min(
+      100,
+      Math.round((progressNum / progressDen) * 100)
+    );
+    const dok = q.dok_level ?? null;
+
+    const quizUi = (
+      <div className="mx-auto w-full max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
         {error ? (
           <p
             className="mb-4 rounded-2xl border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-sm text-brand-accent"
@@ -256,490 +417,618 @@ export function AmplitudeScreen() {
             {error}
           </p>
         ) : null}
-        <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)]">
           <BrandGradientBar />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-surface/80 px-5 py-4 sm:px-6">
-            <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
-              Question {qi + 1} / {questions.length}
-            </Badge>
-            <Badge variant="outline" className="border-brand-surface">
-              {questions[qi].question_type ?? "MCQ"}
-            </Badge>
-          </div>
-          <div className="px-5 py-6 sm:px-6">
+          <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
+                    {q.question_type ?? "MCQ"}
+                  </Badge>
+                  {dok != null ? (
+                    <Badge
+                      variant="outline"
+                      className="border-brand-special/30 bg-brand-special/8 text-brand-special"
+                    >
+                      DOK {dok}
+                    </Badge>
+                  ) : null}
+                  {q.chapter_name ? (
+                    <span className="max-w-[14rem] truncate text-xs text-brand-text/50 sm:max-w-xs">
+                      {q.chapter_name}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm font-semibold tabular-nums text-brand-text/70">
+                  Question {progressNum} / {progressDen}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex justify-between text-[0.65rem] font-semibold uppercase tracking-wider text-brand-text/40">
+                <span>Progress</span>
+                <span className="tabular-nums">{progressPct}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-brand-background">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+
             <QuestionRenderer
               questionType={
-                questions[qi].question_type === "TrueFalse"
-                  ? "TrueFalse"
-                  : "MCQ"
+                q.question_type === "TrueFalse" ? "TrueFalse" : "MCQ"
               }
-              prompt={questions[qi].prompt}
-              options={questions[qi].options}
+              prompt={q.prompt}
+              options={q.options}
               value={typeof current === "string" ? current : ""}
               onChange={setCurrent}
+              disabled={busy}
             />
-          </div>
-          <div className="flex justify-end border-t border-brand-surface/80 px-5 py-4 sm:px-6">
-            <Button
-              disabled={!hasAnswer(current) || busy}
-              onClick={submitCurrent}
-              className="h-11 rounded-xl bg-brand-primary px-6 text-white hover:bg-brand-primary/90"
-            >
-              {qi + 1 >= questions.length ? "Finish & evaluate" : "Next"}
-            </Button>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-surface/80 pt-4">
+              <p className="text-xs text-brand-text/45">
+                Choose carefully — you submit once per question.
+              </p>
+              <Button
+                disabled={!hasAnswer(current) || busy}
+                onClick={submitCurrent}
+                className="h-11 gap-2 rounded-xl bg-brand-primary px-6 text-white shadow-md shadow-brand-primary/25 hover:bg-brand-primary/90"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Saving…
+                  </>
+                ) : qi + 1 >= questions.length ? (
+                  <>
+                    Finish &amp; evaluate
+                    <Send className="size-4" aria-hidden />
+                  </>
+                ) : (
+                  <>
+                    Submit answer
+                    <Send className="size-4" aria-hidden />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
-      </AssessmentShell>
+      </div>
+    );
+
+    return (
+      <>
+        <Navbar />
+        <AssessmentShell
+          maxWidth="2xl"
+          hideHeader
+          title=""
+          className="flex flex-col items-center justify-center"
+        >
+          <QuizExitGuard
+            active
+            title="Leave the aptitude test?"
+            description="We'll score the answers you've submitted so far. Unanswered questions count as incorrect. You'll be placed into a category and won't retake this test from here."
+            confirmLabel="Score and leave"
+            cancelLabel="Stay and finish"
+            onConfirmLeave={placeWithCurrentAnswers}
+          >
+            {quizUi}
+          </QuizExitGuard>
+        </AssessmentShell>
+      </>
     );
   }
 
   if (step === "evaluating") {
     return (
-      <AssessmentShell
-        title="Aptitude placement"
-        subtitle="Almost there"
-        maxWidth="2xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
-      >
-        <div className="flex flex-col items-center gap-3 rounded-[2rem] border border-brand-surface bg-white py-16 shadow-sm">
-          <Loader2
-            className="size-8 animate-spin text-brand-special"
-            aria-hidden
-          />
-          <p className="text-sm font-medium text-brand-text">
-            Calculating your pathway category…
-          </p>
-        </div>
-      </AssessmentShell>
+      <>
+        <Navbar />
+        <AssessmentShell maxWidth="2xl" hideHeader title="">
+          <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+            <BrandGradientBar />
+            <div className="flex flex-col items-center gap-3 px-6 py-16">
+              <Loader2
+                className="size-8 animate-spin text-brand-primary"
+                aria-hidden
+              />
+              <p className="text-sm font-medium text-brand-text">
+                Calculating your pathway category…
+              </p>
+              <p className="text-xs text-brand-text/55">
+                Scoring your answers with the survey you just completed
+              </p>
+            </div>
+          </div>
+        </AssessmentShell>
+      </>
     );
   }
 
-  if (step === "result" && result) {
+  if (step === "result" && (result || persistedCategory)) {
     return (
-      <AssessmentShell
-        title="Placement result"
-        subtitle="Your starting science pathway"
-        maxWidth="2xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
-      >
-        <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm animate-in fade-in zoom-in-95 duration-500">
-          <BrandGradientBar />
-          <div className="space-y-6 px-6 py-8 text-center sm:px-8">
-            <Badge className={CATEGORY_STYLE[displayCategory].bg}>
-              {displayCategory}
-            </Badge>
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-brand-text">
-                Your initial category
-              </h2>
-              <p className="mt-2 text-brand-text/65">
-                {CATEGORY_STYLE[displayCategory].label}
-                {persistedCategory ? ` · Saved as ${persistedCategory}` : ""}
-              </p>
+      <>
+        <Navbar />
+        <AssessmentShell
+          title="Placement result"
+          subtitle="Your starting science pathway"
+          maxWidth="2xl"
+          backHref={STUDENT_HOME_PATH}
+          backLabel="Home"
+        >
+          <div className="animate-in fade-in slide-in-from-bottom-3 space-y-6 duration-500">
+            <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+              <BrandGradientBar />
+              <div className="relative px-6 pb-8 pt-7 sm:px-8">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-10 top-0 size-40 rounded-full bg-brand-primary/10 blur-3xl"
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -left-8 bottom-0 size-32 rounded-full bg-brand-secondary/15 blur-3xl"
+                />
+
+                <div className="relative flex flex-col items-center text-center">
+                  <div className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-brand-secondary/15 text-brand-secondary ring-2 ring-brand-secondary/20">
+                    <Trophy className="size-7" aria-hidden />
+                  </div>
+                  <Badge
+                    className={cn(
+                      "mb-3 hover:bg-inherit",
+                      CATEGORY_STYLE[displayCategory].bg
+                    )}
+                  >
+                    <Sparkles className="mr-1 size-3.5" aria-hidden />
+                    {displayCategory}
+                  </Badge>
+                  <h2 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
+                    Your placement
+                  </h2>
+                  <p className="mt-2 max-w-md text-base text-brand-text/65">
+                    {CATEGORY_STYLE[displayCategory].label}. This starting
+                    pathway unlocks lessons at the right level.
+                  </p>
+
+                  {evaluatedThisVisit && result ? (
+                    <div className="mt-6 grid w-full max-w-md grid-cols-3 gap-3">
+                      <ScoreStat
+                        label="Weighted"
+                        value={formatPercent(result.weighted_score)}
+                        accent="primary"
+                      />
+                      <ScoreStat
+                        label="Quiz"
+                        value={formatPercent(result.quiz_score)}
+                        sub="60%"
+                        accent="secondary"
+                      />
+                      <ScoreStat
+                        label="History"
+                        value={formatPercent(result.history_score)}
+                        sub="40%"
+                        accent="accent"
+                      />
+                    </div>
+                  ) : savedScore != null ? (
+                    <div className="mt-6 w-full max-w-xs">
+                      <ScoreStat
+                        label="Placement score"
+                        value={formatPercent(savedScore)}
+                        accent="primary"
+                      />
+                    </div>
+                  ) : null}
+
+                  <Button
+                    asChild
+                    className="mt-8 h-12 rounded-2xl bg-brand-accent px-8 text-base text-white shadow-sm hover:bg-brand-accent/90"
+                  >
+                    <Link href={STUDENT_LEARNING_PATH}>Take a course</Link>
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <ScoreChip label="Weighted" value={result.weighted_score} />
-              <ScoreChip label="Quiz (60%)" value={result.quiz_score} />
-              <ScoreChip label="History (40%)" value={result.history_score} />
-            </div>
-            <Button
-              asChild
-              className="rounded-xl bg-brand-primary text-white hover:bg-brand-primary/90"
-            >
-              <Link href={STUDENT_LEARNING_PATH}>Take a course</Link>
-            </Button>
           </div>
-        </div>
-      </AssessmentShell>
+        </AssessmentShell>
+      </>
     );
   }
 
   return (
-    <AssessmentShell
-      title="Aptitude placement"
-      subtitle="Find your starting science pathway (BASIC · INTERMEDIATE · ADVANCED)"
-      maxWidth="3xl"
-      backHref={STUDENT_HOME_PATH}
-      backLabel="Home"
-    >
-      {error ? (
-        <p
-          className="mb-4 rounded-2xl border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-sm text-brand-accent"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+    <>
+      <Navbar />
+      <AssessmentShell maxWidth="3xl" hideHeader title="">
+        <div className="relative overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+          <BrandGradientBar />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-16 top-10 size-56 rounded-full bg-brand-primary/10 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 bottom-8 size-48 rounded-full bg-brand-accent/10 blur-3xl"
+          />
 
-      <div className="relative overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
-        <BrandGradientBar />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-16 top-10 size-56 rounded-full bg-brand-special/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-12 bottom-8 size-48 rounded-full bg-brand-primary/10 blur-3xl"
-        />
-
-        <div className="relative space-y-10 px-5 py-7 sm:px-8 sm:py-9">
-          <header className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-brand-special/10 text-brand-special hover:bg-brand-special/10">
-                Step 1 · Survey
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-brand-surface text-brand-text/70"
-              >
-                {user.displayName}
-              </Badge>
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight text-brand-text">
-              Tell us about your science journey
-            </h2>
-            <p className="max-w-xl text-base leading-relaxed text-brand-text/65">
-              A few quick questions for Grade {grade}, then a 10-item placement
-              quiz.
-            </p>
-          </header>
-
-          {/* Grade — locked from profile */}
-          <section className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex size-10 items-center justify-center rounded-xl",
-                  accent.bg,
-                  accent.text
-                )}
-              >
-                <GraduationCap className="size-5" aria-hidden />
-              </span>
-              <div>
-                <h3 className="font-semibold text-brand-text">Grade</h3>
-                <p className="text-sm text-brand-text/55">From your profile</p>
-              </div>
-            </div>
-            <p className="pl-[3.25rem] text-lg font-semibold text-brand-text">
-              Grade {grade}
-            </p>
-          </section>
-
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex size-10 items-center justify-center rounded-xl",
-                  primary.bg,
-                  primary.text
-                )}
-              >
-                <Target className="size-5" aria-hidden />
-              </span>
-              <div>
-                <h3 className="font-semibold text-brand-text">
-                  Past science marks
-                </h3>
-                <p className="text-sm text-brand-text/55">Required</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 pl-[3.25rem]">
-              {MARKS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMarks(m.value)}
-                  className={cn(
-                    "rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
-                    marks === m.value
-                      ? "border-brand-special bg-brand-special text-white"
-                      : "border-brand-surface bg-brand-background/70 text-brand-text hover:border-brand-special/40"
-                  )}
+          <div className="relative space-y-12 px-5 py-8 sm:space-y-14 sm:px-8 sm:py-10">
+            <header className="space-y-3 text-center sm:text-left">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <Badge className="gap-1 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
+                  <Sparkles className="size-3.5" aria-hidden />
+                  Grade {grade}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="border-brand-surface text-brand-text/70"
                 >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className={cn(
-                    "flex size-10 items-center justify-center rounded-xl",
-                    special.bg,
-                    special.text
-                  )}
-                >
-                  <BookOpen className="size-5" aria-hidden />
-                </span>
-                <div>
-                  <h3 className="font-semibold text-brand-text">
-                    Chapters completed
-                  </h3>
-                  <p className="text-sm text-brand-text/55">
-                    {selectedChapters.length === 0
-                      ? `Select none if you have not started Grade ${grade} yet`
-                      : `${selectedChapters.length} selected`}
-                  </p>
-                </div>
+                  {user.displayName}
+                </Badge>
               </div>
-              {chapters.length > 0 ? (
+              <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
+                Find your pathway
+              </h1>
+              <p className="mx-auto max-w-lg text-base leading-relaxed text-brand-text/65 sm:mx-0">
+                A short survey for Grade {grade}, then a 10-question placement
+                quiz.
+              </p>
+            </header>
+
+            <div className="space-y-12 sm:space-y-14">
+              <SetupBlock
+                icon={Target}
+                iconClass={cn(primary.bg, primary.text)}
+                title="Past science marks"
+                hint="Required"
+              >
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedChapters(chapters.map((c) => c.chapter_id))
-                    }
-                    className="rounded-lg border border-brand-surface px-3 py-1.5 text-xs font-semibold text-brand-primary hover:bg-brand-primary/5"
-                  >
-                    Select all
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedChapters([])}
-                    disabled={selectedChapters.length === 0}
-                    className="rounded-lg border border-brand-surface px-3 py-1.5 text-xs font-semibold text-brand-text/70 hover:bg-brand-background disabled:opacity-40"
-                  >
-                    Clear
-                  </button>
+                  {MARKS.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setMarks(m.value)}
+                      className={cn(
+                        "rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-all duration-200",
+                        marks === m.value
+                          ? "border-brand-primary/30 bg-brand-primary/5 text-brand-text ring-2 ring-brand-primary/25"
+                          : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-primary/20 hover:bg-white"
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
-            </div>
-            <div className="sm:pl-[3.25rem]">
-              {chaptersLoading ? (
-                <p className="text-sm text-brand-text/55">Loading chapters…</p>
-              ) : chapters.length === 0 ? (
-                <p className="text-sm text-brand-text/55">
-                  No chapters returned for grade {grade}. You can still continue
-                  with an empty selection.
-                </p>
-              ) : (
-                <ul className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-brand-surface bg-brand-background/40 p-2">
-                  {[...chapters]
-                    .sort(
-                      (a, b) =>
-                        (a.chapter ?? 0) - (b.chapter ?? 0) ||
-                        a.chapter_id.localeCompare(b.chapter_id)
-                    )
-                    .map((ch) => {
+              </SetupBlock>
+
+              <SetupBlock
+                icon={BookOpen}
+                iconClass={cn(primary.bg, primary.text)}
+                title="Chapters completed"
+                hint={
+                  chaptersLoading
+                    ? "Loading…"
+                    : selectedChapters.length === 0
+                      ? `Select none if you have not started Grade ${grade} yet`
+                      : `${selectedChapters.length} of ${chapters.length} selected`
+                }
+                action={
+                  !chaptersLoading && chapters.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={
+                        allChaptersSelected
+                          ? () => setSelectedChapters([])
+                          : () =>
+                              setSelectedChapters(
+                                chapters.map((c) => c.chapter_id)
+                              )
+                      }
+                      className="text-xs font-semibold text-brand-primary hover:text-brand-special"
+                    >
+                      {allChaptersSelected ? "Clear all" : "Select all"}
+                    </button>
+                  ) : null
+                }
+              >
+                {chaptersLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-brand-text/55">
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Loading chapters…
+                  </div>
+                ) : chapters.length === 0 ? (
+                  <p className="text-sm text-brand-text/55">
+                    No chapters returned for grade {grade}. You can still
+                    continue with an empty selection.
+                  </p>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {sortedChapters.map((ch) => {
                       const on = selectedChapters.includes(ch.chapter_id);
                       const num =
                         typeof ch.chapter === "number" && ch.chapter > 0
                           ? ch.chapter
                           : null;
                       return (
-                        <li key={ch.chapter_id}>
-                          <button
-                            type="button"
-                            onClick={() => toggleChapter(ch.chapter_id)}
-                            aria-pressed={on}
+                        <button
+                          key={ch.chapter_id}
+                          type="button"
+                          onClick={() => toggleChapter(ch.chapter_id)}
+                          aria-pressed={on}
+                          className={cn(
+                            "group flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all duration-200",
+                            on
+                              ? "border-brand-primary/30 bg-brand-primary/5 ring-2 ring-brand-primary/25"
+                              : "border-brand-surface bg-brand-background/50 hover:border-brand-primary/20 hover:bg-white"
+                          )}
+                        >
+                          <span
                             className={cn(
-                              "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                              "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
                               on
-                                ? "border-brand-primary bg-brand-primary/10 ring-1 ring-brand-primary/25"
-                                : "border-transparent bg-white hover:border-brand-surface hover:bg-brand-background/80"
+                                ? "border-brand-primary bg-brand-primary text-white"
+                                : "border-brand-surface bg-white text-transparent group-hover:border-brand-primary/40"
                             )}
                           >
-                            <span
-                              className={cn(
-                                "flex size-5 shrink-0 items-center justify-center rounded-md border",
-                                on
-                                  ? "border-brand-primary bg-brand-primary text-white"
-                                  : "border-brand-surface bg-white text-transparent"
-                              )}
+                            <Check
+                              className="size-3.5"
+                              strokeWidth={3}
                               aria-hidden
-                            >
-                              <Check className="size-3.5" strokeWidth={3} />
+                            />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold leading-snug text-brand-text">
+                              {num != null
+                                ? `Chapter ${num}`
+                                : formatChapterId(ch.chapter_id)}
+                              {ch.chapter_title ? ` · ${ch.chapter_title}` : ""}
                             </span>
-                            <span
-                              className={cn(
-                                "flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold tabular-nums",
-                                on
-                                  ? "bg-brand-primary text-white"
-                                  : "bg-brand-primary/10 text-brand-primary"
-                              )}
-                            >
-                              {num != null ? num : "—"}
+                            <span className="mt-0.5 block text-xs text-brand-text/45">
+                              {formatChapterId(ch.chapter_id)}
                             </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-brand-text">
-                                {num != null ? `Chapter ${num}` : ch.chapter_id}
-                                {ch.chapter_title
-                                  ? ` · ${ch.chapter_title}`
-                                  : ""}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-brand-text/45">
-                                {ch.chapter_id}
-                              </span>
-                            </span>
-                          </button>
-                        </li>
+                          </span>
+                        </button>
                       );
                     })}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex size-10 items-center justify-center rounded-xl",
-                  accent.bg,
-                  accent.text
+                  </div>
                 )}
+              </SetupBlock>
+
+              <SetupBlock
+                icon={Clock}
+                iconClass={cn(special.bg, special.text)}
+                title="Study hours / week"
+                hint={`Optional · ${hours}h`}
               >
-                <Clock className="size-5" aria-hidden />
-              </span>
-              <div>
-                <h3 className="font-semibold text-brand-text">
-                  Study hours / week
-                </h3>
-                <p className="text-sm text-brand-text/55">
-                  Optional · currently {hours}h
+                <div className="rounded-2xl border border-brand-surface/80 bg-brand-background/40 px-4 py-4">
+                  <input
+                    type="range"
+                    min={0}
+                    max={40}
+                    step={0.5}
+                    value={hours}
+                    onChange={(e) => setHours(Number(e.target.value))}
+                    className="w-full accent-brand-primary"
+                    aria-label="Study hours per week"
+                  />
+                  <div className="mt-2 flex justify-between text-xs font-medium tabular-nums text-brand-text/45">
+                    <span>0</span>
+                    <span>20</span>
+                    <span>40</span>
+                  </div>
+                </div>
+              </SetupBlock>
+
+              <SetupBlock
+                icon={Sparkles}
+                iconClass={cn(primary.bg, primary.text)}
+                title="Self-confidence"
+                hint={`Optional · ${confidence} / 5`}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setConfidence(n)}
+                      className={cn(
+                        "size-11 rounded-2xl border text-sm font-bold transition-all duration-200",
+                        confidence === n
+                          ? "border-brand-primary/30 bg-brand-primary text-white ring-2 ring-brand-primary/25"
+                          : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-primary/20 hover:bg-white"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </SetupBlock>
+
+              <SetupBlock
+                icon={Sparkles}
+                iconClass={cn(special.bg, special.text)}
+                title="Science self-efficacy"
+                hint={`${efficacy} / 5 — I can figure out new or hard science questions`}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setEfficacy(n)}
+                      className={cn(
+                        "size-11 rounded-2xl border text-sm font-bold transition-all duration-200",
+                        efficacy === n
+                          ? "border-brand-secondary/35 bg-brand-secondary/8 text-brand-text ring-2 ring-brand-secondary/25"
+                          : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-secondary/25 hover:bg-white"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </SetupBlock>
+
+              <SetupBlock
+                icon={Check}
+                iconClass={cn(accent.bg, accent.text)}
+                title="Prerequisites ready"
+                hint={`${prereqCount} / 5 selected`}
+              >
+                <div className="grid gap-2.5">
+                  {PREREQS.map((label, i) => {
+                    const on = prereqChecks[i];
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => {
+                          const next = [...prereqChecks];
+                          next[i] = !next[i];
+                          setPrereqChecks(next);
+                        }}
+                        aria-pressed={on}
+                        className={cn(
+                          "group flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all duration-200",
+                          on
+                            ? "border-brand-primary/30 bg-brand-primary/5 ring-2 ring-brand-primary/25"
+                            : "border-brand-surface bg-brand-background/50 hover:border-brand-primary/20 hover:bg-white"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                            on
+                              ? "border-brand-primary bg-brand-primary text-white"
+                              : "border-brand-surface bg-white text-transparent group-hover:border-brand-primary/40"
+                          )}
+                        >
+                          <Check
+                            className="size-3.5"
+                            strokeWidth={3}
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="text-sm leading-snug text-brand-text">
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SetupBlock>
+            </div>
+
+            <div className="space-y-4 pt-2">
+              {error ? (
+                <p
+                  className="rounded-2xl border border-brand-accent/25 bg-brand-accent/10 px-4 py-3 text-sm text-brand-accent"
+                  role="alert"
+                >
+                  {error}
                 </p>
-              </div>
-            </div>
-            <div className="pl-[3.25rem]">
-              <input
-                type="range"
-                min={0}
-                max={40}
-                step={0.5}
-                value={hours}
-                onChange={(e) => setHours(Number(e.target.value))}
-                className="w-full accent-brand-special"
-              />
-            </div>
-          </section>
+              ) : null}
 
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <FieldLabel
-              title="Self-confidence"
-              subtitle={`Optional · ${confidence} / 5`}
-            />
-            <div className="flex flex-wrap gap-2 pl-[3.25rem]">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setConfidence(n)}
-                  className={cn(
-                    "size-11 rounded-xl border text-sm font-bold transition-colors",
-                    confidence === n
-                      ? "border-brand-primary bg-brand-primary text-white"
-                      : "border-brand-surface bg-white text-brand-text hover:border-brand-primary/40"
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
+              <Button
+                disabled={busy}
+                onClick={() => void startQuiz()}
+                className="h-12 w-full gap-2 rounded-2xl bg-brand-accent text-base text-white shadow-sm hover:bg-brand-accent/90 disabled:opacity-50"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" aria-hidden />
+                    Starting…
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="size-5" aria-hidden />
+                    Continue to 10-question quiz
+                  </>
+                )}
+              </Button>
             </div>
-          </section>
-
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <FieldLabel
-              title="Science self-efficacy"
-              subtitle={`${efficacy} / 5 — I can figure out new or hard science questions`}
-            />
-            <div className="flex flex-wrap gap-2 pl-[3.25rem]">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setEfficacy(n)}
-                  className={cn(
-                    "size-11 rounded-xl border text-sm font-bold transition-colors",
-                    efficacy === n
-                      ? "border-brand-special bg-brand-special text-white"
-                      : "border-brand-surface bg-white text-brand-text hover:border-brand-special/40"
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-brand-surface/80 pt-8">
-            <FieldLabel
-              title="Prerequisites ready"
-              subtitle={`${prereqCount} / 5 selected`}
-            />
-            <ul className="space-y-2 pl-[3.25rem]">
-              {PREREQS.map((label, i) => (
-                <li key={i}>
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-surface/80 bg-brand-background/40 px-3 py-3 text-sm text-brand-text transition-colors hover:border-brand-primary/30">
-                    <input
-                      type="checkbox"
-                      checked={prereqChecks[i]}
-                      onChange={(e) => {
-                        const next = [...prereqChecks];
-                        next[i] = e.target.checked;
-                        setPrereqChecks(next);
-                      }}
-                      className="mt-0.5 size-4 accent-brand-primary"
-                    />
-                    <span>{label}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <div className="border-t border-brand-surface/80 pt-6">
-            <Button
-              disabled={busy}
-              onClick={() => void startQuiz()}
-              className="h-12 w-full gap-2 rounded-2xl bg-brand-special text-base text-white hover:bg-brand-special/90"
-            >
-              {busy ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <Sparkles className="size-4" aria-hidden />
-              )}
-              Continue to 10-question quiz
-            </Button>
           </div>
         </div>
-      </div>
-    </AssessmentShell>
+      </AssessmentShell>
+    </>
   );
 }
 
-function FieldLabel({
+function SetupBlock({
+  icon: Icon,
+  iconClass,
   title,
-  subtitle,
+  hint,
+  action,
+  children,
 }: {
+  icon: LucideIcon;
+  iconClass: string;
   title: string;
-  subtitle: string;
+  hint?: string;
+  action?: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="flex size-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
-        <Sparkles className="size-5" aria-hidden />
-      </span>
-      <div>
-        <h3 className="font-semibold text-brand-text">{title}</h3>
-        <p className="text-sm text-brand-text/55">{subtitle}</p>
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-xl",
+              iconClass
+            )}
+          >
+            <Icon className="size-5" aria-hidden />
+          </span>
+          <div>
+            <h2 className="font-semibold text-brand-text">{title}</h2>
+            {hint ? (
+              <p className="text-xs text-brand-text/50">{hint}</p>
+            ) : null}
+          </div>
+        </div>
+        {action}
       </div>
-    </div>
+      {children}
+    </section>
   );
 }
 
-function ScoreChip({ label, value }: { label: string; value: number }) {
-  const display =
-    value <= 1 ? `${Math.round(value * 100)}%` : value.toFixed(1);
+function ScoreStat({
+  label,
+  value,
+  sub,
+  accent = "primary",
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: "primary" | "secondary" | "accent";
+}) {
+  const ring =
+    accent === "secondary"
+      ? "from-brand-secondary/20 to-brand-secondary/5"
+      : accent === "accent"
+        ? "from-brand-accent/20 to-brand-accent/5"
+        : "from-brand-primary/20 to-brand-primary/5";
   return (
-    <div className="rounded-2xl border border-brand-surface bg-brand-background/70 px-2 py-3">
-      <p className="text-xs text-brand-text/55">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-brand-text">{display}</p>
+    <div
+      className={`rounded-2xl border border-brand-surface/80 bg-gradient-to-b ${ring} px-4 py-4 text-center`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wider text-brand-text/50">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-brand-text">
+        {value}
+      </p>
+      {sub ? (
+        <p className="mt-0.5 text-xs text-brand-text/55">{sub}</p>
+      ) : null}
     </div>
   );
 }

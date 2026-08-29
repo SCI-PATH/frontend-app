@@ -28,6 +28,10 @@ export const EDUCATOR_CONTENT_GENERATION_PATH = "/content-generation";
 /** Educator question bank (Component 2 approve / reject / generate). */
 export const EDUCATOR_QUESTION_GENERATION_PATH = "/assessment/question-bank";
 
+/** Shared bank catalog + most-missed (navigated from the question bank). */
+export const EDUCATOR_QUESTION_BANK_BROWSE_PATH =
+  `${EDUCATOR_QUESTION_GENERATION_PATH}/browse` as const;
+
 /** Educator profile page at `/educator-profile`. */
 export const EDUCATOR_PROFILE_PATH = "/educator-profile";
 
