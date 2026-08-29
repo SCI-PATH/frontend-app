@@ -73,6 +73,7 @@ export interface AmplitudeQuizQuestion {
   paragraph?: string;
   question_type?: QuestionType;
   dok_level?: number;
+  chapter_name?: string;
 }
 
 export interface AmplitudeQuizQuestionRaw {
@@ -81,6 +82,7 @@ export interface AmplitudeQuizQuestionRaw {
   question_type?: string;
   type?: string;
   dok_level?: number;
+  chapter_name?: string;
   prompt?: string | NestedPrompt;
   payload?: NestedPrompt;
   question?: string | NestedPrompt;
