@@ -20,13 +20,17 @@ import {
 } from "../api/nextQuestionGate";
 import {
   fetchQuizResults,
+  localAttemptsToSnapshots,
+  mergeLocalAttemptsIntoResults,
   serializeStudentAnswer,
   submitAnswer,
+  type LocalSubmittedAttempt,
 } from "../api/quizzes";
 import { isSessionComplete, normalizeQuestion } from "../api/normalizeQuestion";
 import { useQuizSessionStore } from "../store/useQuizSessionStore";
 import type {
   AnswerResponse,
+  ClientQuestionSnapshot,
   NextQuestionResponse,
   QuizQuestion,
   QuizQuestionRaw,
@@ -42,7 +46,10 @@ interface QuizPlayerProps {
   maxQuestions?: number;
   /** Prefetched first /next from the start flow — boot must not call /next again. */
   initialNext?: NextQuestionResponse | null;
-  onFinished?: (results: QuizResults) => void;
+  onFinished?: (
+    results: QuizResults,
+    extras?: { clientSnapshots?: Record<string, ClientQuestionSnapshot> }
+  ) => void;
   onRestart?: () => void;
   restartLabel?: string;
 }
@@ -106,6 +113,19 @@ function questionTypeIsMultiBlank(type: string | undefined): boolean {
   );
 }
 
+/** True when this served item is the last slot (do not GET /next again). */
+function isFinalServedItem(
+  asked: number | undefined,
+  max: number | undefined,
+  shown: number
+): boolean {
+  if (max != null && max > 0) {
+    if (asked != null && asked >= max) return true;
+    if (shown >= max) return true;
+  }
+  return false;
+}
+
 export function QuizPlayer({
   sessionId,
   maxQuestions,
@@ -125,9 +145,15 @@ export function QuizPlayer({
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const nextInFlight = useRef(false);
+  const submitLock = useRef(false);
   const shownCountRef = useRef(0);
+  /** questions_asked from the last successful GET /next. */
+  const servedAskedRef = useRef(0);
+  /** Last on-screen item already consumed the max slot — never GET /next again. */
+  const lastItemOnScreenRef = useRef(false);
   /** Prevents Strict Mode double-apply within the same mount cycle only. */
   const appliedQuestionIdRef = useRef<string | null>(null);
+  const localAttemptsRef = useRef<LocalSubmittedAttempt[]>([]);
 
   const timerRunning = phase === "answering";
   const elapsed = useElapsedSeconds(
@@ -135,24 +161,54 @@ export function QuizPlayer({
     question?.question_id ?? "none"
   );
 
-  const loadResults = useCallback(async () => {
-    releaseNextQuestion(sessionId);
-    clearNextQuestionGate(sessionId);
-    useQuizSessionStore.getState().setPendingNext(sessionId, null);
-    try {
-      const res = await fetchQuizResults(sessionId);
-      setResults(res);
-      setPhase("results");
-      onFinished?.(res);
-    } catch (err) {
-      setError(
-        err instanceof AssessmentApiError
-          ? err.message
-          : "Failed to load results"
-      );
-      setPhase("error");
-    }
-  }, [sessionId, onFinished]);
+  const loadResults = useCallback(
+    async (pending?: LocalSubmittedAttempt) => {
+      releaseNextQuestion(sessionId);
+      clearNextQuestionGate(sessionId);
+      useQuizSessionStore.getState().setPendingNext(sessionId, null);
+
+      const buildLocals = () => {
+        const locals = [...localAttemptsRef.current];
+        if (
+          pending &&
+          !locals.some((item) => item.question_id === pending.question_id)
+        ) {
+          locals.push(pending);
+        }
+        return locals;
+      };
+
+      const finishWithLocals = (locals: LocalSubmittedAttempt[]) => {
+        const snapshots = localAttemptsToSnapshots(locals);
+        const res = mergeLocalAttemptsIntoResults(
+          { session_id: sessionId, history: [] },
+          locals
+        );
+        if (onFinished) {
+          onFinished(res, { clientSnapshots: snapshots });
+          return true;
+        }
+        setResults(res);
+        setPhase("results");
+        return true;
+      };
+
+      const locals = buildLocals();
+      // Review must not wait on GET /results (can hang while C4/DB is busy).
+      finishWithLocals(locals);
+
+      void fetchQuizResults(sessionId)
+        .then((server) => {
+          if (!onFinished) {
+            setResults(mergeLocalAttemptsIntoResults(server, locals));
+          }
+        })
+        .catch(() => {
+          /* local review already shown */
+        });
+    },
+    [sessionId, onFinished]
+  );
 
   const applyQuestion = useCallback((raw: QuizQuestionRaw, ordinalHint: number) => {
     const q = normalizeQuestion(raw);
@@ -181,6 +237,16 @@ export function QuizPlayer({
   }, []);
 
   const loadNext = useCallback(async () => {
+    if (lastItemOnScreenRef.current) {
+      return;
+    }
+    const capNow = maxQuestions ?? cap ?? null;
+    if (
+      isFinalServedItem(servedAskedRef.current, capNow ?? undefined, shownCountRef.current)
+    ) {
+      lastItemOnScreenRef.current = true;
+      return;
+    }
     if (nextInFlight.current) return;
     nextInFlight.current = true;
     setPhase("loading");
@@ -195,6 +261,9 @@ export function QuizPlayer({
       useQuizSessionStore.getState().setPendingNext(sessionId, next);
 
       if (next.max_questions) setCap(next.max_questions);
+      if (typeof next.questions_asked === "number") {
+        servedAskedRef.current = next.questions_asked;
+      }
 
       const rawQ = extractQuestion(next);
       if (
@@ -205,6 +274,16 @@ export function QuizPlayer({
           hasQuestion: Boolean(rawQ),
         })
       ) {
+        // GET /next must not be the review trigger while a question is unanswered.
+        const unanswered =
+          Boolean(appliedQuestionIdRef.current) &&
+          !localAttemptsRef.current.some(
+            (a) => a.question_id === appliedQuestionIdRef.current
+          );
+        if (unanswered) {
+          setPhase("answering");
+          return;
+        }
         await loadResults();
         return;
       }
@@ -213,14 +292,31 @@ export function QuizPlayer({
         setPhase("error");
         return;
       }
-      applyQuestion(rawQ, shownCountRef.current + 1);
+      const nextShown = shownCountRef.current + 1;
+      const maxNow = next.max_questions ?? capNow ?? undefined;
+      lastItemOnScreenRef.current = isFinalServedItem(
+        next.questions_asked,
+        maxNow,
+        nextShown
+      );
+      applyQuestion(rawQ, nextShown);
     } catch (err) {
-      if (isBankExhaustedError(err) && shownCountRef.current > 0) {
-        // Bank ran out before max — still show whatever was graded.
+      const unanswered =
+        Boolean(appliedQuestionIdRef.current) &&
+        !localAttemptsRef.current.some(
+          (a) => a.question_id === appliedQuestionIdRef.current
+        );
+      if (unanswered && isSessionEndedError(err)) {
+        // Extra /next completed the session; keep the on-screen item for /answer.
+        lastItemOnScreenRef.current = true;
+        setPhase("answering");
+        return;
+      }
+      if (isBankExhaustedError(err) && localAttemptsRef.current.length > 0) {
         await loadResults();
         return;
       }
-      if (isSessionEndedError(err)) {
+      if (isSessionEndedError(err) && localAttemptsRef.current.length > 0) {
         await loadResults();
         return;
       }
@@ -233,7 +329,7 @@ export function QuizPlayer({
     } finally {
       nextInFlight.current = false;
     }
-  }, [sessionId, loadResults, applyQuestion]);
+  }, [sessionId, loadResults, applyQuestion, maxQuestions, cap]);
 
   useEffect(() => {
     setLastSessionId(sessionId);
@@ -246,7 +342,11 @@ export function QuizPlayer({
     setAnswer("");
     setPhase("loading");
     shownCountRef.current = 0;
+    servedAskedRef.current = 0;
+    lastItemOnScreenRef.current = false;
+    submitLock.current = false;
     appliedQuestionIdRef.current = null;
+    localAttemptsRef.current = [];
 
     let cancelled = false;
 
@@ -255,27 +355,38 @@ export function QuizPlayer({
       seedNextQuestion(sessionId, next);
       useQuizSessionStore.getState().setPendingNext(sessionId, next);
       if (next.max_questions) setCap(next.max_questions);
+      if (typeof next.questions_asked === "number") {
+        servedAskedRef.current = next.questions_asked;
+      }
       const rawQ = extractQuestion(next);
       if (!rawQ) {
         setError("First question payload was empty.");
         setPhase("error");
         return;
       }
+      lastItemOnScreenRef.current = isFinalServedItem(
+        next.questions_asked,
+        next.max_questions ?? maxQuestions,
+        1
+      );
       applyQuestion(rawQ, 1);
     }
 
-    // Custom quiz start already called /next once — never call it again here.
-    if (initialNext) {
-      showFirst(initialNext);
+    // Prefer the unanswered payload already in memory (mid-quiz remount /
+    // Fast Refresh). Never prefer the original Q1 prefetch over it — that
+    // would either re-show Q1 or, if the gate is empty, GET /next and
+    // complete the session before the last POST /answer.
+    const fromStore =
+      useQuizSessionStore.getState().pendingNextBySession[sessionId];
+    if (fromStore) {
+      showFirst(fromStore);
       return () => {
         cancelled = true;
       };
     }
 
-    const fromStore =
-      useQuizSessionStore.getState().pendingNextBySession[sessionId];
-    if (fromStore) {
-      showFirst(fromStore);
+    if (initialNext) {
+      showFirst(initialNext);
       return () => {
         cancelled = true;
       };
@@ -310,20 +421,34 @@ export function QuizPlayer({
   }, [sessionId, setLastSessionId]);
 
   async function handleSubmit() {
+    if (phase !== "answering") return;
+    if (submitLock.current) return;
     if (!question || !hasAnswer(answer)) return;
     if (!question.question_id) {
       setError("Cannot submit — question id is missing.");
       setPhase("error");
       return;
     }
+    submitLock.current = true;
     setPhase("submitting");
     setError(null);
     try {
+      const serialized = serializeStudentAnswer(answer);
       const res = await submitAnswer(sessionId, {
         question_id: question.question_id,
-        student_answer: serializeStudentAnswer(answer),
+        student_answer: serialized,
         time_taken_seconds: elapsed,
       });
+
+      const localAttempt: LocalSubmittedAttempt = {
+        question_id: question.question_id,
+        question_type: question.question_type,
+        prompt: question.prompt,
+        options: question.options,
+        student_answer: serialized,
+        answerResponse: res,
+      };
+      localAttemptsRef.current.push(localAttempt);
 
       const grade = res.grade as
         | { is_correct?: boolean; feedback?: string }
@@ -339,28 +464,15 @@ export function QuizPlayer({
         );
       }
 
-      const intendedMax = maxQuestions ?? cap ?? null;
-      const answeredSoFar = shownCountRef.current;
-      const serverSaysDone = answerIndicatesComplete(res);
+      const intendedMax = maxQuestions ?? cap ?? undefined;
+      const asked = res.questions_asked ?? servedAskedRef.current;
+      const quizDone =
+        answerIndicatesComplete(res) ||
+        lastItemOnScreenRef.current ||
+        isFinalServedItem(asked, intendedMax, shownCountRef.current);
 
-      // If we still owe the student more questions, keep going even when the
-      // server marks complete early (usually from an extra burned /next).
-      if (
-        serverSaysDone &&
-        intendedMax != null &&
-        answeredSoFar < intendedMax
-      ) {
-        try {
-          await loadNext();
-          return;
-        } catch {
-          await loadResults();
-          return;
-        }
-      }
-
-      if (serverSaysDone) {
-        await loadResults();
+      if (quizDone) {
+        await loadResults(localAttempt);
         return;
       }
       await loadNext();
@@ -375,6 +487,8 @@ export function QuizPlayer({
           : "Could not submit answer"
       );
       setPhase("answering");
+    } finally {
+      submitLock.current = false;
     }
   }
 
@@ -385,19 +499,7 @@ export function QuizPlayer({
     : `Question ${progressNum}`;
 
   if (phase === "results" && onFinished) {
-    return (
-      <Card className="border-brand-surface bg-white">
-        <CardContent className="flex flex-col items-center gap-3 py-16">
-          <Loader2
-            className="size-8 animate-spin text-brand-primary"
-            aria-hidden
-          />
-          <p className="text-sm font-medium text-brand-text">
-            Preparing your results…
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   if (phase === "results" && results) {
@@ -424,6 +526,13 @@ export function QuizPlayer({
         <CardFooter className="gap-2">
           <Button
             onClick={() => {
+              if (
+                lastItemOnScreenRef.current &&
+                localAttemptsRef.current.length > 0
+              ) {
+                void loadResults();
+                return;
+              }
               appliedQuestionIdRef.current = null;
               void loadNext();
             }}
@@ -461,7 +570,7 @@ export function QuizPlayer({
   }
 
   return (
-    <Card className="border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)] ring-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <Card className="mx-auto w-full max-w-2xl border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)] ring-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-brand-surface/80 pb-4">
         <div className="space-y-1">
           <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">

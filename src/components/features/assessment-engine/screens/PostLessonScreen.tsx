@@ -6,15 +6,21 @@ import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { triggerPostLessonQuiz } from "../api/quizzes";
+import { seedNextQuestion } from "../api/nextQuestionGate";
+import { fetchNextQuestion, triggerPostLessonQuiz } from "../api/quizzes";
 import { useAssessmentUser } from "../store/useAssessmentUser";
+import { useQuizSessionStore } from "../store/useQuizSessionStore";
 import { AssessmentApiError } from "../types";
+import type { NextQuestionResponse } from "../types";
 import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizPlayer } from "../components/QuizPlayer";
 
 /**
  * Post-lesson quiz — no start screen; begins immediately.
+ *
+ * Prefetches the first GET /next here so QuizPlayer never burns a second slot
+ * on mount (backend increments questions_asked on every /next).
  *
  * // TODO: INTEGRATION - Component 1 should navigate here after lesson complete:
  * // /assessment/post-lesson?chapter_id=G6_C8&grade=6
@@ -27,9 +33,29 @@ export function PostLessonScreen() {
   const grade = gradeParam ? Number(gradeParam) : user.grade ?? 6;
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [initialNext, setInitialNext] = useState<NextQuestionResponse | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const started = useRef(false);
+
+  async function startQuiz() {
+    const session = await triggerPostLessonQuiz({
+      student_id: user.userId,
+      chapter_id: chapterId,
+      grade,
+    });
+    const id = session.session_id;
+    if (!id) {
+      throw new AssessmentApiError(500, "No session_id returned");
+    }
+    const first = await fetchNextQuestion(id);
+    seedNextQuestion(id, first);
+    useQuizSessionStore.getState().setPendingNext(id, first);
+    setInitialNext(first);
+    setSessionId(id);
+  }
 
   useEffect(() => {
     if (started.current) return;
@@ -50,15 +76,7 @@ export function PostLessonScreen() {
         return;
       }
       try {
-        const session = await triggerPostLessonQuiz({
-          student_id: user.userId,
-          chapter_id: chapterId,
-          grade,
-        });
-        if (!session.session_id) {
-          throw new AssessmentApiError(500, "No session_id returned");
-        }
-        setSessionId(session.session_id);
+        await startQuiz();
       } catch (err) {
         setError(
           err instanceof AssessmentApiError
@@ -77,16 +95,9 @@ export function PostLessonScreen() {
     setError(null);
     setLoading(true);
     setSessionId(null);
+    setInitialNext(null);
     try {
-      const session = await triggerPostLessonQuiz({
-        student_id: user.userId,
-        chapter_id: chapterId,
-        grade,
-      });
-      if (!session.session_id) {
-        throw new AssessmentApiError(500, "No session_id returned");
-      }
-      setSessionId(session.session_id);
+      await startQuiz();
     } catch (err) {
       setError(
         err instanceof AssessmentApiError
@@ -142,10 +153,11 @@ export function PostLessonScreen() {
         </Card>
       ) : null}
 
-      {sessionId ? (
+      {sessionId && initialNext ? (
         <QuizPlayer
           sessionId={sessionId}
           maxQuestions={15}
+          initialNext={initialNext}
           onRestart={retry}
           restartLabel="Retake post-lesson quiz"
         />

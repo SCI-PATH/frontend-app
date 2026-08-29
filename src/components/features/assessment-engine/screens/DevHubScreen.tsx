@@ -32,7 +32,7 @@ import { AssessmentApiError } from "../types";
 const NAV_CARDS = [
   {
     href: "/assessment/amplitude",
-    title: "Amplitude Test",
+    title: "Aptitude Test",
     description: "Survey → 10-item quiz → initial category",
     icon: Sparkles,
     roles: ["student"] as const satisfies readonly UserRole[],

@@ -3,11 +3,22 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { NextQuestionResponse } from "../types";
+import type { NextQuestionResponse, QuizResults, ClientQuestionSnapshot } from "../types";
+
+interface CustomQuizReviewState {
+  sessionId: string;
+  results: QuizResults;
+  clientSnapshots: Record<string, ClientQuestionSnapshot>;
+  expectedQuestionCount: number;
+}
 
 interface QuizSessionState {
   lastSessionId: string | null;
   setLastSessionId: (sessionId: string | null) => void;
+  /** Restores custom-quiz results after navigation / refresh. */
+  customQuizReview: CustomQuizReviewState | null;
+  setCustomQuizReview: (review: CustomQuizReviewState | null) => void;
+  clearCustomQuizReview: () => void;
   /**
    * In-memory cache of the unanswered /next payload (survives QuizPlayer
    * Fast Refresh better than a module-level Map alone). Not persisted.
@@ -24,6 +35,9 @@ export const useQuizSessionStore = create<QuizSessionState>()(
     (set, get) => ({
       lastSessionId: null,
       setLastSessionId: (sessionId) => set({ lastSessionId: sessionId }),
+      customQuizReview: null,
+      setCustomQuizReview: (review) => set({ customQuizReview: review }),
+      clearCustomQuizReview: () => set({ customQuizReview: null }),
       pendingNextBySession: {},
       setPendingNext: (sessionId, payload) => {
         const current = get().pendingNextBySession;
@@ -41,8 +55,10 @@ export const useQuizSessionStore = create<QuizSessionState>()(
     }),
     {
       name: "assessment-engine-last-session",
-      // Never persist question payloads — only lastSessionId.
-      partialize: (state) => ({ lastSessionId: state.lastSessionId }),
+      partialize: (state) => ({
+        lastSessionId: state.lastSessionId,
+        customQuizReview: state.customQuizReview,
+      }),
     }
   )
 );

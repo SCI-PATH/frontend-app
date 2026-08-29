@@ -2,6 +2,13 @@
 
 export type QuestionType = "MCQ" | "TrueFalse" | "ShortAnswer" | "MultiBlank";
 
+/** FE-only question snapshot for review when BE history lags. */
+export interface ClientQuestionSnapshot {
+  prompt: string;
+  question_type?: QuestionType;
+  options?: Record<string, string> | string[];
+}
+
 export type AmplitudeCategory = "BASIC" | "INTERMEDIATE" | "ADVANCED";
 
 export type PastGradeMarksRange = "BELOW_50" | "50_75" | "ABOVE_75";
@@ -136,6 +143,16 @@ export interface TriggerPostLessonRequest {
   grade: number;
 }
 
+/** Component 4 snapshot echoed by IAE (not a browser call to C4). */
+export interface BktSnapshotPublic {
+  source?: string;
+  topic_bkt?: Record<string, unknown>;
+  chapter_ids?: string[];
+  topic_ids?: string[];
+  unknown_chapter_ids?: string[];
+  [key: string]: unknown;
+}
+
 export interface QuizSession {
   session_id: string;
   student_id?: string;
@@ -146,6 +163,7 @@ export interface QuizSession {
   chapters?: string[];
   grade?: number;
   elo_rating?: number;
+  bkt?: BktSnapshotPublic | null;
 }
 
 export interface QuizQuestion {
@@ -195,12 +213,32 @@ export interface NextQuestionResponse {
   remaining?: number;
   questions_asked?: number;
   max_questions?: number;
+  elo_rating?: number;
+  target_dok?: number;
+  target_topic_id?: string;
+  target_question_type?: string;
+  bkt?: BktSnapshotPublic | null;
 }
 
 export interface AnswerRequest {
   question_id: string;
   student_answer: string;
   time_taken_seconds: number;
+}
+
+/** Grading payload from POST /answer (`grade` field). */
+export interface GradeResultPayload {
+  is_correct?: boolean;
+  accuracy_score?: number;
+  feedback?: string;
+  reasoning?: string;
+  error_category?: string | null;
+  missing_keywords?: string[] | null;
+  detailed_explanation?: string | null;
+  missed_blanks?: Record<string, string> | null;
+  concept_explanation?: string | null;
+  distractor_tag?: string | null;
+  distractor_label?: string | null;
 }
 
 export interface AnswerResponse {
@@ -212,7 +250,8 @@ export interface AnswerResponse {
   questions_asked?: number;
   elo_rating?: number;
   status?: string;
-  grade?: unknown;
+  grade?: GradeResultPayload;
+  bkt?: BktSnapshotPublic | null;
 }
 
 /** Attempt trail from GET /quizzes/{id}/results — IAE AttemptRecord (not C4). */
@@ -279,17 +318,24 @@ export interface TerminateRequest {
 export interface SessionSummary {
   session_id: string;
   student_id?: string;
+  user_id?: string;
   created_at?: string;
   ended_at?: string;
   status?: string;
   chapters?: string[];
   chapter_id?: string;
+  scope_chapter?: string;
+  scope_chapters?: string[];
   grade?: number;
   score?: number;
   accuracy?: number;
   correct_count?: number;
   total_answered?: number;
+  /** API field from list sessions. */
+  session_kind?: string;
   session_type?: string;
+  questions_asked?: number;
+  max_questions?: number;
 }
 
 export interface SessionDetail extends SessionSummary {
@@ -298,6 +344,8 @@ export interface SessionDetail extends SessionSummary {
   session?: {
     session_id?: string;
     status?: string;
+    scope_chapter?: string;
+    scope_chapters?: string[];
     questions_asked?: number;
     max_questions?: number;
     history?: AttemptRecord[];

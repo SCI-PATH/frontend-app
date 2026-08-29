@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
@@ -30,7 +31,7 @@ import type {
   PastGradeMarksRange,
 } from "../types";
 import { AssessmentApiError } from "../types";
-import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
+import { STUDENT_HOME_PATH, STUDENT_LEARNING_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { hasAnswer, QuestionRenderer } from "../components/QuestionRenderer";
 import { ACCENT_STYLES } from "@/components/common/landing/landing-content";
@@ -143,7 +144,7 @@ export function AmplitudeScreen() {
 
   async function startQuiz() {
     if (user.role !== "student") {
-      setError("The amplitude placement test is available to student accounts.");
+      setError("The aptitude placement test is available to student accounts.");
       return;
     }
     if (!user.userId) {
@@ -159,7 +160,7 @@ export function AmplitudeScreen() {
       if (list.length === 0) {
         throw new AssessmentApiError(
           500,
-          "Amplitude quiz returned no questions (is the placement bank generated for this grade?)"
+          "Aptitude quiz returned no questions (is the placement bank generated for this grade?)"
         );
       }
       setQuestions(list);
@@ -171,7 +172,7 @@ export function AmplitudeScreen() {
       setError(
         err instanceof AssessmentApiError
           ? err.message
-          : "Could not start amplitude"
+          : "Could not start aptitude test"
       );
     } finally {
       setBusy(false);
@@ -241,7 +242,7 @@ export function AmplitudeScreen() {
   if (step === "quiz" && questions[qi]) {
     return (
       <AssessmentShell
-        title="Amplitude quiz"
+        title="Aptitude quiz"
         subtitle={`Grade ${grade} · Question ${qi + 1} of ${questions.length}`}
         maxWidth="2xl"
         backHref={STUDENT_HOME_PATH}
@@ -295,7 +296,7 @@ export function AmplitudeScreen() {
   if (step === "evaluating") {
     return (
       <AssessmentShell
-        title="Amplitude placement"
+        title="Aptitude placement"
         subtitle="Almost there"
         maxWidth="2xl"
         backHref={STUDENT_HOME_PATH}
@@ -347,7 +348,7 @@ export function AmplitudeScreen() {
               asChild
               className="rounded-xl bg-brand-primary text-white hover:bg-brand-primary/90"
             >
-              <a href={STUDENT_HOME_PATH}>Go to home</a>
+              <Link href={STUDENT_LEARNING_PATH}>Take a course</Link>
             </Button>
           </div>
         </div>
@@ -357,7 +358,7 @@ export function AmplitudeScreen() {
 
   return (
     <AssessmentShell
-      title="Amplitude placement"
+      title="Aptitude placement"
       subtitle="Find your starting science pathway (BASIC · INTERMEDIATE · ADVANCED)"
       maxWidth="3xl"
       backHref={STUDENT_HOME_PATH}
