@@ -1,9 +1,6 @@
 import { API_BASE_URL } from "@/lib/api/config";
 import { useUserStore } from "@/store/useUserStore";
 
-/** Matches Component 4 USER_LEVEL_FRUSTRATION_TOPIC — farm score is per student. */
-const USER_LEVEL_TOPIC_ID = "USER";
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -64,7 +61,6 @@ export async function fetchGamingFrustration(studentId: string): Promise<{
 export async function postFrustrationCue(input: {
   userId: string;
   frustrationScore: number;
-  topicId?: string;
   source?: string;
 }): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/api/v1/engagement/frustration-cue`, {
@@ -72,7 +68,6 @@ export async function postFrustrationCue(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       user_id: input.userId,
-      topic_id: input.topicId?.trim() || USER_LEVEL_TOPIC_ID,
       frustration_score: input.frustrationScore,
       source: input.source ?? "homepage_socrates_open",
     }),
