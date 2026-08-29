@@ -30,7 +30,27 @@ export function resolveInitialCategory(
 export type PlacementStatus = {
   completed: boolean;
   category: AmplitudeCategory | null;
+  /** True when IAE did not respond in time — do not block the UI indefinitely. */
+  unreachable?: boolean;
 };
+
+const PLACEMENT_FETCH_TIMEOUT_MS = 6_000;
+
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** IAE expects completed_chapters_count (int), not completed_chapter_ids. */
 function toAmplitudeSurveyPayload(body: AmplitudeSurveyRequest) {
@@ -62,9 +82,9 @@ export async function fetchPlacementStatus(
 
   let response: Response;
   try {
-    response = await fetch(url, { headers: { Accept: "application/json" } });
+    response = await fetchWithTimeout(url, PLACEMENT_FETCH_TIMEOUT_MS);
   } catch {
-    return { completed: false, category: null };
+    return { completed: false, category: null, unreachable: true };
   }
 
   if (response.status === 404) {

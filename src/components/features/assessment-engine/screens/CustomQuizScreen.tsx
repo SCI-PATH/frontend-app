@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Layers, Loader2, Rocket, Target } from "lucide-react";
 
+import { Navbar } from "@/components/common/Navbar";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { useAssessmentUser } from "../store/useAssessmentUser";
 import { useQuizSessionStore } from "../store/useQuizSessionStore";
 import type {
   AmplitudeChapter,
+  ClientQuestionSnapshot,
   NextQuestionResponse,
   QuestionType,
   QuizResults,
@@ -51,6 +53,8 @@ type View = "setup" | "playing" | "results";
 export function CustomQuizScreen() {
   const user = useAssessmentUser();
   const grade = user.grade ?? 6;
+  const setCustomQuizReview = useQuizSessionStore((s) => s.setCustomQuizReview);
+  const clearCustomQuizReview = useQuizSessionStore((s) => s.clearCustomQuizReview);
   const [apiChapters, setApiChapters] = useState<AmplitudeChapter[] | null>(
     null
   );
@@ -64,9 +68,46 @@ export function CustomQuizScreen() {
     null
   );
   const [results, setResults] = useState<QuizResults | null>(null);
+  const [clientSnapshots, setClientSnapshots] = useState<
+    Record<string, ClientQuestionSnapshot>
+  >({});
   const [view, setView] = useState<View>("setup");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bootstrapped, setBootstrapped] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function restoreReview() {
+      if (cancelled) return;
+      const saved = useQuizSessionStore.getState().customQuizReview;
+      if (saved?.sessionId && saved.results?.history?.length) {
+        setSessionId(saved.sessionId);
+        setResults(saved.results);
+        setClientSnapshots(saved.clientSnapshots ?? {});
+        setNumQuestions(saved.expectedQuestionCount || 5);
+        setView("results");
+      }
+      setBootstrapped(true);
+    }
+
+    if (useQuizSessionStore.persist.hasHydrated()) {
+      restoreReview();
+    } else {
+      const unsub = useQuizSessionStore.persist.onFinishHydration(() => {
+        restoreReview();
+      });
+      return () => {
+        cancelled = true;
+        unsub();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,11 +159,26 @@ export function CustomQuizScreen() {
       clearNextQuestionGate(sessionId);
       useQuizSessionStore.getState().setPendingNext(sessionId, null);
     }
+    clearCustomQuizReview();
     setSessionId(null);
     setInitialNext(null);
     setResults(null);
+    setClientSnapshots({});
     setError(null);
     setView("setup");
+  }
+
+  function persistReview(
+    id: string,
+    res: QuizResults,
+    snapshots: Record<string, ClientQuestionSnapshot>
+  ) {
+    setCustomQuizReview({
+      sessionId: id,
+      results: res,
+      clientSnapshots: snapshots,
+      expectedQuestionCount: numQuestions,
+    });
   }
 
   async function handleStart() {
@@ -166,6 +222,7 @@ export function CustomQuizScreen() {
       setResults(null);
       setInitialNext(first);
       setSessionId(id);
+      clearCustomQuizReview();
       setView("playing");
     } catch (err) {
       setError(
@@ -178,22 +235,35 @@ export function CustomQuizScreen() {
     }
   }
 
+  if (!bootstrapped) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-brand-primary" aria-hidden />
+      </div>
+    );
+  }
+
   if (view === "results" && sessionId) {
     return (
-      <AssessmentShell
-        title="Quiz results"
-        subtitle="See your score and every question to review."
-        maxWidth="3xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
-      >
-        <ResultsSummary
-          sessionId={sessionId}
-          studentId={user.userId}
-          results={results}
-          onRetry={handleRetry}
-        />
-      </AssessmentShell>
+      <>
+        <Navbar />
+        <AssessmentShell
+          title="Quiz results"
+          subtitle="See your score and every question to review."
+          maxWidth="3xl"
+          backHref={STUDENT_HOME_PATH}
+          backLabel="Home"
+        >
+          <ResultsSummary
+            sessionId={sessionId}
+            studentId={user.userId}
+            results={results}
+            expectedQuestionCount={numQuestions}
+            clientSnapshots={clientSnapshots}
+            onRetry={handleRetry}
+          />
+        </AssessmentShell>
+      </>
     );
   }
 
@@ -203,16 +273,19 @@ export function CustomQuizScreen() {
         title="Custom Quiz"
         subtitle="Adaptive practice in progress"
         maxWidth="2xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
+        hideHeader
+        className="flex flex-col items-center justify-center"
       >
         <QuizPlayer
           sessionId={sessionId}
           maxQuestions={numQuestions}
           initialNext={initialNext}
-          onFinished={(res) => {
+          onFinished={(res, extras) => {
+            const snapshots = extras?.clientSnapshots ?? {};
             setResults(res);
+            setClientSnapshots(snapshots);
             setView("results");
+            persistReview(sessionId, res, snapshots);
           }}
           onRestart={handleRetry}
           restartLabel="Configure another quiz"
@@ -225,13 +298,15 @@ export function CustomQuizScreen() {
   const primary = ACCENT_STYLES.primary;
 
   return (
-    <AssessmentShell
-      title="Build your quiz"
-      subtitle="Choose chapters, length, and question styles — then dive in."
-      maxWidth="3xl"
-      backHref={STUDENT_HOME_PATH}
-      backLabel="Home"
-    >
+    <>
+      <Navbar />
+      <AssessmentShell
+        title="Build your quiz"
+        subtitle="Choose chapters, length, and question styles — then dive in."
+        maxWidth="3xl"
+        backHref={STUDENT_HOME_PATH}
+        backLabel="Home"
+      >
       <div className="relative overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
         <BrandGradientBar />
         <div
@@ -451,6 +526,7 @@ export function CustomQuizScreen() {
           </Button>
         </div>
       </div>
-    </AssessmentShell>
+      </AssessmentShell>
+    </>
   );
 }

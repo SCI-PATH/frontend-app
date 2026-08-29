@@ -68,7 +68,7 @@ export function QuestionRenderer({
       : promptToString(prompt);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-xl space-y-5 text-center">
       <p className="text-lg font-medium leading-relaxed whitespace-pre-wrap text-brand-text sm:text-xl">
         {stem}
       </p>
@@ -129,7 +129,7 @@ function McqOptions({
       : ["A", "B", "C", "D"].map((key) => ({ key, label: `Option ${key}` }));
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-lg gap-3 sm:grid-cols-2">
       {list.map((opt) => {
         const selected = value === opt.key || value === opt.label;
         return (
@@ -175,34 +175,29 @@ function TrueFalseOptions({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
-  const choices = [
-    { key: "True", accent: "brand-secondary" },
-    { key: "False", accent: "brand-accent" },
-  ] as const;
+  const choices = ["True", "False"] as const;
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="mx-auto grid w-full max-w-sm grid-cols-2 gap-3">
       {choices.map((c) => {
         const selected =
-          value.toLowerCase() === c.key.toLowerCase() ||
-          value === (c.key === "True" ? "T" : "F");
+          value.toLowerCase() === c.toLowerCase() ||
+          value === (c === "True" ? "T" : "F");
         return (
           <button
-            key={c.key}
+            key={c}
             type="button"
             disabled={disabled}
-            onClick={() => onChange(c.key)}
+            onClick={() => onChange(c)}
             className={cn(
               "flex h-16 items-center justify-center rounded-xl border text-lg font-semibold transition-all",
               selected
-                ? c.key === "True"
-                  ? "border-brand-secondary bg-brand-secondary/15 text-brand-text ring-2 ring-brand-secondary/40"
-                  : "border-brand-accent bg-brand-accent/15 text-brand-text ring-2 ring-brand-accent/40"
-                : "border-brand-surface bg-white text-brand-text hover:bg-brand-surface/60",
+                ? "border-brand-primary bg-brand-primary/10 text-brand-text shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30"
+                : "border-brand-surface bg-white text-brand-text hover:border-brand-primary/40 hover:bg-brand-primary/5",
               disabled && "opacity-60"
             )}
           >
-            {c.key}
+            {c}
           </button>
         );
       })}
@@ -224,7 +219,7 @@ function MultiBlankInputs({
   const blanks = Array.from({ length: count }, (_, i) => value[i] ?? "");
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto w-full max-w-md space-y-3 text-left">
       {blanks.map((blank, i) => (
         <div key={i} className="space-y-1">
           <label className="text-xs font-medium text-brand-text/60">

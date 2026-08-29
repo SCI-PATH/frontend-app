@@ -30,7 +30,8 @@ export function RequirePlacement({ children }: Props) {
       placement.status === "ready" &&
       role === "student" &&
       isAuthenticated &&
-      placement.needsAmplitude
+      placement.needsAmplitude &&
+      !placement.unreachable
     ) {
       router.replace("/assessment/amplitude");
     }
@@ -42,10 +43,38 @@ export function RequirePlacement({ children }: Props) {
 
   if (placement.status === "idle" || placement.status === "loading") {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-brand-text/60">
-        <Loader2 className="size-5 animate-spin" aria-hidden />
-        Checking placement…
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-center text-brand-text/60">
+        <div className="flex items-center gap-2">
+          <Loader2 className="size-5 animate-spin" aria-hidden />
+          Checking placement…
+        </div>
+        <p className="max-w-sm text-xs text-brand-text/45">
+          Contacting the assessment service. This should only take a moment.
+        </p>
       </div>
+    );
+  }
+
+  if (
+    placement.status === "ready" &&
+    placement.unreachable &&
+    placement.needsAmplitude
+  ) {
+    return (
+      <>
+        <div className="mx-auto mb-4 max-w-3xl rounded-2xl border border-brand-primary/25 bg-brand-primary/8 px-4 py-3 text-sm text-brand-text">
+          <p className="font-medium text-brand-text">
+            Could not verify placement — assessment service unreachable.
+          </p>
+          <p className="mt-1 text-brand-text/65">
+            Is IAE running on port 8004? Check{" "}
+            <code className="text-xs">NEXT_PUBLIC_IAE_API_BASE</code> in{" "}
+            <code className="text-xs">.env.local</code>. You can still use the
+            quiz below; complete the aptitude test when the service is back.
+          </p>
+        </div>
+        {children}
+      </>
     );
   }
 

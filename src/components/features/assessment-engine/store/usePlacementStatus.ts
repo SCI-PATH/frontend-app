@@ -13,11 +13,15 @@ export type PlacementState =
       status: "ready";
       needsAmplitude: boolean;
       category: AmplitudeCategory | null;
+      /** IAE placement check timed out or failed — fail-open for quiz routes. */
+      unreachable?: boolean;
     };
 
 /** True when Amplitude placement is finished (student has an IAE category). */
 export function isPlacementComplete(state: PlacementState): boolean {
-  return state.status === "ready" && !state.needsAmplitude;
+  if (state.status !== "ready") return false;
+  if (state.unreachable) return true;
+  return !state.needsAmplitude;
 }
 
 /**
@@ -55,6 +59,7 @@ export function usePlacementStatus(): PlacementState {
         status: "ready",
         needsAmplitude: !result.completed,
         category: result.category,
+        unreachable: result.unreachable,
       });
     }
 

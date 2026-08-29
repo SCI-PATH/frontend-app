@@ -15,6 +15,8 @@ interface AssessmentShellProps {
   actions?: ReactNode;
   className?: string;
   maxWidth?: "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
+  /** When true, hides logo/title/back block (children still render). */
+  hideHeader?: boolean;
 }
 
 const maxWidthClass = {
@@ -36,6 +38,7 @@ export function AssessmentShell({
   actions,
   className,
   maxWidth = "4xl",
+  hideHeader = false,
 }: AssessmentShellProps) {
   return (
     <div
@@ -63,34 +66,44 @@ export function AssessmentShell({
           maxWidthClass[maxWidth]
         )}
       >
-        <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
-            {backHref ? (
-              <Link
-                href={backHref}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-primary transition-colors hover:text-brand-special"
-              >
-                <ArrowLeft className="size-4" aria-hidden />
-                {backLabel}
-              </Link>
-            ) : null}
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-white p-1.5 ring-2 ring-brand-primary/15">
-                <AppLogo size="md" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
-                  {title}
-                </h1>
-                {subtitle ? (
-                  <p className="mt-1 text-sm text-brand-text/65 sm:text-base">
-                    {subtitle}
-                  </p>
+        <div
+          className={cn(
+            hideHeader ? "mb-0" : "mb-8 flex flex-wrap items-start justify-between gap-3"
+          )}
+        >
+          {!hideHeader ? (
+            <>
+              <div className="space-y-2">
+                {backHref ? (
+                  <Link
+                    href={backHref}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-primary transition-colors hover:text-brand-special"
+                  >
+                    <ArrowLeft className="size-4" aria-hidden />
+                    {backLabel}
+                  </Link>
                 ) : null}
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-white p-1.5 ring-2 ring-brand-primary/15">
+                    <AppLogo size="md" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
+                      {title}
+                    </h1>
+                    {subtitle ? (
+                      <p className="mt-1 text-sm text-brand-text/65 sm:text-base">
+                        {subtitle}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+              {actions ? (
+                <div className="flex flex-wrap items-center gap-2">{actions}</div>
+              ) : null}
+            </>
+          ) : null}
         </div>
         {children}
       </div>

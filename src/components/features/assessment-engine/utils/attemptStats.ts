@@ -125,19 +125,7 @@ export function collectAttemptHistory(
     }
     const flat = item as Record<string, unknown> | null;
     if (flat && typeof flat.question_id === "string") {
-      push({
-        question_id: flat.question_id,
-        question_type: flat.question_type as AttemptRecord["question_type"],
-        student_answer:
-          typeof flat.student_answer === "string"
-            ? flat.student_answer
-            : undefined,
-        is_correct: flat.is_correct as boolean | undefined,
-        accuracy_score:
-          typeof flat.accuracy_score === "number"
-            ? flat.accuracy_score
-            : undefined,
-      });
+      push(flat);
     }
   }
 
