@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, LogOut, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import {
   clearNextQuestionGate,
   fetchNextQuestionGuarded,
@@ -24,6 +25,7 @@ import {
   mergeLocalAttemptsIntoResults,
   serializeStudentAnswer,
   submitAnswer,
+  terminateQuizSession,
   type LocalSubmittedAttempt,
 } from "../api/quizzes";
 import { isSessionComplete, normalizeQuestion } from "../api/normalizeQuestion";
@@ -38,6 +40,7 @@ import type {
 } from "../types";
 import { AssessmentApiError } from "../types";
 import { hasAnswer, QuestionRenderer } from "./QuestionRenderer";
+import { QuizExitGuard } from "./QuizExitGuard";
 import { QuizResultsView } from "./QuizResultsView";
 import { QuizTimer, useElapsedSeconds } from "./QuizTimer";
 
@@ -50,8 +53,12 @@ interface QuizPlayerProps {
     results: QuizResults,
     extras?: { clientSnapshots?: Record<string, ClientQuestionSnapshot> }
   ) => void;
+  /** Called when student quits with no graded answers yet. */
+  onQuitToSetup?: () => void;
   onRestart?: () => void;
   restartLabel?: string;
+  /** Intercept Home / back and show quit confirmation. */
+  enableExitGuard?: boolean;
 }
 
 type Phase = "loading" | "answering" | "submitting" | "results" | "error";
@@ -131,8 +138,10 @@ export function QuizPlayer({
   maxQuestions,
   initialNext = null,
   onFinished,
+  onQuitToSetup,
   onRestart,
   restartLabel,
+  enableExitGuard = false,
 }: QuizPlayerProps) {
   const setLastSessionId = useQuizSessionStore((s) => s.setLastSessionId);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -144,6 +153,8 @@ export function QuizPlayer({
   const [results, setResults] = useState<QuizResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [quitOpen, setQuitOpen] = useState(false);
+  const [quitting, setQuitting] = useState(false);
   const nextInFlight = useRef(false);
   const submitLock = useRef(false);
   const shownCountRef = useRef(0);
@@ -154,6 +165,7 @@ export function QuizPlayer({
   /** Prevents Strict Mode double-apply within the same mount cycle only. */
   const appliedQuestionIdRef = useRef<string | null>(null);
   const localAttemptsRef = useRef<LocalSubmittedAttempt[]>([]);
+  const targetDokRef = useRef<number | null>(null);
 
   const timerRunning = phase === "answering";
   const elapsed = useElapsedSeconds(
@@ -210,6 +222,51 @@ export function QuizPlayer({
     [sessionId, onFinished]
   );
 
+  const performQuit = useCallback(async () => {
+    setQuitting(true);
+    try {
+      try {
+        await terminateQuizSession(sessionId, {
+          reason: "student_quit",
+          source: "frontend",
+        });
+      } catch {
+        /* session may already be ended */
+      }
+      releaseNextQuestion(sessionId);
+      clearNextQuestionGate(sessionId);
+      useQuizSessionStore.getState().setPendingNext(sessionId, null);
+
+      if (localAttemptsRef.current.length > 0) {
+        await loadResults();
+      } else if (onQuitToSetup) {
+        onQuitToSetup();
+      } else if (onRestart) {
+        onRestart();
+      }
+    } finally {
+      setQuitting(false);
+      setQuitOpen(false);
+    }
+  }, [sessionId, loadResults, onQuitToSetup, onRestart]);
+
+  /** Used when leaving the page (Home / other links) — end session without opening results. */
+  const performQuitAndLeave = useCallback(async () => {
+    try {
+      await terminateQuizSession(sessionId, {
+        reason: "student_quit",
+        source: "frontend",
+      });
+    } catch {
+      /* ignore */
+    }
+    releaseNextQuestion(sessionId);
+    clearNextQuestionGate(sessionId);
+    useQuizSessionStore.getState().setPendingNext(sessionId, null);
+    if (onQuitToSetup) onQuitToSetup();
+    else if (onRestart) onRestart();
+  }, [sessionId, onQuitToSetup, onRestart]);
+
   const applyQuestion = useCallback((raw: QuizQuestionRaw, ordinalHint: number) => {
     const q = normalizeQuestion(raw);
     if (!q.question_id) {
@@ -263,6 +320,9 @@ export function QuizPlayer({
       if (next.max_questions) setCap(next.max_questions);
       if (typeof next.questions_asked === "number") {
         servedAskedRef.current = next.questions_asked;
+      }
+      if (typeof next.target_dok === "number") {
+        targetDokRef.current = next.target_dok;
       }
 
       const rawQ = extractQuestion(next);
@@ -357,6 +417,9 @@ export function QuizPlayer({
       if (next.max_questions) setCap(next.max_questions);
       if (typeof next.questions_asked === "number") {
         servedAskedRef.current = next.questions_asked;
+      }
+      if (typeof next.target_dok === "number") {
+        targetDokRef.current = next.target_dok;
       }
       const rawQ = extractQuestion(next);
       if (!rawQ) {
@@ -551,9 +614,10 @@ export function QuizPlayer({
   }
 
   if (phase === "loading" || !question) {
-    return (
-      <Card className="border-brand-surface bg-white">
-        <CardContent className="flex flex-col items-center gap-3 py-16">
+    const loadingUi = (
+      <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
+        <BrandGradientBar />
+        <div className="flex flex-col items-center gap-3 px-6 py-16">
           <Loader2
             className="size-8 animate-spin text-brand-primary"
             aria-hidden
@@ -562,70 +626,203 @@ export function QuizPlayer({
             Picking your next question…
           </p>
           <p className="text-xs text-brand-text/55">
-            Adaptive engine is matching difficulty to you
+            Matching difficulty to how you&apos;re doing
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+    );
+    if (enableExitGuard) {
+      return (
+        <QuizExitGuard active onConfirmLeave={performQuitAndLeave}>
+          {loadingUi}
+        </QuizExitGuard>
+      );
+    }
+    return loadingUi;
+  }
+
+  const dok =
+    question.dok_level ??
+    targetDokRef.current ??
+    null;
+  const progressPct =
+    progressDen && progressDen > 0
+      ? Math.min(100, Math.round((progressNum / progressDen) * 100))
+      : null;
+
+  const quizUi = (
+    <div className="mx-auto w-full max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)]">
+        <BrandGradientBar />
+        <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
+                  {question.question_type}
+                </Badge>
+                {dok != null ? (
+                  <Badge
+                    variant="outline"
+                    className="border-brand-special/30 bg-brand-special/8 text-brand-special"
+                  >
+                    DOK {dok}
+                  </Badge>
+                ) : null}
+                {question.chapter_name ? (
+                  <span className="max-w-[14rem] truncate text-xs text-brand-text/50 sm:max-w-xs">
+                    {question.chapter_name}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-sm font-semibold tabular-nums text-brand-text/70">
+                {progressLabel}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <QuizTimer seconds={elapsed} />
+              {enableExitGuard || onQuitToSetup ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={quitting || phase === "submitting"}
+                  onClick={() => setQuitOpen(true)}
+                  className="gap-1.5 border-brand-accent/30 text-brand-accent hover:bg-brand-accent/10"
+                >
+                  <LogOut className="size-3.5" aria-hidden />
+                  Quit
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {progressPct != null ? (
+            <div>
+              <div className="mb-1.5 flex justify-between text-[0.65rem] font-semibold uppercase tracking-wider text-brand-text/40">
+                <span>Progress</span>
+                <span className="tabular-nums">{progressPct}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-brand-background">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {flash ? (
+            <p className="rounded-xl border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text">
+              {flash}
+            </p>
+          ) : null}
+          {error ? (
+            <p
+              className="rounded-xl border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          <QuestionRenderer
+            questionType={question.question_type}
+            prompt={question.prompt}
+            options={question.options}
+            paragraph={question.paragraph}
+            blanks={question.blanks}
+            value={answer}
+            onChange={setAnswer}
+            disabled={phase === "submitting"}
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-surface/80 pt-4">
+            <p className="text-xs text-brand-text/45">
+              Choose carefully — you submit once per question.
+            </p>
+            <Button
+              disabled={!hasAnswer(answer) || phase === "submitting"}
+              onClick={() => void handleSubmit()}
+              className="h-11 gap-2 rounded-xl bg-brand-primary px-6 text-white shadow-md shadow-brand-primary/25 hover:bg-brand-primary/90"
+            >
+              {phase === "submitting" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Checking…
+                </>
+              ) : (
+                <>
+                  Submit answer
+                  <Send className="size-4" aria-hidden />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {quitOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-brand-text/40 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quiz-quit-title"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-brand-surface bg-white shadow-xl">
+            <div className="space-y-2 px-5 pt-5 sm:px-6">
+              <h2
+                id="quiz-quit-title"
+                className="text-lg font-bold tracking-tight text-brand-text"
+              >
+                Quit this quiz?
+              </h2>
+              <p className="text-sm leading-relaxed text-brand-text/65">
+                {localAttemptsRef.current.length > 0
+                  ? "We'll end the session and show a review of the questions you already answered."
+                  : "You haven't submitted any answers yet. Leaving will end this quiz and return you to setup."}
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-brand-surface/80 px-5 py-4 sm:px-6">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={quitting}
+                onClick={() => setQuitOpen(false)}
+                className="border-brand-surface"
+              >
+                Keep playing
+              </Button>
+              <Button
+                type="button"
+                disabled={quitting}
+                onClick={() => void performQuit()}
+                className="gap-2 bg-brand-accent text-white hover:bg-brand-accent/90"
+              >
+                {quitting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut className="size-4" aria-hidden />
+                )}
+                Quit quiz
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (enableExitGuard) {
+    return (
+      <QuizExitGuard
+        active={phase !== "results"}
+        onConfirmLeave={performQuitAndLeave}
+      >
+        {quizUi}
+      </QuizExitGuard>
     );
   }
 
-  return (
-    <Card className="mx-auto w-full max-w-2xl border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)] ring-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-brand-surface/80 pb-4">
-        <div className="space-y-1">
-          <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
-            {question.question_type}
-          </Badge>
-          <CardTitle className="text-base font-medium text-brand-text/70">
-            {progressLabel}
-          </CardTitle>
-        </div>
-        <QuizTimer seconds={elapsed} />
-      </CardHeader>
-      <CardContent className="pt-6">
-        {flash ? (
-          <p className="mb-4 rounded-lg border border-brand-secondary/30 bg-brand-secondary/10 px-3 py-2 text-sm text-brand-text">
-            {flash}
-          </p>
-        ) : null}
-        {error ? (
-          <p
-            className="mb-4 rounded-lg border border-brand-accent/30 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
-        <QuestionRenderer
-          questionType={question.question_type}
-          prompt={question.prompt}
-          options={question.options}
-          paragraph={question.paragraph}
-          blanks={question.blanks}
-          value={answer}
-          onChange={setAnswer}
-          disabled={phase === "submitting"}
-        />
-      </CardContent>
-      <CardFooter className="justify-end border-brand-surface">
-        <Button
-          disabled={!hasAnswer(answer) || phase === "submitting"}
-          onClick={() => void handleSubmit()}
-          className="h-11 gap-2 bg-brand-primary px-5 text-white shadow-md shadow-brand-primary/25 hover:bg-brand-primary/90"
-        >
-          {phase === "submitting" ? (
-            <>
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-              Checking…
-            </>
-          ) : (
-            <>
-              Submit answer
-              <Send className="size-4" aria-hidden />
-            </>
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
-  );
+  return quizUi;
 }
