@@ -127,7 +127,7 @@ export function DailyFactCard() {
                 </p>
               </div>
 
-              <p className="daily-fact-rise-5 inline-flex items-center justify-center gap-2 rounded-full border-2 border-dashed border-brand-primary/25 bg-white/95 px-4 py-2 text-sm font-semibold text-brand-text/60 shadow-sm">
+              <p className="daily-fact-rise-5 inline-flex items-center justify-center gap-2 rounded-full border border-brand-accent/20 bg-white/95 px-4 py-2 text-sm font-semibold text-brand-text/60 shadow-sm">
                 <CalendarDays
                   className="size-4 shrink-0 text-brand-accent"
                   aria-hidden
