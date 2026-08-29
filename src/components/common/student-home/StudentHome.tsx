@@ -1,42 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { ExamPrepCard } from "@/components/features/assessment-engine/ExamPrepCard";
 import { PlacementCourseCard } from "@/components/features/assessment-engine/PlacementCourseCard";
+import { useAssessmentUser } from "@/components/features/assessment-engine/store/useAssessmentUser";
+import {
+  isPlacementComplete,
+  usePlacementStatus,
+} from "@/components/features/assessment-engine/store/usePlacementStatus";
 import { GameArenaCard } from "@/components/features/gaming-service/GameArenaCard";
-import { WeeklyChallenge } from "@/components/features/gaming-service/WeeklyChallenge";
-import { MasteryProfileCard } from "@/components/features/learner-analytics/MasteryProfileCard";
+import { HomeMasteryProfileCard } from "@/components/common/student-home/HomeMasteryProfileCard";
 import { DailyFactCard } from "@/components/common/student-home/DailyFactCard";
 import { JoinClassSection } from "@/components/common/student-home/JoinClassSection";
+import { PlacementLockOverlay } from "@/components/common/student-home/PlacementLockOverlay";
 import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
-import { TodayMissions } from "@/components/common/student-home/TodayMissions";
 import { WelcomeBanner } from "@/components/common/student-home/WelcomeBanner";
-import { fetchStudentProfile } from "@/lib/api/educator";
 import { useEnrolledClasses } from "@/lib/student/useEnrolledClasses";
 import { useUserStore } from "@/store/useUserStore";
-import type { StudentProfileResponse } from "@/types";
 
 export function StudentHome() {
-  const userId = useUserStore((state) => state.userId);
   const upsertEnrolledClass = useUserStore((state) => state.upsertEnrolledClass);
+  const hasHydrated = useUserStore((state) => state.hasHydrated);
   const { enrolledClasses, primaryClass, refresh } = useEnrolledClasses();
-  const [profile, setProfile] = useState<StudentProfileResponse | null>(null);
+  const { role, isAuthenticated } = useAssessmentUser();
+  const placement = usePlacementStatus();
 
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    void fetchStudentProfile(userId)
-      .then((payload) => {
-        if (!cancelled) setProfile(payload);
-      })
-      .catch(() => {
-        if (!cancelled) setProfile(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+  const lockHubCards =
+    hasHydrated &&
+    isAuthenticated &&
+    role === "student" &&
+    placement.status === "ready" &&
+    !isPlacementComplete(placement);
 
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
@@ -45,7 +38,7 @@ export function StudentHome() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E818,_transparent_45%),radial-gradient(ellipse_at_top_right,_#7209B714,_transparent_40%),radial-gradient(ellipse_at_bottom,_#70E00012,_transparent_45%)]"
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-24 sm:gap-10 sm:px-5 sm:pb-28">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-3 pt-6 pb-28 sm:gap-16 sm:px-5 sm:pt-8 sm:pb-32">
         <WelcomeBanner enrolledClass={primaryClass} />
 
         <JoinClassSection
@@ -56,55 +49,35 @@ export function StudentHome() {
           }}
         />
 
-        <section className="space-y-4">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-brand-primary">
-                Today
-              </p>
-              <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
-                Daily missions
-              </h2>
-              <p className="mt-1 text-sm text-brand-text/55">
-                Personalized tasks will appear here once learning-path &amp;
-                gaming streak APIs are wired.
-              </p>
-            </div>
-          </div>
-          <TodayMissions />
-        </section>
-
-        <section className="space-y-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wider text-brand-special">
+        <section className="space-y-6 sm:space-y-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-special">
               Learning hub
             </p>
-            <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
               Lessons, games, quizzes &amp; mastery
             </h2>
-            <p className="mt-1 max-w-2xl text-sm text-brand-text/60">
-              Jump into the pathway that fits your day — courses unlock after
-              placement when needed.
+            <p className="mt-3 text-sm leading-relaxed text-brand-text/60 sm:text-base">
+              {lockHubCards
+                ? "Complete your aptitude placement first — then every hub unlocks."
+                : "Pick what fits your day and keep building your science skills."}
             </p>
           </div>
-          <div className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
-            <PlacementCourseCard />
-            <GameArenaCard />
-            <ExamPrepCard />
-            <MasteryProfileCard profile={profile} />
-          </div>
-        </section>
 
-        <section className="space-y-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wider text-brand-accent">
-              Challenges
-            </p>
-            <h2 className="text-lg font-semibold text-brand-text sm:text-xl">
-              This week&apos;s spotlight
-            </h2>
+          <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+            <div className="h-full min-h-[22rem]">
+              <PlacementCourseCard />
+            </div>
+            <PlacementLockOverlay locked={lockHubCards}>
+              <GameArenaCard />
+            </PlacementLockOverlay>
+            <PlacementLockOverlay locked={lockHubCards}>
+              <ExamPrepCard />
+            </PlacementLockOverlay>
+            <PlacementLockOverlay locked={lockHubCards}>
+              <HomeMasteryProfileCard />
+            </PlacementLockOverlay>
           </div>
-          <WeeklyChallenge />
         </section>
 
         <DailyFactCard />

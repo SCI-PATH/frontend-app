@@ -1,60 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Flag, FlaskConical } from "lucide-react";
+import { ClipboardCheck, Flag, Loader2 } from "lucide-react";
 
+import { LearningHubCardShell } from "@/components/common/student-home/LearningHubCardShell";
 import { Button } from "@/components/ui/button";
+import { useUserStore } from "@/store/useUserStore";
+import { fetchAmplitudeChapters } from "./api/amplitude";
+import { chaptersForGrade } from "./data/catalog";
 
 export function ExamPrepCard() {
-  const [bktUpdate, setBktUpdate] = useState(false);
+  const grade = useUserStore((s) => s.grade) ?? 7;
+  const [chapterCount, setChapterCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    async function load() {
+      let count = 0;
+      try {
+        const res = await fetchAmplitudeChapters(grade);
+        count = (res.chapters ?? []).length;
+      } catch {
+        count = chaptersForGrade(grade).length;
+      }
+
+      if (cancelled) return;
+      setChapterCount(count);
+      setLoading(false);
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [grade]);
 
   return (
-    <article className="group relative flex min-h-[20rem] flex-col overflow-hidden rounded-3xl border border-brand-accent/15 bg-gradient-to-br from-white to-brand-accent/8 p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-      <div
-        className="pointer-events-none absolute -right-8 -top-10 size-28 rounded-full bg-brand-accent/15 blur-2xl"
-        aria-hidden
-      />
-      <div className="relative flex items-start justify-between gap-3">
-        <p className="text-sm font-bold uppercase tracking-wider text-brand-accent">
-          Exam Preparation
-        </p>
-        <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-accent text-white shadow-md shadow-brand-accent/25">
-          <FlaskConical className="size-6" aria-hidden />
-        </span>
+    <LearningHubCardShell
+      tone="accent"
+      eyebrow="Exam preparation"
+      title="Build your quiz"
+      description="Pick chapters and question types for practice."
+      icon={ClipboardCheck}
+      footer={
+        <Button
+          asChild
+          className="h-11 w-full rounded-2xl bg-brand-accent text-base font-semibold text-white shadow-md shadow-brand-accent/25 hover:bg-brand-accent/90"
+        >
+          <Link href="/assessment/custom-quiz">
+            Configure &amp; start
+            <Flag className="size-4" aria-hidden />
+          </Link>
+        </Button>
+      }
+    >
+      <div className="flex h-full items-center gap-3 rounded-2xl border border-brand-accent/15 bg-white/85 p-3.5 backdrop-blur-sm">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-brand-text/55">
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Loading…
+          </div>
+        ) : (
+          <>
+            <div className="flex size-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-brand-accent/20 to-brand-accent/5 ring-1 ring-brand-accent/20">
+              <span className="text-2xl font-black leading-none text-brand-accent">
+                {chapterCount ?? 0}
+              </span>
+              <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-accent/80">
+                ch.
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-brand-text">
+                Grade {grade} quiz pool
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-brand-text/55">
+                {chapterCount && chapterCount > 0
+                  ? `${chapterCount} chapters ready to mix into your test.`
+                  : "Open the builder to configure your test."}
+              </p>
+            </div>
+          </>
+        )}
       </div>
-      <h2 className="relative mt-3 text-lg font-semibold text-brand-text">
-        Generate a Quiz
-      </h2>
-      <p className="relative mt-2 text-base leading-snug text-brand-text/65">
-        Custom test from chapters you choose.
-      </p>
-      <div className="relative mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full border border-brand-accent/20 bg-white/80 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
-          G7 Optics
-        </span>
-        <span className="rounded-full border border-brand-accent/20 bg-white/80 px-2.5 py-0.5 text-sm font-semibold text-brand-accent">
-          G7 Acids
-        </span>
-      </div>
-      <label className="relative mt-3 flex items-center gap-2 text-sm text-brand-text/70">
-        <input
-          type="checkbox"
-          checked={bktUpdate}
-          onChange={(event) => setBktUpdate(event.target.checked)}
-          className="size-3.5 accent-brand-accent"
-        />
-        Instant BKT Mastery update
-      </label>
-      <Button
-        asChild
-        className="relative mt-auto h-11 w-full rounded-2xl bg-brand-accent text-base text-white shadow-md shadow-brand-accent/20 hover:bg-brand-accent/90"
-      >
-        <Link href="/assessment/custom-quiz">
-          Configure &amp; Start
-          <Flag className="size-4" aria-hidden />
-        </Link>
-      </Button>
-    </article>
+    </LearningHubCardShell>
   );
 }

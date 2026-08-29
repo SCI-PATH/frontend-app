@@ -1,0 +1,326 @@
+/* Brand tokens: primary #00A8E8, special #7209B7, pink accent #E056A0 */
+
+@keyframes welcome-aurora {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes welcome-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.02);
+  }
+}
+
+@keyframes welcome-halo {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.85;
+  }
+}
+
+@keyframes welcome-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes welcome-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes welcome-star-twinkle {
+  0%,
+  100% {
+    transform: scale(0.6) rotate(0deg);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1) rotate(45deg);
+    opacity: 1;
+  }
+}
+
+@keyframes welcome-speed-line {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.28;
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes welcome-spark-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(10px, -14px);
+    opacity: 0.95;
+  }
+}
+
+.welcome-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 2rem;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  box-shadow:
+    0 24px 48px -20px rgb(114 9 183 / 0.45),
+    0 8px 24px -12px rgb(0 168 232 / 0.35);
+}
+
+.welcome-banner__inner {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    128deg,
+    #00a8e8 0%,
+    #0096d6 18%,
+    #7209b7 52%,
+    #9d4edd 72%,
+    #e056a0 100%
+  );
+  background-size: 200% 200%;
+  animation: welcome-aurora 18s ease infinite;
+}
+
+.welcome-banner__speed-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.14),
+    transparent
+  );
+  animation: welcome-speed-line 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.welcome-banner__speed-line--delay {
+  animation-delay: 2.4s;
+  top: 18%;
+  width: 28%;
+}
+
+.welcome-banner__orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(32px);
+  pointer-events: none;
+}
+
+.welcome-banner__orb--cyan {
+  top: -12%;
+  right: -6%;
+  width: 11rem;
+  height: 11rem;
+  background: rgb(0 168 232 / 0.5);
+}
+
+.welcome-banner__orb--purple {
+  bottom: -18%;
+  left: 8%;
+  width: 10rem;
+  height: 10rem;
+  background: rgb(114 9 183 / 0.45);
+}
+
+.welcome-banner__orb--pink {
+  top: 35%;
+  left: 55%;
+  width: 7rem;
+  height: 7rem;
+  background: rgb(224 86 160 / 0.4);
+}
+
+.welcome-banner__star {
+  position: absolute;
+  width: 0.65rem;
+  height: 0.65rem;
+  background: white;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  pointer-events: none;
+}
+
+.welcome-banner__star--1 {
+  top: 14%;
+  left: 10%;
+  animation: welcome-star-twinkle 3.2s ease-in-out infinite;
+}
+
+.welcome-banner__star--2 {
+  top: 22%;
+  right: 12%;
+  animation: welcome-star-twinkle 4.1s ease-in-out infinite 0.6s;
+}
+
+.welcome-banner__star--3 {
+  bottom: 18%;
+  left: 16%;
+  animation: welcome-star-twinkle 3.8s ease-in-out infinite 1.1s;
+}
+
+.welcome-banner__star--4 {
+  bottom: 24%;
+  right: 18%;
+  animation: welcome-star-twinkle 4.5s ease-in-out infinite 0.3s;
+}
+
+.welcome-banner__spark {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.welcome-banner__spark--1 {
+  top: 30%;
+  left: 6%;
+  width: 0.45rem;
+  height: 0.45rem;
+  background: #b8ecff;
+  animation: welcome-spark-drift 5s ease-in-out infinite;
+}
+
+.welcome-banner__spark--2 {
+  top: 12%;
+  right: 28%;
+  width: 0.35rem;
+  height: 0.35rem;
+  background: #f0abda;
+  animation: welcome-spark-drift 6.2s ease-in-out infinite 1s;
+}
+
+.welcome-banner__avatar-wrap {
+  position: relative;
+  animation: welcome-float 5s ease-in-out infinite;
+}
+
+.welcome-banner__halo {
+  position: absolute;
+  inset: -0.65rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    135deg,
+    #00a8e8,
+    #ffffff,
+    #e056a0,
+    #7209b7
+  );
+  animation: welcome-halo 3.5s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+.welcome-banner__title {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #ccefff 25%,
+    #ffffff 50%,
+    #f5c4e8 75%,
+    #ffffff 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: welcome-shimmer 7s linear infinite;
+}
+
+.welcome-banner__badge {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.28),
+    0 8px 24px -8px rgb(0 0 0 / 0.3);
+}
+
+.welcome-banner__code {
+  background: rgb(255 255 255 / 0.92);
+  color: #7209b7;
+}
+
+.welcome-rise-1 {
+  animation: welcome-rise 0.7s ease-out both;
+  animation-delay: 0.05s;
+}
+
+.welcome-rise-2 {
+  animation: welcome-rise 0.7s ease-out both;
+  animation-delay: 0.18s;
+}
+
+.welcome-rise-3 {
+  animation: welcome-rise 0.7s ease-out both;
+  animation-delay: 0.3s;
+}
+
+.welcome-rise-4 {
+  animation: welcome-rise 0.7s ease-out both;
+  animation-delay: 0.42s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-banner__inner,
+  .welcome-banner__speed-line,
+  .welcome-banner__star,
+  .welcome-banner__spark,
+  .welcome-banner__avatar-wrap,
+  .welcome-banner__halo,
+  .welcome-banner__title,
+  .welcome-rise-1,
+  .welcome-rise-2,
+  .welcome-rise-3,
+  .welcome-rise-4 {
+    animation: none !important;
+  }
+
+  .welcome-banner__title {
+    color: #ffffff;
+    background: none;
+  }
+}
