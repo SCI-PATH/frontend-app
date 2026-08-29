@@ -448,6 +448,7 @@ export interface TeacherQuestion {
   status: QuestionStatus;
   topic_id?: string;
   chapter_name?: string;
+  origin?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -477,6 +478,7 @@ export interface TeacherQuestionRaw {
   status?: QuestionStatus | string;
   topic_id?: string;
   chapter_name?: string;
+  origin?: string;
   rejection_reason?: RejectReason;
   rejection_notes?: string;
   rejection_confirmed_ai?: boolean;
@@ -490,7 +492,17 @@ export interface TeacherQuestionsQuery {
   dok_level?: number;
   question_type?: QuestionType;
   topic_id?: string;
+  topic_id_prefix?: string;
+  origin?: string;
+  q?: string;
+  offset?: number;
   limit?: number;
+  all_statuses?: boolean;
+}
+
+export interface TeacherQuestionListResult {
+  questions: TeacherQuestion[];
+  total: number;
 }
 
 export interface RejectQuestionRequest {
@@ -536,11 +548,24 @@ export interface CreateTeacherQuestionRequest {
   sub_concept?: string;
 }
 
-/** Most-missed insight row — wired when teacher insights endpoint ships. */
+export interface AnswerTally {
+  answer: string;
+  count: number;
+}
+
+/** Most-missed insight row from GET /teacher/insights/most-missed. */
 export interface MostMissedQuestionInsight {
   question_id: string;
   prompt?: string;
   topic_id?: string;
+  chapter_name?: string;
+  grade?: number;
+  status?: string;
+  question_type?: string;
+  options?: Record<string, string>;
+  correct_answer?: string;
+  most_selected?: AnswerTally | null;
+  common_wrong?: AnswerTally[];
   incorrect_count: number;
   attempt_count: number;
   miss_rate?: number;

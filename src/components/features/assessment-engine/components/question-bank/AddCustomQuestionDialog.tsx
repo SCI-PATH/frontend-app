@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +13,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  createTeacherQuestion,
-  refineTeacherQuestionDraft,
-} from "../../api/teacher";
+import { createTeacherQuestion } from "../../api/teacher";
 import type {
   CreateTeacherQuestionRequest,
   QuestionType,
+  TeacherQuestion,
   TeacherTopic,
   TeacherQuestionPayload,
 } from "../../types";
@@ -28,6 +26,7 @@ import {
   chapterIdFromTopicId,
   topicsForChapter,
 } from "../../utils/topicChapter";
+import { ChipRow } from "./bankUi";
 import { cn } from "@/lib/utils";
 
 const Q_TYPES: QuestionType[] = [
@@ -43,19 +42,25 @@ interface AddCustomQuestionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   grade: number;
+  onGradeChange?: (grade: number) => void;
   topics: TeacherTopic[];
   defaultChapterId?: string;
+  defaultTopicId?: string;
   defaultDok?: number;
-  onCreated: () => void;
+  defaultType?: QuestionType;
+  onCreated: (question: TeacherQuestion) => void;
 }
 
 export function AddCustomQuestionDialog({
   open,
   onOpenChange,
   grade,
+  onGradeChange,
   topics,
   defaultChapterId = "",
+  defaultTopicId = "",
   defaultDok = 2,
+  defaultType = "MCQ",
   onCreated,
 }: AddCustomQuestionDialogProps) {
   const chapters = useMemo(() => {
@@ -88,9 +93,7 @@ export function AddCustomQuestionDialog({
   const [blanks, setBlanks] = useState(["", "", ""]);
 
   const [saving, setSaving] = useState(false);
-  const [refining, setRefining] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refineNote, setRefineNote] = useState<string | null>(null);
 
   const chapterTopics = useMemo(
     () => topicsForChapter(topics, chapterId),
@@ -100,10 +103,18 @@ export function AddCustomQuestionDialog({
   useEffect(() => {
     if (!open) return;
     setChapterId(defaultChapterId || chapters[0]?.id || "");
+    setTopicId(defaultTopicId || "");
     setDok(String(defaultDok || 2));
+    setQType(defaultType);
     setError(null);
-    setRefineNote(null);
-  }, [open, defaultChapterId, defaultDok, chapters]);
+  }, [
+    open,
+    defaultChapterId,
+    defaultTopicId,
+    defaultDok,
+    defaultType,
+    chapters,
+  ]);
 
   useEffect(() => {
     if (!chapterTopics.length) {
@@ -166,68 +177,6 @@ export function AddCustomQuestionDialog({
     };
   }
 
-  async function handleRefine() {
-    const payload = buildPayload();
-    if (!payload) {
-      setError("Fill in the question and answers before refining.");
-      return;
-    }
-    setRefining(true);
-    setError(null);
-    setRefineNote(null);
-    try {
-      // TODO(IAE): POST /teacher/questions/refine — stub throws until backend ships.
-      const result = await refineTeacherQuestionDraft({
-        question_type: qType,
-        payload,
-      });
-      const refined = result.payload as TeacherQuestionPayload;
-      applyRefinedPayload(refined);
-      setRefineNote(
-        result.notes || "Draft updated with AI suggestions."
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "AI Refine is not available yet."
-      );
-      setRefineNote(
-        // Clear UX when endpoint is missing — not a sticky error badge.
-        "Coming soon: AI will polish grammar and formatting before you save."
-      );
-    } finally {
-      setRefining(false);
-    }
-  }
-
-  function applyRefinedPayload(refined: TeacherQuestionPayload) {
-    if (refined.type === "MCQ") {
-      setPrompt(refined.question);
-      setOptions({
-        A: refined.options.A || "",
-        B: refined.options.B || "",
-        C: refined.options.C || "",
-        D: refined.options.D || "",
-      });
-      setCorrectLetter(refined.correct_answer || "A");
-    } else if (refined.type === "TrueFalse") {
-      setPrompt(refined.question);
-      setTfAnswer(refined.correct_answer);
-    } else if (refined.type === "ShortAnswer") {
-      setPrompt(refined.question);
-      setShortAnswer(refined.ideal_answer);
-      setKeywords((refined.keywords || []).join(", "));
-    } else if (refined.type === "MultiBlank") {
-      setPrompt(refined.paragraph);
-      setBlanks(
-        refined.answers.length
-          ? [...refined.answers, "", ""].slice(0, Math.max(3, refined.answers.length))
-          : ["", "", ""]
-      );
-    }
-  }
-
   async function handleSave() {
     const payload = buildPayload();
     if (!payload || !topicId) {
@@ -248,10 +197,10 @@ export function AddCustomQuestionDialog({
     setSaving(true);
     setError(null);
     try {
-      await createTeacherQuestion(body);
+      const created = await createTeacherQuestion(body);
       onOpenChange(false);
       resetForm();
-      onCreated();
+      onCreated(created);
     } catch (err) {
       setError(
         err instanceof AssessmentApiError ? err.message : "Could not save question"
@@ -269,7 +218,6 @@ export function AddCustomQuestionDialog({
     setShortAnswer("");
     setKeywords("");
     setBlanks(["", "", ""]);
-    setRefineNote(null);
     setError(null);
   }
 
@@ -283,14 +231,30 @@ export function AddCustomQuestionDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Add custom question</DialogTitle>
+          <DialogTitle>Add a question for students</DialogTitle>
           <DialogDescription>
-            Build a typed question for your bank. Saved items start as{" "}
-            <strong>approved</strong> and can be used in student quizzes.
+            Write an item for every student on SCI-PATH. It is saved as{" "}
+            <strong>approved</strong> and can appear in their quizzes right
+            away — not limited to one class.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {onGradeChange ? (
+            <ChipRow
+              label="Grade"
+              value={String(grade)}
+              onChange={(v) => onGradeChange(Number(v))}
+              options={[6, 7, 8, 9].map((g) => ({
+                value: String(g),
+                label: `Grade ${g}`,
+              }))}
+            />
+          ) : (
+            <p className="text-sm text-brand-text/70">
+              Grade <span className="font-semibold text-brand-text">{grade}</span>
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <FieldSelect
               label="Chapter"
@@ -326,7 +290,7 @@ export function AddCustomQuestionDialog({
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-brand-text/55">
-              {qType === "MultiBlank" ? "Paragraph (use ___ for blanks)" : "Prompt"}
+              {qType === "MultiBlank" ? "Paragraph (use ___ for blanks)" : "Question"}
             </label>
             <textarea
               value={prompt}
@@ -453,11 +417,6 @@ export function AddCustomQuestionDialog({
             </div>
           ) : null}
 
-          {refineNote ? (
-            <p className="rounded-xl border border-brand-special/25 bg-brand-special/10 px-3 py-2 text-sm text-brand-text/80">
-              {refineNote}
-            </p>
-          ) : null}
           {error ? (
             <p className="rounded-xl border border-brand-accent/25 bg-brand-accent/10 px-3 py-2 text-sm text-brand-accent">
               {error}
@@ -466,20 +425,6 @@ export function AddCustomQuestionDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={refining}
-            onClick={() => void handleRefine()}
-            className="border-brand-special/40 text-brand-special hover:bg-brand-special/10"
-          >
-            {refining ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <Sparkles className="size-4" aria-hidden />
-            )}
-            AI Refine
-          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
