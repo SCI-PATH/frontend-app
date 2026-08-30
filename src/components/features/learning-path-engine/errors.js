@@ -19,6 +19,35 @@ const GENERIC_MSG = "Something went wrong. Please try again in a moment.";
 const OFFLINE_MSG =
   "We could not reach the learning service. Check your connection and that the server is running, then try again.";
 
+/** Shown when teacher has not published lesson content for a chapter. */
+export const TEACHER_LESSON_NOT_PUBLISHED_MSG =
+  "Your teacher has not added this lesson yet. Please check with them.";
+
+/**
+ * Alert when a chapter has no teacher-published content (student path).
+ * @param {string} [chapterTitle]
+ */
+export function alertTeacherLessonNotPublished(chapterTitle) {
+  const title = String(chapterTitle || "").trim();
+  const detail = title ? `\n\nChapter: ${title}` : "";
+  if (typeof window !== "undefined" && typeof window.alert === "function") {
+    window.alert(`${TEACHER_LESSON_NOT_PUBLISHED_MSG}${detail}`);
+  }
+}
+
+/**
+ * True when POST /lesson returned no publishable teacher content.
+ * @param {{ status?: string; lesson_text?: string; message?: string } | null | undefined} data
+ */
+export function isTeacherLessonUnavailable(data) {
+  if (!data) return true;
+  if (data.status === "unavailable") return true;
+  if (!(data.lesson_text || "").trim()) return true;
+  const msg = String(data.message || "");
+  if (/STUDENT_ALLOW_GENERATE|Generated on the fly/i.test(msg)) return true;
+  return false;
+}
+
 export function registerUserErrorModal(setter) {
   setModalOpen = setter;
 }

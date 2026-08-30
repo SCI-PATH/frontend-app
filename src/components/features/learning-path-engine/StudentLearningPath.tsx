@@ -56,7 +56,7 @@ import {
 import LessonStage from "./components/LessonStage.jsx";
 import ScienceExplorer from "./components/ScienceExplorer.jsx";
 import TestKnowledgeModal from "./components/TestKnowledgeModal.jsx";
-import { isOfflineError, notifyUserFacingError, toUserFacingMessage } from "./errors.js";
+import { isOfflineError, notifyUserFacingError, toUserFacingMessage, alertTeacherLessonNotPublished, isTeacherLessonUnavailable, TEACHER_LESSON_NOT_PUBLISHED_MSG } from "./errors.js";
 import FeatureShell from "./FeatureShell";
 import { useAppStore } from "./store/appStore.js";
 
@@ -368,6 +368,8 @@ export default function StudentLearningPath() {
         : quizByLesson;
     setCompletedLessonIds(done);
     setQuizByLesson(quizzes);
+
+    const targetIndex = gradeLessons.findIndex((l) => l.lesson_id === lid);
     if (
       targetIndex >= 0 &&
       !isChapterUnlockedForLearning(targetIndex, gradeLessons, quizzes, done)
@@ -422,16 +424,13 @@ export default function StudentLearningPath() {
         use_stored_mastery: true,
       });
 
-      if (data?.status === "unavailable" || !(data?.lesson_text || "").trim()) {
-        const raw =
-          data?.message ||
-          "This chapter is not ready yet. Ask your teacher to generate and save it, or pick another chapter.";
-        const msg = toUserFacingMessage(raw, {
-          fallback:
-            "This chapter is not ready yet. Ask your teacher to generate and save it, or pick another chapter.",
-        });
-        setChoiceError(msg);
-        return { ok: false as const, error: msg, data };
+      if (isTeacherLessonUnavailable(data)) {
+        const meta = gradeLessons.find((l) => l.lesson_id === lid);
+        const chapterTitle =
+          meta?.display_title || meta?.title || data?.lesson_title || lid;
+        alertTeacherLessonNotPublished(chapterTitle);
+        setChoiceError(TEACHER_LESSON_NOT_PUBLISHED_MSG);
+        return { ok: false as const, error: TEACHER_LESSON_NOT_PUBLISHED_MSG, data };
       }
 
       if (data?.profile) setProfile(data.profile);
