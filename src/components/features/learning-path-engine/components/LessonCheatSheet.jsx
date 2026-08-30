@@ -6,7 +6,7 @@ import { getLessonCheatsheet } from "../api/client.js";
 import { downloadCheatsheetPdf } from "../utils/cheatsheetPdf.js";
 
 /**
- * Lesson tab — static cheat sheet / short notes (one fetch per chapter; unchanged while stepping).
+ * Lesson tab — static reference sheet / short notes (one fetch per chapter; unchanged while stepping).
  */
 export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedChange }) {
   const [data, setData] = useState(null);
@@ -29,7 +29,7 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
       .catch(() => {
         if (!cancelled) {
           setData(null);
-          setError("Could not load cheat sheet. Try again in a moment.");
+          setError("Could not load reference sheet. Try again in a moment.");
         }
       })
       .finally(() => {
@@ -67,7 +67,7 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
   if (loading) {
     return (
       <aside className="lesson-static lesson-static--cheatsheet" aria-busy="true">
-        <p className="lesson-static__muted">Building cheat sheet…</p>
+        <p className="lesson-static__muted">Building reference sheet…</p>
       </aside>
     );
   }
@@ -75,20 +75,20 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
   return (
     <aside
       className={`lesson-static lesson-static--cheatsheet${expanded ? "" : " is-collapsed"}`}
-      aria-label="Chapter cheat sheet"
+      aria-label="Chapter reference sheet"
     >
       <div className="lesson-static__header">
         <div>
           <span className="lesson-static__kicker">Revise anytime</span>
-          <h3 className="lesson-static__heading">Cheat sheet</h3>
+          <h3 className="lesson-static__heading">Reference sheet</h3>
         </div>
         <button
           type="button"
           className="lesson-static__collapse-btn"
           onClick={toggleExpanded}
           aria-expanded={expanded}
-          aria-label={expanded ? "Collapse cheat sheet" : "Expand cheat sheet"}
-          title={expanded ? "Collapse cheat sheet" : "Expand cheat sheet"}
+          aria-label={expanded ? "Collapse reference sheet" : "Expand reference sheet"}
+          title={expanded ? "Collapse reference sheet" : "Expand reference sheet"}
         >
           {expanded ? <ChevronRight size={17} aria-hidden /> : <ChevronLeft size={17} aria-hidden />}
           <span>{expanded ? "Close" : "Expand"}</span>
@@ -152,7 +152,7 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
             </>
           ) : (
             <div className="lesson-static__placeholder">
-              <p>No cheat sheet available for this chapter yet.</p>
+              <p>No reference sheet available for this chapter yet.</p>
             </div>
           )}
         </div>
@@ -161,7 +161,7 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
           type="button"
           className="lesson-static__collapsed-preview lesson-static__collapsed-preview--cheatsheet"
           onClick={toggleExpanded}
-          aria-label="Expand cheat sheet"
+          aria-label="Expand reference sheet"
         >
           <span className="lesson-static__cheatsheet-thumb" aria-hidden>
             <ScrollText size={28} strokeWidth={2} />
@@ -170,7 +170,7 @@ export default function LessonCheatSheet({ lessonId, lessonTitle, onCollapsedCha
             ) : null}
           </span>
           <span className="lesson-static__cheatsheet-thumb-caption">
-            <strong>Cheat sheet</strong>
+            <strong>Reference sheet</strong>
             <small>{previewBullet ? truncate(previewBullet, 72) : "Tap to open notes"}</small>
           </span>
         </button>

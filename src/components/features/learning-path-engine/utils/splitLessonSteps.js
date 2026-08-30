@@ -57,14 +57,7 @@ export function splitLessonIntoSteps(lessonText, profileOrMax = "basic") {
 function groupSentencesIntoParagraphs(sentences, profile) {
   if (sentences.length <= 1) return sentences;
 
-  const key = String(profile || "basic").toLowerCase();
-  const targetWords =
-    key === "advanced" || key === "strong" || key === "smart"
-      ? 140
-      : key === "intermediate" || key === "average" || key === "typical"
-        ? 120
-        : 95;
-  const maxSentences = key === "basic" || key === "weak" ? 4 : 5;
+  const { targetWords, maxSentences } = paragraphLimits(profile);
   const grouped = [];
   let card = [];
   let words = 0;
@@ -79,7 +72,9 @@ function groupSentencesIntoParagraphs(sentences, profile) {
     }
 
     const sentenceWords = sentence.split(/\s+/).filter(Boolean).length;
-    const full = card.length >= maxSentences || (card.length >= 2 && words + sentenceWords > targetWords);
+    const full =
+      card.length >= maxSentences ||
+      (card.length >= 1 && words + sentenceWords > targetWords);
     if (full) {
       grouped.push(card.join(" "));
       card = [];
@@ -91,6 +86,19 @@ function groupSentencesIntoParagraphs(sentences, profile) {
 
   if (card.length) grouped.push(card.join(" "));
   return grouped.filter(Boolean);
+}
+
+/** Per-profile slide size: fewer sentences per card = more steps, less clutter. */
+function paragraphLimits(profile) {
+  const key = String(profile || "basic").toLowerCase();
+  if (key === "advanced" || key === "strong" || key === "smart") {
+    return { targetWords: 70, maxSentences: 2 };
+  }
+  if (key === "intermediate" || key === "average" || key === "typical") {
+    return { targetWords: 55, maxSentences: 2 };
+  }
+  // basic / weak — one short idea per slide
+  return { targetWords: 42, maxSentences: 1 };
 }
 
 /** Drop trailing / mid lesson "Recap" blocks from older generated text. */

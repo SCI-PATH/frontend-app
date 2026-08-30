@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import { Navbar } from "@/components/common/Navbar";
-import { RoleAvatar } from "@/components/common/RoleAvatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -917,9 +916,6 @@ export default function StudentLearningPath() {
             <section className="rounded-2xl border border-brand-primary/15 bg-white p-5 shadow-sm sm:p-7">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-                  <div className="rounded-full bg-brand-primary/10 p-1.5 ring-1 ring-brand-primary/20">
-                    <RoleAvatar role="student" size="lg" showRing />
-                  </div>
                   <div className="min-w-0">
                     <h2 className="truncate text-xl font-bold text-brand-text sm:text-2xl">
                       {learnerName}

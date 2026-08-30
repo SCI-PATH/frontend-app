@@ -49,11 +49,11 @@ const TABS = [
 ];
 
 export default function TeacherPanel({
-  onBack,
-  teacherId: teacherIdProp,
-  backSlot,
+  onBack = null,
+  teacherId: teacherIdProp = "",
+  backSlot = null,
   embedded = false,
-}) {
+} = {}) {
   const [teacherId] = useState(teacherIdProp || "");
   const [grade, setGrade] = useState(7);
   const [profile, setProfile] = useState("basic");

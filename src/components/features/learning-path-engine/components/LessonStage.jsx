@@ -299,11 +299,11 @@ export default function LessonStage({
             <div className="lesson-stage__dialog lesson-stage__dialog--split">
               <div className="lesson-stage__mascot-wrap">
                 <TutorMascot celebrate={isWrapUp} />
-                <span className="lesson-stage__mascot-name">Sir Arthur · Science Guide</span>
+                <span className="lesson-stage__mascot-name">Arthur</span>
               </div>
               <div className="speech-bubble" role="region" aria-live="polite">
                 <div className="speech-bubble__heading">
-                  <p className="speech-bubble__eyebrow">King Arthur says</p>
+                  <p className="speech-bubble__eyebrow">Arthur says</p>
                   {speechSupported ? (
                     <div className="speech-bubble__audio" aria-label="Narration controls">
                       <button
