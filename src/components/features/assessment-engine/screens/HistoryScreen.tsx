@@ -26,7 +26,6 @@ import {
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import type { SessionDetail, SessionSummary } from "../types";
 import { AssessmentApiError } from "../types";
-import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { cn } from "@/lib/utils";
 
@@ -92,8 +91,7 @@ export function HistoryListScreen() {
         title="Your quiz history"
         subtitle="Review past custom and post-lesson sessions"
         maxWidth="3xl"
-        backHref={STUDENT_HOME_PATH}
-        backLabel="Home"
+        backHref=""
         actions={
           <Button
             variant="outline"
