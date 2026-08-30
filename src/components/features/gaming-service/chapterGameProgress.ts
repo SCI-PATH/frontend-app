@@ -1,7 +1,8 @@
 /**
  * Shared Learning Path ↔ farm-level helpers.
- * Chapter N in a grade maps to farm level N. Next chapter unlocks only after
- * that chapter's farm game is passed (stored as LPE quiz_by_lesson).
+ * After a chapter farm is passed, every lesson in the grade is open (free choice).
+ * While a farm is unfinished, only that chapter stays selectable — everything else
+ * is locked until the game is done.
  */
 
 export const GAME_PASS_THRESHOLD = 0.65;
@@ -114,22 +115,23 @@ export function isLessonGameCompleteWithLegacy(
   return gradeLessons.slice(idx + 1).some((l) => done.has(String(l.lesson_id || "")));
 }
 
-/** Chapter 1 is always open; later chapters need the previous chapter's farm game. */
+/**
+ * No pending farm → full syllabus (free choice).
+ * Pending farm → only the chapter whose farm is waiting stays open.
+ */
 export function isChapterUnlockedForLearning(
   index: number,
   gradeLessons: CurriculumLessonLike[],
   quizByLesson: QuizByLesson,
   completedLessonIds: string[],
 ): boolean {
-  if (index <= 0) return true;
-  const prev = gradeLessons[index - 1];
-  if (!prev?.lesson_id) return true;
-  return isLessonGameCompleteWithLegacy(
-    prev.lesson_id,
-    quizByLesson,
-    completedLessonIds,
-    gradeLessons,
-  );
+  const lesson = gradeLessons[index];
+  const lessonId = String(lesson?.lesson_id || "").trim();
+
+  const pending = findPendingChapterGame(gradeLessons, completedLessonIds, quizByLesson);
+  if (!pending) return true;
+
+  return lessonId === pending.lessonId;
 }
 
 export type PendingChapterGame = {

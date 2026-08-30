@@ -368,15 +368,14 @@ export default function StudentLearningPath() {
         : quizByLesson;
     setCompletedLessonIds(done);
     setQuizByLesson(quizzes);
-
-    const targetIndex = gradeLessons.findIndex((l) => l.lesson_id === lid);
     if (
       targetIndex >= 0 &&
       !isChapterUnlockedForLearning(targetIndex, gradeLessons, quizzes, done)
     ) {
-      const prev = gradeLessons[targetIndex - 1];
-      const prevTitle = lessonTitleOf(prev) || "the previous chapter";
-      const msg = `Finish the ${prevTitle} farm game first. That unlocks this chapter.`;
+      const pending = findPendingChapterGame(gradeLessons, done, quizzes);
+      const msg = pending
+        ? `Finish Game level ${pending.levelId} (${pending.title}) first — other chapters are locked until then.`
+        : "This chapter is not available yet.";
       setChoiceError(msg);
       return { ok: false as const, error: msg };
     }
@@ -630,7 +629,7 @@ export default function StudentLearningPath() {
                 Learning path
               </p>
               <h1 className="mb-4 text-2xl font-bold tracking-tight text-brand-text">
-                {gameReturn ? "Farm complete — next chapter unlocked" : "Chapter complete"}
+                {gameReturn ? "Farm complete — full syllabus unlocked" : "Chapter complete"}
               </h1>
               <Card className="border-brand-secondary/25 bg-white shadow-sm">
                 <CardHeader>
@@ -641,11 +640,13 @@ export default function StudentLearningPath() {
                       {gameReturn?.chapterTitle || finishedTitle}
                     </strong>
                     {gameReturn?.levelId ? ` (Game level ${gameReturn.levelId})` : ""}.
-                    {nextMeta ? (
+                    {gameReturn ? (
+                      " Every chapter in this grade is now open — pick any one to study."
+                    ) : nextMeta ? (
                       <>
                         {" "}
-                        <strong>{nextTitle}</strong> is now unlocked. Learn it to open Game
-                        level {farmLevelFromLessonId(nextMeta.lesson_id, gradeLessons)}.
+                        Play the farm for <strong>{finishedTitle}</strong> when you&apos;re
+                        ready, or keep learning.
                       </>
                     ) : (
                       " That was the last chapter in this grade."
@@ -683,11 +684,11 @@ export default function StudentLearningPath() {
                   )}
 
                   <label htmlFor="pickChapter" className="text-sm font-medium text-brand-text">
-                    Or pick an unlocked chapter
+                    Or pick any chapter
                   </label>
                   <p className="text-xs text-brand-text/70">
-                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). Next
-                    chapter unlocks after you complete its farm game.
+                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). After a
+                    farm game, every chapter is open.
                   </p>
                   <select
                     id="pickChapter"
@@ -823,8 +824,8 @@ export default function StudentLearningPath() {
                     Your science chapters
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm text-brand-text/65 sm:text-base">
-                    Pick a chapter to start or revise. The next chapter unlocks after you
-                    finish that chapter&apos;s farm game.
+                    Pick any chapter to start or revise. Finish a pending farm game to unlock
+                    the full syllabus for this grade.
                   </p>
                 </div>
               </div>
@@ -918,8 +919,8 @@ export default function StudentLearningPath() {
                     Choose a chapter
                   </h2>
                   <p className="mt-1 text-sm text-brand-text/60">
-                    Completed chapters stay open so you can revise. New chapters unlock after
-                    you finish the previous chapter&apos;s farm game.
+                    When a farm game is waiting, only that chapter stays open — finish the
+                    farm to unlock the full syllabus. After that, pick any chapter you like.
                   </p>
                 </div>
                 {sessionGrade == null ? (
@@ -952,8 +953,8 @@ export default function StudentLearningPath() {
                       Play the farm for {pendingChapterGame.title}
                     </p>
                     <p className="mt-1 text-xs text-brand-text/60">
-                      Finish this farm to unlock the next chapter. {pendingChapterGame.rewardLabel}{" "}
-                      is waiting on the farm.
+                      Finish this farm to unlock the full syllabus for this grade.{" "}
+                      {pendingChapterGame.rewardLabel} is waiting on the farm.
                     </p>
                   </div>
                   <Button
@@ -978,7 +979,7 @@ export default function StudentLearningPath() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Lock className="size-3" aria-hidden />
-                  Locked until previous farm is done
+                  Locked until pending farm is done
                 </span>
               </div>
 
@@ -992,7 +993,9 @@ export default function StudentLearningPath() {
                     const pending =
                       pendingChapterGame?.lessonId === lesson.lesson_id;
                     const status = !unlocked
-                      ? "Locked — finish the previous farm first"
+                      ? pendingChapterGame
+                        ? `Locked — finish Game level ${pendingChapterGame.levelId} first`
+                        : "Not available yet"
                       : pending
                         ? `Farm level ${pendingChapterGame.levelId} ready`
                         : complete
