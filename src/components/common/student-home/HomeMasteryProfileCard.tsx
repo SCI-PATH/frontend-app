@@ -7,11 +7,8 @@ import { ChartColumnIncreasing, Loader2 } from "lucide-react";
 import { LearningHubCardShell } from "@/components/common/student-home/LearningHubCardShell";
 import { Button } from "@/components/ui/button";
 import { STUDENT_PROFILE_PATH } from "@/lib/auth-routes";
-import { fetchStudentProfile } from "@/lib/api/educator";
-import {
-  buildStudentProfileMetrics,
-  type StudentProfileMetrics,
-} from "@/lib/student/profileMetrics";
+import { fetchStudentMasterySummary } from "@/lib/api/educator";
+import type { StudentProfileMetrics } from "@/lib/student/profileMetrics";
 import { useUserStore } from "@/store/useUserStore";
 import { cn } from "@/lib/utils";
 
@@ -66,9 +63,18 @@ export function HomeMasteryProfileCard() {
     let cancelled = false;
     setLoading(true);
 
-    void fetchStudentProfile(userId)
-      .then((profile) => {
-        if (!cancelled) setMetrics(buildStudentProfileMetrics(profile));
+    void fetchStudentMasterySummary(userId)
+      .then((summary) => {
+        if (!cancelled) {
+          setMetrics({
+            overallMastery: summary.overall_mastery,
+            skillsPractised: summary.skills_practised,
+            mastered: summary.mastered,
+            learning: summary.learning,
+            atRisk: summary.at_risk,
+            quizAttempts: summary.quiz_attempts,
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setMetrics(null);

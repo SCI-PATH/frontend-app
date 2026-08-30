@@ -20,6 +20,7 @@ export type {
   MatrixBandCounts,
   RiskTierId,
   StudentFocusArea,
+  StudentMasterySummaryResponse,
   StudentProfileResponse,
   TeacherClass,
   TimeOnTaskTrend,

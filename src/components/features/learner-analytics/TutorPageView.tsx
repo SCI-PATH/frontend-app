@@ -28,7 +28,9 @@ export function TutorPageView() {
     } else if (fromFarm) {
       noteFarmHandoff();
     }
-    if (fromFarm) {
+    // Farm Ask Socrates already POSTs the cue. Skip unless that write failed
+    // (no cuePosted=1). React Strict Mode remounts this effect in dev.
+    if (fromFarm && searchParams.get("cuePosted") !== "1") {
       void import("@/lib/api/frustration")
         .then(({ syncFarmFrustrationFromGaming }) =>
           syncFarmFrustrationFromGaming(

@@ -213,6 +213,20 @@ export interface TimeOnTaskTrend {
 
 export interface StudentFocusArea extends AtRiskStudentAlert {}
 
+/** Lightweight hub-card payload from GET /api/v1/analytics/student-mastery-summary/{user_id} */
+export interface StudentMasterySummaryResponse {
+  success: boolean;
+  mode?: "live_state";
+  user_id: string;
+  overall_mastery: number | null;
+  skills_practised: number;
+  mastered: number;
+  learning: number;
+  at_risk: number;
+  quiz_attempts: number;
+  error?: string;
+}
+
 export interface StudentProfileResponse {
   success: boolean;
   mode: "live_state";

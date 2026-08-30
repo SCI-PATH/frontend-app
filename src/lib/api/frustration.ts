@@ -58,18 +58,35 @@ export async function fetchGamingFrustration(studentId: string): Promise<{
   };
 }
 
+const recentCuePosts = new Map<string, number>();
+const CUE_DEDUPE_MS = 10_000;
+
+function isDuplicateCue(userId: string, score: number, source: string): boolean {
+  const key = `${userId}|${source}|${score.toFixed(4)}`;
+  const now = Date.now();
+  const prev = recentCuePosts.get(key);
+  if (prev != null && now - prev < CUE_DEDUPE_MS) return true;
+  recentCuePosts.set(key, now);
+  return false;
+}
+
 export async function postFrustrationCue(input: {
   userId: string;
   frustrationScore: number;
   source?: string;
 }): Promise<boolean> {
+  const source = input.source ?? "homepage_socrates_open";
+  if (isDuplicateCue(input.userId, input.frustrationScore, source)) {
+    return true;
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/v1/engagement/frustration-cue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       user_id: input.userId,
       frustration_score: input.frustrationScore,
-      source: input.source ?? "homepage_socrates_open",
+      source,
     }),
   });
   const payload = asRecord(await response.json().catch(() => null));
