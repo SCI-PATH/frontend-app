@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Navbar } from "@/components/common/Navbar";
+import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
 import { fetchSessionDetail, fetchStudentSessions } from "../api/history";
 import {
   ResultsSummary,
@@ -241,6 +242,7 @@ export function HistoryListScreen() {
           </div>
         ) : null}
       </AssessmentShell>
+      <SocratesChatToggle />
     </>
   );
 }
@@ -320,6 +322,7 @@ export function HistoryDetailScreen() {
           </p>
         ) : null}
       </AssessmentShell>
+      <SocratesChatToggle />
     </>
   );
 }
