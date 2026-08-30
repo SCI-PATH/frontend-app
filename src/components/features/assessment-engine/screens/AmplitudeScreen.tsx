@@ -38,7 +38,7 @@ import type {
   PastGradeMarksRange,
 } from "../types";
 import { AssessmentApiError } from "../types";
-import { STUDENT_HOME_PATH, STUDENT_LEARNING_PATH } from "@/lib/auth-routes";
+import { STUDENT_LEARNING_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizExitGuard } from "../components/QuizExitGuard";
@@ -64,19 +64,22 @@ const PREREQS = [
 
 const CATEGORY_STYLE: Record<
   AmplitudeCategory,
-  { bg: string; label: string }
+  { bg: string; label: string; title: string }
 > = {
   BASIC: {
     bg: "bg-brand-accent/15 text-brand-accent",
-    label: "Building foundations",
+    title: "Basic",
+    label: "We'll start with building foundations — the right pace for where you are now.",
   },
   INTERMEDIATE: {
     bg: "bg-brand-primary/15 text-brand-primary",
-    label: "Solid middle path",
+    title: "Intermediate",
+    label: "You're on a solid middle path — lessons will match your current level.",
   },
   ADVANCED: {
     bg: "bg-brand-secondary/20 text-brand-text",
-    label: "Ready for challenges",
+    title: "Advanced",
+    label: "You're ready for more challenge — we'll stretch your science skills.",
   },
 };
 
@@ -559,8 +562,7 @@ export function AmplitudeScreen() {
           title="Placement result"
           subtitle="Your starting science pathway"
           maxWidth="2xl"
-          backHref={STUDENT_HOME_PATH}
-          backLabel="Home"
+          backHref=""
         >
           <div className="animate-in fade-in slide-in-from-bottom-3 space-y-6 duration-500">
             <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-sm">
@@ -586,41 +588,25 @@ export function AmplitudeScreen() {
                     )}
                   >
                     <Sparkles className="mr-1 size-3.5" aria-hidden />
-                    {displayCategory}
+                    {CATEGORY_STYLE[displayCategory].title} pathway
                   </Badge>
                   <h2 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
-                    Your placement
+                    {CATEGORY_STYLE[displayCategory].title} placement
                   </h2>
                   <p className="mt-2 max-w-md text-base text-brand-text/65">
-                    {CATEGORY_STYLE[displayCategory].label}. This starting
-                    pathway unlocks lessons at the right level.
+                    {CATEGORY_STYLE[displayCategory].label}
                   </p>
 
-                  {evaluatedThisVisit && result ? (
-                    <div className="mt-6 grid w-full max-w-md grid-cols-3 gap-3">
+                  {(evaluatedThisVisit && result) || savedScore != null ? (
+                    <div className="mt-6 w-full max-w-sm">
                       <ScoreStat
-                        label="Weighted"
-                        value={formatPercent(result.weighted_score)}
-                        accent="primary"
-                      />
-                      <ScoreStat
-                        label="Quiz"
-                        value={formatPercent(result.quiz_score)}
-                        sub="60%"
-                        accent="secondary"
-                      />
-                      <ScoreStat
-                        label="History"
-                        value={formatPercent(result.history_score)}
-                        sub="40%"
-                        accent="accent"
-                      />
-                    </div>
-                  ) : savedScore != null ? (
-                    <div className="mt-6 w-full max-w-xs">
-                      <ScoreStat
-                        label="Placement score"
-                        value={formatPercent(savedScore)}
+                        label="Your overall score"
+                        value={formatPercent(
+                          evaluatedThisVisit && result
+                            ? result.weighted_score
+                            : savedScore
+                        )}
+                        sub="Based on your quiz answers and survey — used to choose your starting level"
                         accent="primary"
                       />
                     </div>

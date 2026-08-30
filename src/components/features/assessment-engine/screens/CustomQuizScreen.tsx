@@ -267,18 +267,14 @@ export function CustomQuizScreen() {
     setStarting(true);
     setError(null);
     try {
-      const allTypesSelected =
-        types.length === ALL_TYPES.length &&
-        ALL_TYPES.every((t) => types.includes(t));
-
       const session = await createCustomizableQuiz({
         student_id: user.userId,
         grade,
         chapters: selected,
         num_questions: numQuestions,
-        ...(allTypesSelected || types.length === 0
-          ? {}
-          : { question_types: types }),
+        // Always send explicit types so the backend never falls back to its
+        // MCQ+TrueFalse-only schema default when all four are selected.
+        question_types: types,
       });
       const id = session.session_id;
       if (!id) throw new AssessmentApiError(500, "No session_id returned");
