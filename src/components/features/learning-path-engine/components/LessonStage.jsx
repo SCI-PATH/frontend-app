@@ -334,9 +334,9 @@ export default function LessonStage({
                 </div>
                 <div className={`speech-bubble__body lesson-step--${presentationMode}`}>
                   {isWrapUp ? (
-                    <LessonStepContent text={wrapUpText} density={presentationMode} />
+                    <LessonStepContent text={wrapUpText} density={presentationMode} profile={profile} />
                   ) : (
-                    <LessonStepContent text={current} density={presentationMode} />
+                    <LessonStepContent text={current} density={presentationMode} profile={profile} />
                   )}
                 </div>
                 {stepWordCount > 0 && !isWrapUp ? (

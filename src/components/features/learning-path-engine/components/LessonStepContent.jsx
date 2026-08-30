@@ -1,8 +1,8 @@
 /**
  * Renders one lesson card with highlighted science vocabulary.
- * Multi-sentence steps get one visual paragraph per sentence for easier reading.
+ * Basic level: merged steps show as one paragraph; other levels may split sentences visually.
  */
-export default function LessonStepContent({ text, density = "stepped" }) {
+export default function LessonStepContent({ text, density = "stepped", profile = "basic" }) {
   if (!text?.trim()) return null;
 
   if (/^go deeper$/i.test(text.trim())) {
@@ -13,8 +13,10 @@ export default function LessonStepContent({ text, density = "stepped" }) {
     );
   }
 
-  const sentenceParas = splitDisplaySentences(text);
-  if (sentenceParas.length > 1) {
+  const block = String(text || "").replace(/\s+/g, " ").trim();
+  const isBasicProfile = isBasicLearnerProfile(profile);
+  const sentenceParas = splitDisplaySentences(block);
+  if (sentenceParas.length > 1 && !isBasicProfile) {
     return (
       <div className={`lesson-step lesson-step--${density} lesson-step--multi`}>
         {sentenceParas.map((sentence, idx) => (
@@ -23,6 +25,14 @@ export default function LessonStepContent({ text, density = "stepped" }) {
           </p>
         ))}
       </div>
+    );
+  }
+
+  if (sentenceParas.length >= 1 && isBasicProfile) {
+    return (
+      <p className={`lesson-step__p lesson-step__p--${density} lesson-step__p--paragraph`}>
+        <ColorfulText text={block} />
+      </p>
     );
   }
 
@@ -89,6 +99,11 @@ function splitDisplaySentences(text) {
   if (!block) return [];
   const parts = block.split(/(?<=[.!?])\s+(?=[A-Z"'(0-9])/).filter(Boolean);
   return parts.length > 1 ? parts : [block];
+}
+
+function isBasicLearnerProfile(profile) {
+  const key = String(profile || "basic").toLowerCase();
+  return key === "basic" || key === "weak" || key === "struggling" || key === "beginner" || key === "low";
 }
 
 function ColorfulText({ text }) {

@@ -412,14 +412,14 @@ export function AmplitudeScreen() {
 
     const quizUi = (
       <div className="mx-auto w-full max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {error ? (
-          <p
+      {error ? (
+        <p
             className="mb-4 rounded-2xl border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-sm text-brand-accent"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
         <div className="overflow-hidden rounded-[2rem] border border-brand-surface bg-white shadow-[0_18px_50px_-28px_rgba(0,168,232,0.35)]">
           <BrandGradientBar />
           <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
@@ -648,12 +648,12 @@ export function AmplitudeScreen() {
                 <Badge className="gap-1 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
                   <Sparkles className="size-3.5" aria-hidden />
                   Grade {grade}
-                </Badge>
+            </Badge>
                 <Badge
                   variant="outline"
                   className="border-brand-surface text-brand-text/70"
                 >
-                  {user.displayName}
+              {user.displayName}
                 </Badge>
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
@@ -672,23 +672,23 @@ export function AmplitudeScreen() {
                 title="Past science marks"
                 hint="Required"
               >
-                <div className="flex flex-wrap gap-2">
-                  {MARKS.map((m) => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => setMarks(m.value)}
-                      className={cn(
+              <div className="flex flex-wrap gap-2">
+                {MARKS.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setMarks(m.value)}
+                    className={cn(
                         "rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-all duration-200",
-                        marks === m.value
+                      marks === m.value
                           ? "border-brand-primary/30 bg-brand-primary/5 text-brand-text ring-2 ring-brand-primary/25"
                           : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-primary/20 hover:bg-white"
-                      )}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
               </SetupBlock>
 
               <SetupBlock
@@ -721,29 +721,29 @@ export function AmplitudeScreen() {
                   ) : null
                 }
               >
-                {chaptersLoading ? (
+              {chaptersLoading ? (
                   <div className="flex items-center justify-center gap-2 py-10 text-sm text-brand-text/55">
                     <Loader2 className="size-4 animate-spin" aria-hidden />
                     Loading chapters…
                   </div>
-                ) : chapters.length === 0 ? (
-                  <p className="text-sm text-brand-text/55">
+              ) : chapters.length === 0 ? (
+                <p className="text-sm text-brand-text/55">
                     No chapters returned for grade {grade}. You can still
                     continue with an empty selection.
-                  </p>
-                ) : (
+                </p>
+              ) : (
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     {sortedChapters.map((ch) => {
-                      const on = selectedChapters.includes(ch.chapter_id);
+                    const on = selectedChapters.includes(ch.chapter_id);
                       const num =
                         typeof ch.chapter === "number" && ch.chapter > 0
                           ? ch.chapter
                           : null;
-                      return (
-                        <button
-                          key={ch.chapter_id}
-                          type="button"
-                          onClick={() => toggleChapter(ch.chapter_id)}
+                    return (
+                      <button
+                        key={ch.chapter_id}
+                        type="button"
+                        onClick={() => toggleChapter(ch.chapter_id)}
                           aria-pressed={on}
                           className={cn(
                             "group flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all duration-200",
@@ -753,10 +753,10 @@ export function AmplitudeScreen() {
                           )}
                         >
                           <span
-                            className={cn(
+                        className={cn(
                               "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                              on
-                                ? "border-brand-primary bg-brand-primary text-white"
+                          on
+                            ? "border-brand-primary bg-brand-primary text-white"
                                 : "border-brand-surface bg-white text-transparent group-hover:border-brand-primary/40"
                             )}
                           >
@@ -777,11 +777,11 @@ export function AmplitudeScreen() {
                               {formatChapterId(ch.chapter_id)}
                             </span>
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               </SetupBlock>
 
               <SetupBlock
@@ -791,13 +791,13 @@ export function AmplitudeScreen() {
                 hint={`Optional · ${hours}h`}
               >
                 <div className="rounded-2xl border border-brand-surface/80 bg-brand-background/40 px-4 py-4">
-                  <input
-                    type="range"
-                    min={0}
-                    max={40}
-                    step={0.5}
-                    value={hours}
-                    onChange={(e) => setHours(Number(e.target.value))}
+              <input
+                type="range"
+                min={0}
+                max={40}
+                step={0.5}
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
                     className="w-full accent-brand-primary"
                     aria-label="Study hours per week"
                   />
@@ -816,22 +816,22 @@ export function AmplitudeScreen() {
                 hint={`Optional · ${confidence} / 5`}
               >
                 <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setConfidence(n)}
-                      className={cn(
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setConfidence(n)}
+                    className={cn(
                         "size-11 rounded-2xl border text-sm font-bold transition-all duration-200",
-                        confidence === n
+                      confidence === n
                           ? "border-brand-primary/30 bg-brand-primary text-white ring-2 ring-brand-primary/25"
                           : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-primary/20 hover:bg-white"
-                      )}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
               </SetupBlock>
 
               <SetupBlock
@@ -841,22 +841,22 @@ export function AmplitudeScreen() {
                 hint={`${efficacy} / 5 — I can figure out new or hard science questions`}
               >
                 <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setEfficacy(n)}
-                      className={cn(
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setEfficacy(n)}
+                    className={cn(
                         "size-11 rounded-2xl border text-sm font-bold transition-all duration-200",
-                        efficacy === n
+                      efficacy === n
                           ? "border-brand-secondary/35 bg-brand-secondary/8 text-brand-text ring-2 ring-brand-secondary/25"
                           : "border-brand-surface bg-brand-background/50 text-brand-text hover:border-brand-secondary/25 hover:bg-white"
-                      )}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
               </SetupBlock>
 
               <SetupBlock
@@ -919,12 +919,12 @@ export function AmplitudeScreen() {
                 </p>
               ) : null}
 
-              <Button
-                disabled={busy}
-                onClick={() => void startQuiz()}
+            <Button
+              disabled={busy}
+              onClick={() => void startQuiz()}
                 className="h-12 w-full gap-2 rounded-2xl bg-brand-accent text-base text-white shadow-sm hover:bg-brand-accent/90 disabled:opacity-50"
-              >
-                {busy ? (
+            >
+              {busy ? (
                   <>
                     <Loader2 className="size-5 animate-spin" aria-hidden />
                     Starting…
@@ -935,11 +935,11 @@ export function AmplitudeScreen() {
                     Continue to 10-question quiz
                   </>
                 )}
-              </Button>
+            </Button>
             </div>
           </div>
         </div>
-      </AssessmentShell>
+    </AssessmentShell>
     </>
   );
 }
