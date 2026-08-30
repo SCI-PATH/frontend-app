@@ -19,6 +19,7 @@ interface EnrolledStudentsProps {
   classCode?: string;
   masteryMatrix: Record<string, Record<string, number | null>>;
   attemptMatrix: Record<string, Record<string, number>>;
+  priorByTopicId?: Record<string, number>;
   atRiskAlerts: readonly AtRiskStudentAlert[];
   selectedStudentId: string | null;
   onSelectStudent: (studentId: string) => void;
@@ -40,6 +41,7 @@ export function EnrolledStudents({
   classCode,
   masteryMatrix,
   attemptMatrix,
+  priorByTopicId,
   atRiskAlerts,
   selectedStudentId,
   onSelectStudent,
@@ -59,7 +61,10 @@ export function EnrolledStudents({
     return studentIds
       .map((learnerId) => {
         const displayName = getStudentDisplayName(learnerId, students);
-        const bands = countStudentTopicBands(masteryMatrix[learnerId], topicIds);
+        const bands = countStudentTopicBands(masteryMatrix[learnerId], topicIds, {
+          attemptsByTopic: attemptMatrix[learnerId] ?? {},
+          priorByTopicId,
+        });
         return {
           learnerId,
           displayName,
@@ -78,6 +83,7 @@ export function EnrolledStudents({
   }, [
     attemptMatrix,
     masteryMatrix,
+    priorByTopicId,
     query,
     riskCountByLearner,
     studentIds,
@@ -139,6 +145,7 @@ export function EnrolledStudents({
                     <th className="px-3 py-2 font-semibold">Mastered</th>
                     <th className="px-3 py-2 font-semibold">Learning</th>
                     <th className="px-3 py-2 font-semibold">Needs support</th>
+                    <th className="px-3 py-2 font-semibold">Not started</th>
                     <th className="px-3 py-2 font-semibold">Quiz attempts</th>
                     <th className="px-3 py-2 font-semibold">
                       <span className="sr-only">Open profile</span>
@@ -182,6 +189,9 @@ export function EnrolledStudents({
                               {row.riskFlags === 1 ? "" : "s"})
                             </span>
                           ) : null}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-600">
+                          {row.bands.notStarted}
                         </td>
                         <td className="px-3 py-2.5 text-brand-text/80">
                           {row.attempts}

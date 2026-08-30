@@ -35,17 +35,25 @@ export function SummaryMetrics({ bands }: SummaryMetricsProps) {
     {
       title: "Needs support",
       count: bands.atRisk.toLocaleString(),
-      meta: `${shareLabel(bands.atRisk, bands.total)} · < 50%`,
+      meta: `${shareLabel(bands.atRisk, bands.total)} · attempted · < 50%`,
       accent: `border-l-red-500 ${EDUCATOR_AT_RISK.metricBg}`,
       countClass: EDUCATOR_AT_RISK.textStrong,
       ring: "ring-red-200",
+    },
+    {
+      title: "Not started",
+      count: bands.notStarted.toLocaleString(),
+      meta: `${shareLabel(bands.notStarted, bands.total)} · no quiz evidence`,
+      accent: "border-l-slate-400 bg-slate-50",
+      countClass: "text-slate-600",
+      ring: "ring-slate-200",
     },
   ] as const;
 
   return (
     <section
       aria-label="Summary metrics"
-      className="grid gap-3 sm:grid-cols-3"
+      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
       {cards.map((card) => (
         <div

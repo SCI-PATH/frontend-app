@@ -124,9 +124,21 @@ export function EducatorDashboardView() {
     void loadTeacherClasses();
   }, [loadTeacherClasses]);
 
+  const priorByTopicId = useMemo(() => {
+    const priors: Record<string, number> = {};
+    for (const topic of topicCatalog) {
+      priors[topic.topicId] = topic.pL0;
+    }
+    return priors;
+  }, [topicCatalog]);
+
   const bandCounts = useMemo(
-    () => countMatrixBands(masteryMatrix, studentIds, topicIds),
-    [masteryMatrix, studentIds, topicIds]
+    () =>
+      countMatrixBands(masteryMatrix, studentIds, topicIds, {
+        attemptMatrix,
+        priorByTopicId,
+      }),
+    [attemptMatrix, masteryMatrix, priorByTopicId, studentIds, topicIds]
   );
 
   const selectedRow =
@@ -216,6 +228,7 @@ export function EducatorDashboardView() {
             classCode={classMeta.classCode}
             masteryMatrix={masteryMatrix}
             attemptMatrix={attemptMatrix}
+            priorByTopicId={priorByTopicId}
             atRiskAlerts={atRiskAlerts}
             selectedStudentId={selectedStudentId}
             onSelectStudent={setSelectedStudentId}
@@ -277,6 +290,8 @@ export function EducatorDashboardView() {
                     selectedStudentId={selectedStudentId}
                     topicIds={topicIds}
                     matrixRow={selectedRow}
+                    attemptMatrix={attemptMatrix}
+                    priorByTopicId={priorByTopicId}
                     profile={studentProfile}
                     isLoading={isLoadingProfile}
                     error={profileError}

@@ -80,47 +80,90 @@ export function masteryCellClassName(
   }
 }
 
+export interface MatrixBandCountOptions {
+  /** When set, prior-only cells (no quiz attempts) are counted as not started. */
+  attemptMatrix?: Record<string, Record<string, number>>;
+  priorByTopicId?: Record<string, number>;
+  defaultPrior?: number;
+}
+
+export interface StudentTopicBandCountOptions {
+  attemptsByTopic?: Record<string, number>;
+  priorByTopicId?: Record<string, number>;
+  defaultPrior?: number;
+}
+
+function priorForTopic(
+  topicId: string,
+  priorByTopicId: Record<string, number> | undefined,
+  defaultPrior: number
+): number {
+  return priorByTopicId?.[topicId] ?? defaultPrior;
+}
+
+function tallyBand(
+  probability: number | null | undefined,
+  pL0: number,
+  attempts: number,
+  splitUnattempted: boolean,
+  buckets: { mastered: number; learning: number; atRisk: number; notStarted: number }
+) {
+  if (splitUnattempted && isUnattemptedBaselineCell(probability, pL0, attempts)) {
+    buckets.notStarted += 1;
+    return;
+  }
+  const category = masteryCategoryFromProbability(probability);
+  if (category === "mastered") buckets.mastered += 1;
+  else if (category === "learning") buckets.learning += 1;
+  else if (category === "at_risk") buckets.atRisk += 1;
+}
+
 export function countMatrixBands(
   matrix: Record<string, Record<string, number | null>>,
   studentIds: readonly string[],
-  topicIds: readonly string[]
+  topicIds: readonly string[],
+  options?: MatrixBandCountOptions
 ) {
-  let mastered = 0;
-  let learning = 0;
-  let atRisk = 0;
+  const splitUnattempted = options?.attemptMatrix !== undefined;
+  const defaultPrior = options?.defaultPrior ?? 0.25;
+  const buckets = { mastered: 0, learning: 0, atRisk: 0, notStarted: 0 };
 
   for (const studentId of studentIds) {
     for (const topicId of topicIds) {
-      const value = matrix[studentId]?.[topicId];
-      const category = masteryCategoryFromProbability(value ?? null);
-      if (category === "mastered") mastered += 1;
-      else if (category === "learning") learning += 1;
-      else if (category === "at_risk") atRisk += 1;
+      tallyBand(
+        matrix[studentId]?.[topicId],
+        priorForTopic(topicId, options?.priorByTopicId, defaultPrior),
+        getCellAttemptCount(options?.attemptMatrix, studentId, topicId),
+        splitUnattempted,
+        buckets
+      );
     }
   }
 
   return {
-    mastered,
-    learning,
-    atRisk,
+    ...buckets,
     total: studentIds.length * topicIds.length,
   };
 }
 
 export function countStudentTopicBands(
   row: Record<string, number | null> | undefined,
-  topicIds: readonly string[]
+  topicIds: readonly string[],
+  options?: StudentTopicBandCountOptions
 ) {
-  let mastered = 0;
-  let learning = 0;
-  let atRisk = 0;
+  const splitUnattempted = options?.attemptsByTopic !== undefined;
+  const defaultPrior = options?.defaultPrior ?? 0.25;
+  const buckets = { mastered: 0, learning: 0, atRisk: 0, notStarted: 0 };
 
   for (const topicId of topicIds) {
-    const category = masteryCategoryFromProbability(row?.[topicId] ?? null);
-    if (category === "mastered") mastered += 1;
-    else if (category === "learning") learning += 1;
-    else if (category === "at_risk") atRisk += 1;
+    tallyBand(
+      row?.[topicId],
+      priorForTopic(topicId, options?.priorByTopicId, defaultPrior),
+      options?.attemptsByTopic?.[topicId] ?? 0,
+      splitUnattempted,
+      buckets
+    );
   }
 
-  return { mastered, learning, atRisk };
+  return buckets;
 }

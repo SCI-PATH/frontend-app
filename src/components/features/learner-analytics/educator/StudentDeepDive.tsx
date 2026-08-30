@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, ChevronDown, Gauge, Timer } from "lucide-react";
+import { AlertTriangle, ChevronDown, Timer } from "lucide-react";
 
 import { CollapsibleSection } from "@/components/features/learner-analytics/educator/CollapsibleSection";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,6 @@ import { cn } from "@/lib/utils";
 import type {
   ChatHistoryTurn,
   ClassroomStudentMeta,
-  DiagnosticSkillRow,
   RecentAttemptRow,
   StudentFocusArea,
   StudentProfileResponse,
@@ -58,6 +57,8 @@ interface StudentDeepDiveProps {
   selectedStudentId: string | null;
   topicIds: readonly string[];
   matrixRow?: Record<string, number | null>;
+  attemptMatrix?: Record<string, Record<string, number>>;
+  priorByTopicId?: Record<string, number>;
   profile: StudentProfileResponse | null;
   isLoading: boolean;
   error: string | null;
@@ -268,6 +269,90 @@ function clipStudentMessage(text?: string | null, maxChars = 140): string | null
   return `${trimmed.slice(0, maxChars).trimEnd()}…`;
 }
 
+/** True when the line is affect-only ("I'm stuck") and does not name a science idea. */
+function isLowInsightStudentLine(text?: string | null): boolean {
+  const trimmed = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return true;
+  const withoutEmoji = trimmed
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (withoutEmoji.length < 8) return true;
+  const affectOnly =
+    /^(?:i['’]?m\s+|i\s+am\s+)?(?:so\s+|really\s+|still\s+)?(?:stuck|confused|lost|frustrated)(?:\s+on this(?: step)?)?(?:\s*[.!?…]*)?$/i;
+  if (affectOnly.test(withoutEmoji) && withoutEmoji.length < 80) return true;
+  if (
+    withoutEmoji.length < 48 &&
+    /^(?:help(?: me)?|idk|i don['’]?t (?:get|understand|know)(?: this| it)?|give up)(?:\s*[.!?…]*)?$/i.test(
+      withoutEmoji
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function extractTutorQuestion(hint?: string | null): string | null {
+  const trimmed = (hint ?? "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  const questions = trimmed.match(/[^?]*\?/g);
+  if (questions && questions.length > 0) {
+    return clipStudentMessage(questions[questions.length - 1].trim(), 180);
+  }
+  return clipStudentMessage(trimmed, 180);
+}
+
+function sameTopic(a?: string | null, b?: string | null): boolean {
+  const left = String(a ?? "").trim();
+  const right = String(b ?? "").trim();
+  return Boolean(left) && left === right;
+}
+
+function findPriorScienceLine(
+  turn: ChatHistoryTurn,
+  history: ChatHistoryTurn[]
+): string | null {
+  const topicId = String(turn.topic_id ?? "");
+  const stamp = turn.timestamp ?? "";
+  const candidates = history.filter((row) => {
+    if (!sameTopic(row.topic_id, topicId)) return false;
+    if (isLowInsightStudentLine(row.student_message)) return false;
+    if (stamp && row.timestamp && row.timestamp >= stamp) return false;
+    return Boolean((row.student_message ?? "").trim());
+  });
+  const prior = candidates.at(-1);
+  return clipStudentMessage(prior?.student_message, 180);
+}
+
+function turnsFromProfile(profile: StudentProfileResponse | null): ChatHistoryTurn[] {
+  const fromChat = profile?.chat_history_last_5 ?? [];
+  const fromConfusion = profile?.critical_confusion_turns ?? [];
+  const fromTimeline = (profile?.engagement_timeline_last_10_turns ?? []).map(
+    (row) =>
+      ({
+        topic_id: row.topic_id,
+        interaction_score: row.interaction_score,
+        timestamp: row.timestamp,
+        persona_id: row.persona_id,
+        student_message: (row as ChatHistoryTurn).student_message,
+        tutor_hint: (row as ChatHistoryTurn).tutor_hint,
+        critical_confusion: (row as ChatHistoryTurn).critical_confusion,
+      }) satisfies ChatHistoryTurn
+  );
+  const merged = [...fromTimeline, ...fromChat, ...fromConfusion];
+  const seen = new Set<string>();
+  const unique: ChatHistoryTurn[] = [];
+  for (const turn of merged) {
+    const key = `${turn.timestamp ?? ""}|${turn.topic_id ?? ""}|${turn.student_message ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(turn);
+  }
+  return unique.sort((a, b) =>
+    String(a.timestamp ?? "").localeCompare(String(b.timestamp ?? ""))
+  );
+}
+
 function formatErrorCategory(value?: string | null): string {
   if (!value) return "—";
   if (value === "NO_ERROR") return "None";
@@ -350,47 +435,6 @@ function RecentAttemptsTable({ attempts }: { attempts: RecentAttemptRow[] }) {
   );
 }
 
-function DiagnosticSkillList({
-  title,
-  rows,
-  emptyLabel,
-  paramKey,
-}: {
-  title: string;
-  rows: DiagnosticSkillRow[];
-  emptyLabel: string;
-  paramKey: "p_s" | "p_g";
-}) {
-  return (
-    <div>
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-brand-text/50">
-        {title}
-      </p>
-      {rows.length === 0 ? (
-        <p className="text-sm text-brand-text/60">{emptyLabel}</p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.slice(0, 5).map((row) => (
-            <li
-              key={`${paramKey}-${row.topic_id}`}
-              className="rounded-xl border border-brand-surface bg-brand-background/40 px-3 py-2.5"
-            >
-              <p className="text-sm font-medium text-brand-text">
-                {getCurriculumTitle(row.topic_id)}
-              </p>
-              <p className="mt-1 font-mono text-[0.62rem] text-brand-text/45">
-                {compactTopicLabel(row.topic_id)} · {paramKey.toUpperCase()}{" "}
-                {row[paramKey].toFixed(2)} · P(L){" "}
-                {typeof row.p_l === "number" ? Math.round(row.p_l * 100) : "—"}%
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function trendLabel(trend: TimeOnTaskTrend["trend"]) {
   switch (trend) {
     case "increasing":
@@ -452,7 +496,18 @@ function TutoringActivitySummary({
 }: {
   profile: StudentProfileResponse | null;
 }) {
-  const confusionTurns = profile?.critical_confusion_turns ?? [];
+  const history = useMemo(() => turnsFromProfile(profile), [profile]);
+  const confusionTurns = useMemo(() => {
+    const flagged = profile?.critical_confusion_turns ?? [];
+    if (flagged.length > 0) return flagged;
+    return history.filter((turn) => {
+      if (turn.critical_confusion) return true;
+      return (
+        typeof turn.interaction_score === "number" &&
+        turn.interaction_score < 0.3
+      );
+    });
+  }, [history, profile?.critical_confusion_turns]);
   const confusionCount = confusionTurns.length;
   const recentTurns = profile?.engagement_timeline_last_10_turns ?? [];
   const recentTopics = useMemo(() => {
@@ -516,12 +571,28 @@ function TutoringActivitySummary({
       {confusionCount > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
-            What the confusion was about
+            What they were stuck on
           </p>
           <ul className="space-y-2">
             {confusionTurns.map((turn: ChatHistoryTurn, index) => {
               const topicId = String(turn.topic_id ?? "");
-              const utterance = clipStudentMessage(turn.student_message);
+              const tutorQuestion =
+                extractTutorQuestion(turn.tutor_hint) ??
+                extractTutorQuestion(
+                  [...history]
+                    .reverse()
+                    .find(
+                      (row) =>
+                        sameTopic(row.topic_id, topicId) &&
+                        Boolean(row.tutor_hint?.trim()) &&
+                        (!turn.timestamp ||
+                          !row.timestamp ||
+                          row.timestamp <= turn.timestamp)
+                    )?.tutor_hint
+                );
+              const scienceLine = isLowInsightStudentLine(turn.student_message)
+                ? findPriorScienceLine(turn, history)
+                : clipStudentMessage(turn.student_message, 180);
               const score =
                 typeof turn.interaction_score === "number"
                   ? Math.round(turn.interaction_score * 100)
@@ -540,10 +611,30 @@ function TutoringActivitySummary({
                       ? ` · ${formatEducatorTimestamp(turn.timestamp)}`
                       : ""}
                   </p>
-                  <p className="mt-1 text-sm text-brand-text/80">
-                    {utterance ??
-                      "Low tutor score on this turn, but the student line was not stored."}
-                  </p>
+                  {tutorQuestion ? (
+                    <p className="mt-2 text-sm text-brand-text">
+                      <span className="font-semibold text-brand-text/70">
+                        Concept Socrates was checking:{" "}
+                      </span>
+                      {tutorQuestion}
+                    </p>
+                  ) : null}
+                  {scienceLine ? (
+                    <p className="mt-1.5 text-sm text-brand-text/85">
+                      <span className="font-semibold text-brand-text/70">
+                        What they tried to say:{" "}
+                      </span>
+                      {scienceLine}
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-sm text-brand-text/70">
+                      They sent a stuck/help message without naming the science
+                      idea.
+                      {tutorQuestion
+                        ? " Use Socrates’ question above as the reteach target."
+                        : " Reteach from this skill title."}
+                    </p>
+                  )}
                 </li>
               );
             })}
@@ -551,9 +642,9 @@ function TutoringActivitySummary({
         </div>
       ) : null}
       <p className="text-xs leading-relaxed text-brand-text/50">
-        A critical confusion signal is a tutor turn whose chat score was below 30%
-        (vague, stuck, or a likely wrong idea). Only that short student line is
-        shown — not the full conversation.
+        A critical confusion signal is a tutor turn scored below 30%. This
+        card shows the skill, the idea Socrates was probing, and any science
+        attempt from the student — not a full chat transcript.
       </p>
     </div>
   );
@@ -565,6 +656,8 @@ export function StudentDeepDive({
   selectedStudentId,
   topicIds,
   matrixRow,
+  attemptMatrix,
+  priorByTopicId,
   profile,
   isLoading,
   error,
@@ -574,7 +667,12 @@ export function StudentDeepDive({
   const selectedStudentName = selectedStudentId
     ? getStudentDisplayName(selectedStudentId, students)
     : null;
-  const rowBands = countStudentTopicBands(matrixRow, topicIds);
+  const rowBands = countStudentTopicBands(matrixRow, topicIds, {
+    attemptsByTopic: selectedStudentId
+      ? (attemptMatrix?.[selectedStudentId] ?? {})
+      : {},
+    priorByTopicId,
+  });
 
   const compareData = useMemo(() => {
     const mastery = profile?.mastery_timeline_last_10_attempts ?? [];
@@ -643,16 +741,6 @@ export function StudentDeepDive({
       error_category: point.error_category,
       timestamp: point.timestamp,
     }));
-  const highSlipSkills =
-    profile?.diagnostic_skills?.high_slip ??
-    (profile?.bkt_parameters ?? [])
-      .filter((row) => row.p_s > 0.15)
-      .map((row) => ({ ...row, flag: "high_slip" as const }));
-  const highGuessSkills =
-    profile?.diagnostic_skills?.high_guess ??
-    (profile?.bkt_parameters ?? [])
-      .filter((row) => row.p_g > 0.2)
-      .map((row) => ({ ...row, flag: "high_guess" as const }));
 
   const metrics = useMemo(
     () => [
@@ -686,9 +774,14 @@ export function StudentDeepDive({
         tone: "default" as const,
       },
       {
-        label: "At risk",
+        label: "Needs support",
         value: rowBands.atRisk,
         tone: "danger" as const,
+      },
+      {
+        label: "Not started",
+        value: rowBands.notStarted,
+        tone: "default" as const,
       },
       {
         label: "Engagement",
@@ -916,42 +1009,6 @@ export function StudentDeepDive({
       <Card className="border-brand-surface">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Gauge className="size-4 text-brand-special" />
-            Tricky skills
-          </CardTitle>
-          <CardDescription>
-            From the BKT skill model, not a live streak. Slip (p_s &gt; 0.15): the
-            model thinks they know it but still miss. Guess (p_g &gt; 0.20): a
-            correct answer may be lucky.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <p className="py-4 text-sm text-brand-text/60">
-              Loading BKT diagnostics…
-            </p>
-          ) : (
-            <>
-              <DiagnosticSkillList
-                title="Often slips (knows it, still gets wrong)"
-                rows={highSlipSkills}
-                emptyLabel="No slip-prone skills for this learner."
-                paramKey="p_s"
-              />
-              <DiagnosticSkillList
-                title="Often guesses (may get lucky)"
-                rows={highGuessSkills}
-                emptyLabel="No guess-heavy skills for this learner."
-                paramKey="p_g"
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-brand-surface">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
             <Timer className="size-4 text-brand-primary" />
             Response Time Trends
           </CardTitle>
@@ -972,8 +1029,9 @@ export function StudentDeepDive({
         <CardHeader>
           <CardTitle className="text-base">Tutor help summary</CardTitle>
           <CardDescription>
-            Topics they asked the tutor about. A critical confusion signal is a chat
-            turn scored below 30% — the student line for that turn is listed below.
+            Topics they asked the tutor about. Critical confusion is a chat
+            score below 30% — the card names the skill and the idea Socrates
+            was checking, not just a stuck/help line.
           </CardDescription>
         </CardHeader>
         <CardContent>

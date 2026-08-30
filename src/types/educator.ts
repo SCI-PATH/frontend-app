@@ -175,6 +175,9 @@ export interface EngagementTimelinePoint {
   timestamp?: string | null;
   topic_id?: string | null;
   persona_id?: string | null;
+  student_message?: string | null;
+  tutor_hint?: string | null;
+  critical_confusion?: boolean;
 }
 
 export interface DistractorTagCount {
@@ -268,6 +271,7 @@ export interface MatrixBandCounts {
   mastered: number;
   learning: number;
   atRisk: number;
+  notStarted: number;
   total: number;
 }
 
