@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpen,
+  ClipboardList,
   Loader2,
   Sparkles,
   Target,
@@ -13,6 +14,7 @@ import {
 
 import { StudentAvatarPicker } from "@/components/features/learner-analytics/StudentAvatarPicker";
 import { StudentProfileDetailsForm } from "@/components/features/learner-analytics/StudentProfileDetailsForm";
+import { ProfileRecentQuizAttempts } from "@/components/features/assessment-engine/components/ProfileRecentQuizAttempts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
@@ -434,36 +436,16 @@ export function StudentProfileView() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-2xl border border-brand-surface bg-white p-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-brand-text">
-                Recent quiz attempts
-              </h2>
-              {recentAttempts.length === 0 ? (
-                <p className="mt-3 text-sm text-brand-text/65">
-                  No scored questions yet.
-                </p>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {recentAttempts.slice(-8).reverse().map((attempt, index) => (
-                    <li
-                      key={`${attempt.topic_id}-${index}`}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-brand-background px-3 py-2 text-sm"
-                    >
-                      <span className="min-w-0 truncate text-brand-text">
-                        {getCurriculumTitle(attempt.topic_id)}
-                      </span>
-                      <span
-                        className={
-                          attempt.is_correct
-                            ? "font-semibold text-brand-secondary"
-                            : EDUCATOR_AT_RISK.text
-                        }
-                      >
-                        {attempt.is_correct ? "Correct" : "Incorrect"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="mb-3 flex items-center gap-2">
+                <ClipboardList
+                  className="size-4 text-brand-primary"
+                  aria-hidden
+                />
+                <h2 className="text-lg font-semibold text-brand-text">
+                  Recent quiz attempts
+                </h2>
+              </div>
+              <ProfileRecentQuizAttempts />
             </section>
 
             <section className="rounded-2xl border border-brand-surface bg-white p-5 sm:p-6">
