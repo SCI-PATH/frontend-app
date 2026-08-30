@@ -94,11 +94,11 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 2rem;
+  border-radius: 1.25rem;
   border: 1px solid rgb(255 255 255 / 0.22);
   box-shadow:
-    0 24px 48px -20px rgb(114 9 183 / 0.45),
-    0 8px 24px -12px rgb(0 168 232 / 0.35);
+    0 16px 32px -16px rgb(114 9 183 / 0.4),
+    0 6px 16px -10px rgb(0 168 232 / 0.3);
 }
 
 .welcome-banner__inner {
@@ -146,26 +146,26 @@
 }
 
 .welcome-banner__orb--cyan {
-  top: -12%;
-  right: -6%;
-  width: 11rem;
-  height: 11rem;
+  top: -18%;
+  right: -4%;
+  width: 7rem;
+  height: 7rem;
   background: rgb(0 168 232 / 0.5);
 }
 
 .welcome-banner__orb--purple {
-  bottom: -18%;
-  left: 8%;
-  width: 10rem;
-  height: 10rem;
+  bottom: -28%;
+  left: 6%;
+  width: 6.5rem;
+  height: 6.5rem;
   background: rgb(114 9 183 / 0.45);
 }
 
 .welcome-banner__orb--pink {
-  top: 35%;
-  left: 55%;
-  width: 7rem;
-  height: 7rem;
+  top: 30%;
+  left: 58%;
+  width: 4.5rem;
+  height: 4.5rem;
   background: rgb(224 86 160 / 0.4);
 }
 

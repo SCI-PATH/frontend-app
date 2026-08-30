@@ -45,26 +45,26 @@ export function SummaryMetrics({ bands }: SummaryMetricsProps) {
   return (
     <section
       aria-label="Summary metrics"
-      className="grid gap-1.5 sm:grid-cols-3"
+      className="grid gap-3 sm:grid-cols-3"
     >
       {cards.map((card) => (
         <div
           key={card.title}
           className={cn(
-            "flex items-center justify-between gap-2 rounded-lg border border-brand-surface border-l-[3px] px-2.5 py-1.5 ring-1",
+            "flex items-center justify-between gap-3 rounded-2xl border border-brand-surface border-l-[4px] px-4 py-3 shadow-sm ring-1",
             card.accent,
             card.ring
           )}
         >
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-brand-text/60">
+            <p className="truncate text-xs font-bold uppercase tracking-wide text-brand-text/60">
               {card.title}
             </p>
-            <p className="truncate text-[10px] text-brand-text/45">{card.meta}</p>
+            <p className="mt-0.5 truncate text-xs text-brand-text/45">{card.meta}</p>
           </div>
           <p
             className={cn(
-              "shrink-0 text-base font-bold tabular-nums leading-none",
+              "shrink-0 text-2xl font-black tabular-nums leading-none",
               card.countClass
             )}
           >

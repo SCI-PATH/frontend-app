@@ -20,6 +20,7 @@ import { useUserStore } from "@/store/useUserStore";
 export function StudentHome() {
   const upsertEnrolledClass = useUserStore((state) => state.upsertEnrolledClass);
   const hasHydrated = useUserStore((state) => state.hasHydrated);
+  const sessionClassCode = useUserStore((state) => state.user?.classCode);
   const { enrolledClasses, primaryClass, refresh } = useEnrolledClasses();
   const { role, isAuthenticated } = useAssessmentUser();
   const placement = usePlacementStatus();
@@ -31,6 +32,9 @@ export function StudentHome() {
     placement.status === "ready" &&
     !isPlacementComplete(placement);
 
+  const alreadyInClass =
+    enrolledClasses.length > 0 || Boolean(sessionClassCode?.trim());
+
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
       <div
@@ -38,16 +42,17 @@ export function StudentHome() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E818,_transparent_45%),radial-gradient(ellipse_at_top_right,_#7209B714,_transparent_40%),radial-gradient(ellipse_at_bottom,_#70E00012,_transparent_45%)]"
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-3 pt-6 pb-28 sm:gap-16 sm:px-5 sm:pt-8 sm:pb-32">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-3 pt-5 pb-28 sm:gap-12 sm:px-5 sm:pt-6 sm:pb-32">
         <WelcomeBanner enrolledClass={primaryClass} />
 
-        <JoinClassSection
-          enrolledClasses={enrolledClasses}
-          onJoined={(classroom) => {
-            upsertEnrolledClass(classroom);
-            void refresh();
-          }}
-        />
+        {hasHydrated && !alreadyInClass ? (
+          <JoinClassSection
+            onJoined={(classroom) => {
+              upsertEnrolledClass(classroom);
+              void refresh();
+            }}
+          />
+        ) : null}
 
         <section className="space-y-6 sm:space-y-8">
           <div className="mx-auto max-w-2xl text-center">

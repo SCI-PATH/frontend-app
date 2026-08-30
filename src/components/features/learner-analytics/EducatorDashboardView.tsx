@@ -150,7 +150,12 @@ export function EducatorDashboardView() {
   const isRefreshing = isLoadingDashboard && hasData;
 
   return (
-    <div className="relative mx-auto flex w-full max-w-[1800px] flex-col gap-4 pb-8">
+    <div className="relative mx-auto flex w-full max-w-[1800px] flex-col gap-5 pb-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E818,_transparent_45%),radial-gradient(ellipse_at_top_right,_#7209B714,_transparent_40%),radial-gradient(ellipse_at_bottom,_#70E00012,_transparent_45%)]"
+      />
+      <div className="relative z-10 flex flex-col gap-5">
       <DashboardHeader
         classMeta={classMeta}
         teacherClasses={teacherClasses}
@@ -283,6 +288,7 @@ export function EducatorDashboardView() {
           ) : null}
         </>
       ) : null}
+      </div>
     </div>
   );
 }
