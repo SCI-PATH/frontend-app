@@ -40,7 +40,6 @@ import type {
   QuizResults,
 } from "../types";
 import { AssessmentApiError } from "../types";
-import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import { AssessmentShell } from "../components/AssessmentShell";
 import { QuizPlayer } from "../components/QuizPlayer";
 import { ResultsSummary } from "../components/ResultsSummary";
@@ -322,8 +321,7 @@ export function CustomQuizScreen() {
           title="Quiz results"
           subtitle="See your score and every question to review."
           maxWidth="3xl"
-          backHref={STUDENT_HOME_PATH}
-          backLabel="Home"
+          backHref=""
         >
           <ResultsSummary
             sessionId={sessionId}
