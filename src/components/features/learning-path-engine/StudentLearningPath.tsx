@@ -24,8 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
-import { getStudentInitialCategory } from "@/lib/api/assessment";
-import { fetchLatestAnalyticsKnowledgeLevel } from "@/lib/api/learner-mastery";
+import { resolveLearnerProfileForLesson } from "@/lib/api/learner-mastery";
 import { STUDENT_AR_LIBRARY_PATH, STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import {
   buildGamingServiceLaunchUrl,
@@ -51,7 +50,6 @@ import {
   getCurriculum,
   getHealth,
   getProgress,
-  postAnalyticsProfile,
   postLesson,
   postProgress,
 } from "./api/client.js";
@@ -74,83 +72,6 @@ const PROFILE_LABEL: Record<string, string> = {
   strong: "Advanced",
   smart: "Advanced",
 };
-
-type ResolveProfileOptions = {
-  lessonId?: string | null;
-  /** Lessons already finished — empty means first chapter after aptitude → IAE. */
-  completedLessonIds?: string[];
-  /** Persist into LPE `/analytics/profile` (do this on real lesson start). */
-  persist?: boolean;
-};
-
-/**
- * Aptitude (IAE) is required before any lesson.
- * First chapter after aptitude → IAE category.
- * After at least one finished chapter → latest analytics mastery_category
- * (from finished-chapter quizzes), mapped to basic|intermediate|advanced content.
- */
-async function resolveLearnerProfileForLesson(
-  userId: string,
-  grade: number,
-  options: ResolveProfileOptions = {}
-): Promise<{
-  profile: string | null;
-  reason: "ok" | "no_aptitude" | "assessment_unreachable";
-  source?: "intelligent_assessment_engine" | "learner_analytics";
-}> {
-  const {
-    lessonId = null,
-    completedLessonIds = [],
-    persist = true,
-  } = options;
-
-  let iaeCategory: string | null = null;
-  try {
-    const fromIae = await getStudentInitialCategory(userId);
-    iaeCategory = fromIae.category;
-    if (!iaeCategory) {
-      return { profile: null, reason: "no_aptitude" };
-    }
-  } catch (err) {
-    const status = (err as { status?: number })?.status;
-    if (status === 404) {
-      return { profile: null, reason: "no_aptitude" };
-    }
-    return { profile: null, reason: "assessment_unreachable" };
-  }
-
-  const hasFinishedAChapter = completedLessonIds.length > 0;
-  let profile = iaeCategory;
-  let source: "intelligent_assessment_engine" | "learner_analytics" =
-    "intelligent_assessment_engine";
-
-  if (hasFinishedAChapter) {
-    try {
-      const fromAnalytics = await fetchLatestAnalyticsKnowledgeLevel(
-        userId,
-        completedLessonIds
-      );
-      if (fromAnalytics) {
-        profile = fromAnalytics;
-        source = "learner_analytics";
-      }
-    } catch {
-      // Analytics down / empty → keep IAE aptitude band.
-    }
-  }
-
-  if (persist) {
-    await postAnalyticsProfile({
-      user_id: userId,
-      profile,
-      source,
-      lesson_id: lessonId || null,
-      grade,
-    }).catch(() => {});
-  }
-
-  return { profile, reason: "ok", source };
-}
 
 const selectClassName =
   "h-8 w-full rounded-lg border border-brand-surface bg-white px-2.5 text-sm text-brand-text outline-none focus-visible:border-brand-primary focus-visible:ring-3 focus-visible:ring-brand-primary/30";
@@ -314,8 +235,9 @@ export default function StudentLearningPath() {
           setGameReturn(returned);
           setPickedLessonId(returned.nextLessonId || "");
           setView("chapterChoice");
+          let nextProgress: Awaited<ReturnType<typeof postProgress>> | null = null;
           try {
-            const nextProgress = await postProgress({
+            nextProgress = await postProgress({
               user_id: userId,
               action: "record_quiz",
               lesson_id: returned.lessonId,
@@ -347,7 +269,21 @@ export default function StudentLearningPath() {
               /* ignore */
             }
           }
-          if (resolved.profile) setProfile(resolved.profile);
+          const completedAfterGame = Array.isArray(nextProgress?.completed_lesson_ids)
+            ? nextProgress.completed_lesson_ids
+            : done.includes(returned.lessonId)
+              ? done
+              : [...done, returned.lessonId];
+          const afterGame = await resolveLearnerProfileForLesson(userId, grade, {
+            lessonId: returned.nextLessonId || returned.lessonId,
+            completedLessonIds: completedAfterGame,
+            persist: true,
+            analyticsAttempts: 5,
+            analyticsRetryDelayMs: 2500,
+          });
+          if (cancelled) return;
+          if (afterGame.profile) setProfile(afterGame.profile);
+          else if (resolved.profile) setProfile(resolved.profile);
           return;
         }
         const restored = p?.current_lesson_id;
@@ -445,11 +381,13 @@ export default function StudentLearningPath() {
       return { ok: false as const, error: msg };
     }
 
-    // Fresh pull every lesson: aptitude gate, then latest analytics level after first chapter.
+    // Fresh pull every lesson: analytics latest → stored LPE → IAE aptitude.
     const resolved = await resolveLearnerProfileForLesson(userId, grade, {
       lessonId: lid,
       completedLessonIds: done,
       persist: true,
+      analyticsAttempts: done.length > 0 ? 4 : 1,
+      analyticsRetryDelayMs: done.length > 0 ? 2500 : 0,
     });
     if (!resolved.profile) {
       const msg =

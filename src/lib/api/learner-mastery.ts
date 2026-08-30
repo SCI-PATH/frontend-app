@@ -2,8 +2,13 @@
  * Learner Analytics (Component 4) mastery helpers for student lesson content.
  * On later chapters we take the latest mastery_category (level), not the P(L) score.
  */
+import {
+  getAnalyticsProfile,
+  postAnalyticsProfile,
+} from "@/components/features/learning-path-engine/api/client.js";
 import { API_BASE_URL } from "@/lib/api/config";
 import {
+  getStudentInitialCategory,
   normalizeAssessmentCategory,
   type LearnerKnowledgeLevel,
 } from "@/lib/api/assessment";
@@ -11,6 +16,10 @@ import { fetchStudentProfile } from "@/lib/api/educator";
 
 const MASTERY_PATH = "/api/v1/mastery";
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 /**
  * Map LPE lesson id → shared analytics chapter key.
@@ -108,4 +117,126 @@ export async function fetchLatestAnalyticsKnowledgeLevel(
   }
 
   return null;
+}
+
+/**
+ * Analytics may lag after a farm game — retry briefly before falling back to stored LPE profile.
+ */
+export async function fetchLatestAnalyticsKnowledgeLevelWithRetry(
+  userId: string,
+  completedLessonIds: string[] = [],
+  options: { attempts?: number; delayMs?: number } = {}
+): Promise<LearnerKnowledgeLevel | null> {
+  const attempts = Math.max(1, options.attempts ?? 1);
+  const delayMs = Math.max(0, options.delayMs ?? 0);
+  for (let i = 0; i < attempts; i += 1) {
+    const level = await fetchLatestAnalyticsKnowledgeLevel(userId, completedLessonIds);
+    if (level) return level;
+    if (i < attempts - 1 && delayMs > 0) {
+      await sleep(delayMs);
+    }
+  }
+  return null;
+}
+
+async function readStoredLpeProfile(
+  userId: string
+): Promise<LearnerKnowledgeLevel | null> {
+  try {
+    const row = await getAnalyticsProfile(userId);
+    return normalizeAssessmentCategory(row?.profile);
+  } catch {
+    return null;
+  }
+}
+
+export type ResolveLearnerProfileOptions = {
+  lessonId?: string | null;
+  completedLessonIds?: string[];
+  /** Persist resolved level to LPE `/analytics/profile`. */
+  persist?: boolean;
+  /** Retry analytics when student has finished at least one chapter. */
+  analyticsAttempts?: number;
+  analyticsRetryDelayMs?: number;
+};
+
+export type ResolveLearnerProfileResult = {
+  profile: string | null;
+  reason: "ok" | "no_aptitude" | "assessment_unreachable";
+  source?:
+    | "intelligent_assessment_engine"
+    | "learner_analytics"
+    | "stored_profile";
+};
+
+/**
+ * Aptitude (IAE) is required before any lesson.
+ * First chapter → IAE category.
+ * After game/quiz chapters → latest analytics mastery_category; if analytics is slow/down,
+ * keep the last level saved on LPE (not the original aptitude band).
+ */
+export async function resolveLearnerProfileForLesson(
+  userId: string,
+  grade: number,
+  options: ResolveLearnerProfileOptions = {}
+): Promise<ResolveLearnerProfileResult> {
+  const {
+    lessonId = null,
+    completedLessonIds = [],
+    persist = true,
+    analyticsAttempts = 1,
+    analyticsRetryDelayMs = 0,
+  } = options;
+
+  let iaeCategory: string | null = null;
+  try {
+    const fromIae = await getStudentInitialCategory(userId);
+    iaeCategory = fromIae.category;
+    if (!iaeCategory) {
+      return { profile: null, reason: "no_aptitude" };
+    }
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    if (status === 404) {
+      return { profile: null, reason: "no_aptitude" };
+    }
+    return { profile: null, reason: "assessment_unreachable" };
+  }
+
+  const storedProfile = await readStoredLpeProfile(userId);
+  const hasFinishedChapter = completedLessonIds.length > 0;
+
+  let profile: string = iaeCategory;
+  let source: ResolveLearnerProfileResult["source"] =
+    "intelligent_assessment_engine";
+
+  if (hasFinishedChapter) {
+    const fromAnalytics = await fetchLatestAnalyticsKnowledgeLevelWithRetry(
+      userId,
+      completedLessonIds,
+      {
+        attempts: analyticsAttempts,
+        delayMs: analyticsRetryDelayMs,
+      }
+    );
+    if (fromAnalytics) {
+      profile = fromAnalytics;
+      source = "learner_analytics";
+    } else if (storedProfile) {
+      profile = storedProfile;
+      source = "stored_profile";
+    }
+  }
+
+  if (persist) {
+    await postAnalyticsProfile({
+      user_id: userId,
+      profile,
+      source,
+      lesson_id: lessonId || null,
+      grade,
+    }).catch(() => {});
+  }
+
+  return { profile, reason: "ok", source };
 }
