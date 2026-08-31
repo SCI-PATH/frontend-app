@@ -229,7 +229,7 @@ function summarizeQuizVsChat(
   const chatAvg = average(chat);
   const skillBit = skillTitle
     ? ` on ${skillTitle}`
-    : " across recent skills (not one locked lesson)";
+    : " across recent skills";
   const reteachBit = skillTitle
     ? ` Plan a short reteach of ${skillTitle}.`
     : " Use Learner focus areas and Recent attempts below to pick which skill to reteach.";
