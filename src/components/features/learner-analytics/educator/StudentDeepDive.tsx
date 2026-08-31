@@ -216,7 +216,8 @@ function seriesDirection(values: number[]): "up" | "down" | "flat" | null {
 
 function summarizeQuizVsChat(
   points: { mastery: number | null; engagement: number | null }[],
-  gapFlagged: boolean
+  gapFlagged: boolean,
+  skillTitle: string | null
 ): string {
   const quiz = points
     .map((point) => point.mastery)
@@ -226,40 +227,59 @@ function summarizeQuizVsChat(
     .filter((value): value is number => value !== null);
   const quizAvg = average(quiz);
   const chatAvg = average(chat);
+  const skillBit = skillTitle
+    ? ` on ${skillTitle}`
+    : " across recent skills (not one locked lesson)";
+  const reteachBit = skillTitle
+    ? ` Plan a short reteach of ${skillTitle}.`
+    : " Use Learner focus areas and Recent attempts below to pick which skill to reteach.";
 
   if (quizAvg === null && chatAvg === null) {
     return "No quiz or tutor-chat scores yet for this learner.";
   }
   if (quizAvg === null) {
-    return `Tutor chat scores average ${Math.round(chatAvg!)}% so far. Quiz mastery has not appeared on this chart yet.`;
+    return `Tutor chat scores average ${Math.round(chatAvg!)}% so far${skillBit}. Quiz mastery has not appeared on this chart yet.`;
   }
   if (chatAvg === null) {
     const direction = seriesDirection(quiz);
     if (direction === "up") {
-      return `Quiz mastery is rising and currently averages ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+      return `Quiz mastery is rising and currently averages ${Math.round(quizAvg)}%${skillBit}. No tutor chat scores yet.`;
     }
     if (direction === "down") {
-      return `Quiz mastery has slipped and currently averages ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+      return `Quiz mastery has slipped and currently averages ${Math.round(quizAvg)}%${skillBit}. No tutor chat scores yet.`;
     }
-    return `Quiz mastery is holding around ${Math.round(quizAvg)}%. No tutor chat scores yet.`;
+    return `Quiz mastery is holding around ${Math.round(quizAvg)}%${skillBit}. No tutor chat scores yet.`;
   }
   if (gapFlagged) {
-    return `This learner chats well with the tutor (about ${Math.round(chatAvg)}%), but quiz mastery is still low (about ${Math.round(quizAvg)}%). Check whether they can do the work without the tutor.`;
+    return `This learner chats well with the tutor (about ${Math.round(chatAvg)}%), but recent quiz mastery is still low (about ${Math.round(quizAvg)}%)${skillBit}. Check whether they can do the work without the tutor.`;
   }
   const quizDirection = seriesDirection(quiz);
   if (quizAvg >= 70 && chatAvg >= 60) {
-    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) both look healthy. Keep regular practice going.`;
+    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) both look healthy${skillBit}. Keep regular practice going.`;
   }
   if (quizAvg < 50 && chatAvg < 50) {
-    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) are both on the low side. Plan a short reteach on this skill.`;
+    return `Quiz mastery (about ${Math.round(quizAvg)}%) and tutor chat scores (about ${Math.round(chatAvg)}%) are both on the low side${skillBit}.${reteachBit}`;
   }
   if (quizDirection === "up") {
-    return `Quiz mastery is trending up (about ${Math.round(quizAvg)}%). Tutor chat scores average about ${Math.round(chatAvg)}%. Keep checking that quiz gains hold without tutor help.`;
+    return `Quiz mastery is trending up (about ${Math.round(quizAvg)}%)${skillBit}. Tutor chat scores average about ${Math.round(chatAvg)}%. Keep checking that quiz gains hold without tutor help.`;
   }
   if (quizDirection === "down") {
-    return `Quiz mastery is trending down (about ${Math.round(quizAvg)}%). Tutor chat scores average about ${Math.round(chatAvg)}%. Follow up before the drop continues.`;
+    return `Quiz mastery is trending down (about ${Math.round(quizAvg)}%)${skillBit}. Tutor chat scores average about ${Math.round(chatAvg)}%. Follow up before the drop continues.`;
   }
-  return `Quiz mastery averages about ${Math.round(quizAvg)}%; tutor chat scores average about ${Math.round(chatAvg)}%. Use the chart to see whether quizzes and chat are moving together.`;
+  return `Quiz mastery averages about ${Math.round(quizAvg)}%; tutor chat scores average about ${Math.round(chatAvg)}%${skillBit}. Use the chart to see whether quizzes and chat are moving together.`;
+}
+
+function singleSkillTitle(
+  attempts: { topic_id?: string | null }[],
+  turns: { topic_id?: string | null }[]
+): string | null {
+  const ids = [...attempts, ...turns]
+    .map((row) => String(row.topic_id ?? "").trim())
+    .filter(Boolean);
+  if (ids.length === 0) return null;
+  const unique = new Set(ids);
+  if (unique.size !== 1) return null;
+  return getCurriculumTitle([...unique][0]);
 }
 
 function clipStudentMessage(text?: string | null, maxChars = 140): string | null {
@@ -722,9 +742,18 @@ export function StudentDeepDive({
       masteryAvg < 0.5 &&
       profile.engagement_average_last_10 >= 0.7);
 
+  const quizVsChatSkill = useMemo(
+    () =>
+      singleSkillTitle(
+        profile?.mastery_timeline_last_10_attempts ?? [],
+        profile?.engagement_timeline_last_10_turns ?? []
+      ),
+    [profile]
+  );
+
   const quizVsChatSummary = useMemo(
-    () => summarizeQuizVsChat(compareData, showEngagementGap),
-    [compareData, showEngagementGap]
+    () => summarizeQuizVsChat(compareData, showEngagementGap, quizVsChatSkill),
+    [compareData, showEngagementGap, quizVsChatSkill]
   );
 
   const focusAreas = profile?.focus_areas ?? [];
@@ -876,6 +905,11 @@ export function StudentDeepDive({
           <CardTitle className="text-base">
             Quiz progress vs chat activity
           </CardTitle>
+          <CardDescription>
+            Last ~10 quiz P(L) values and last ~10 tutor chat scores for this
+            learner. Points are recent events in order — they can mix skills,
+            and the two lines are not the same item.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
