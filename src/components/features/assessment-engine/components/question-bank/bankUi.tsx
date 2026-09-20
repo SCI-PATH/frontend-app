@@ -726,7 +726,9 @@ export function QuestionCard({
               {question.question_type}
             </Badge>
             {question.dok_level != null ? (
-              <Badge variant="outline">DOK {question.dok_level}</Badge>
+              <Badge variant="outline">
+                Difficulty Level {question.dok_level}
+              </Badge>
             ) : null}
             {chapterIdFromTopicId(question.topic_id) ? (
               <Badge variant="outline">

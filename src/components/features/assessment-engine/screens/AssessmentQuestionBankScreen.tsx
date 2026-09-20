@@ -402,12 +402,12 @@ export function AssessmentQuestionBankScreen() {
                 options={Q_TYPES.map((t) => ({ value: t, label: t }))}
               />
               <ChipRow
-                label="Level"
+                label="Difficulty Level"
                 value={genDok}
                 onChange={setGenDok}
                 options={[1, 2, 3, 4].map((d) => ({
                   value: String(d),
-                  label: `DOK ${d}`,
+                  label: `Level ${d}`,
                 }))}
               />
               <Button
