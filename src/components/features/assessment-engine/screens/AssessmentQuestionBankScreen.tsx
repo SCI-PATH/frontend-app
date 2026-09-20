@@ -51,6 +51,8 @@ export function AssessmentQuestionBankScreen() {
   const [filterGrade, setFilterGrade] = useState<QuestionBankGradeFilter>(grade);
   const [status, setStatus] = useState<StatusFilter>("all");
   const [chapterId, setChapterId] = useState("");
+  /** Empty = all; "1"|"2"|"3"|"4" = Webb dok_level (UI: Difficulty Level). */
+  const [dokLevel, setDokLevel] = useState("");
   const [page, setPage] = useState(1);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const sessionTeacherIds = useRef<Set<string>>(new Set());
@@ -132,7 +134,7 @@ export function AssessmentQuestionBankScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, filterGrade, chapterId, search]);
+  }, [status, filterGrade, chapterId, dokLevel, search]);
 
   const filterChapterOptions = useMemo(
     () => chaptersFromTopics(filterTopics),
@@ -194,11 +196,21 @@ export function AssessmentQuestionBankScreen() {
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const dok =
+      dokLevel === "1" ||
+      dokLevel === "2" ||
+      dokLevel === "3" ||
+      dokLevel === "4"
+        ? Number(dokLevel)
+        : undefined;
     return questions.filter((q) => {
       if (
         chapterId &&
         chapterIdFromTopicId(q.topic_id) !== chapterId.toUpperCase()
       ) {
+        return false;
+      }
+      if (dok != null && Number(q.dok_level) !== dok) {
         return false;
       }
       if (!needle) return true;
@@ -208,7 +220,7 @@ export function AssessmentQuestionBankScreen() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [questions, chapterId, search]);
+  }, [questions, chapterId, dokLevel, search]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const paged = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -441,6 +453,8 @@ export function AssessmentQuestionBankScreen() {
               value: c.id,
               label: c.label,
             }))}
+            dokLevel={dokLevel}
+            onDokLevel={setDokLevel}
           />
 
           <section ref={listRef} className="space-y-3">

@@ -291,6 +291,8 @@ export function FilterToolbar({
   chapterId,
   onChapter,
   chapterOptions,
+  dokLevel,
+  onDokLevel,
   view,
   onViewChange,
 }: {
@@ -304,11 +306,17 @@ export function FilterToolbar({
   chapterId: string;
   onChapter: (v: string) => void;
   chapterOptions: { value: string; label: string }[];
+  /** Webb DOK 1–4; empty string = all. Shown as "Difficulty Level". */
+  dokLevel?: string;
+  onDokLevel?: (v: string) => void;
   view?: "bank" | "missed";
   onViewChange?: (v: "bank" | "missed") => void;
 }) {
   const selectClass =
     "h-10 w-full rounded-xl border border-brand-surface bg-white px-3 text-sm text-brand-text";
+  const fieldLabelClass =
+    "text-[11px] font-semibold uppercase tracking-wide text-brand-text/55";
+  const fieldClass = "flex min-w-0 flex-col gap-1";
   return (
     <section className="overflow-hidden rounded-3xl border border-brand-surface bg-white shadow-sm">
       <BrandGradientBar />
@@ -320,7 +328,7 @@ export function FilterToolbar({
           <BrowseViewPills value={view} onChange={onViewChange} />
         </div>
       ) : null}
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
+      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-text/40"
@@ -334,53 +342,81 @@ export function FilterToolbar({
             className="h-10 rounded-xl border-brand-surface pl-10"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <select
-            aria-label="Grade"
-            value={grade === "all" ? "all" : String(grade)}
-            onChange={(e) =>
-              onGrade(
-                e.target.value === "all" ? "all" : Number(e.target.value)
-              )
-            }
-            className={cn(selectClass, "sm:w-[9.5rem]")}
-          >
-            <option value="all">All grades</option>
-            {QUESTION_BANK_GRADES.map((g) => (
-              <option key={g} value={g}>
-                Grade {g}
-              </option>
-            ))}
-          </select>
-          {onStatus ? (
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
+          <label className={cn(fieldClass, "sm:w-[9.5rem]")}>
+            <span className={fieldLabelClass}>Grade</span>
             <select
-              aria-label="Status"
-              value={status}
-              onChange={(e) => onStatus(e.target.value)}
-              className={cn(selectClass, "sm:w-[9.5rem]")}
+              aria-label="Grade"
+              value={grade === "all" ? "all" : String(grade)}
+              onChange={(e) =>
+                onGrade(
+                  e.target.value === "all" ? "all" : Number(e.target.value)
+                )
+              }
+              className={selectClass}
             >
-              <option value="all">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="all">All grades</option>
+              {QUESTION_BANK_GRADES.map((g) => (
+                <option key={g} value={g}>
+                  Grade {g}
+                </option>
+              ))}
             </select>
+          </label>
+          {onStatus ? (
+            <label className={cn(fieldClass, "sm:w-[9.5rem]")}>
+              <span className={fieldLabelClass}>Status</span>
+              <select
+                aria-label="Status"
+                value={status}
+                onChange={(e) => onStatus(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
           ) : null}
-          <select
-            aria-label="Chapter"
-            value={chapterId}
-            onChange={(e) => onChapter(e.target.value)}
+          {onDokLevel ? (
+            <label className={cn(fieldClass, "sm:w-[12rem]")}>
+              <span className={fieldLabelClass}>Difficulty Level</span>
+              <select
+                aria-label="Difficulty Level"
+                value={dokLevel ?? ""}
+                onChange={(e) => onDokLevel(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">All levels</option>
+                <option value="1">Level 1</option>
+                <option value="2">Level 2</option>
+                <option value="3">Level 3</option>
+                <option value="4">Level 4</option>
+              </select>
+            </label>
+          ) : null}
+          <label
             className={cn(
-              selectClass,
-              onStatus ? "col-span-2 sm:w-[14rem]" : "sm:w-[14rem]"
+              fieldClass,
+              onStatus || onDokLevel ? "col-span-2 sm:w-[14rem]" : "sm:w-[14rem]"
             )}
           >
-            <option value="">All chapters</option>
-            {chapterOptions.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            <span className={fieldLabelClass}>Chapter</span>
+            <select
+              aria-label="Chapter"
+              value={chapterId}
+              onChange={(e) => onChapter(e.target.value)}
+              className={selectClass}
+            >
+              <option value="">All chapters</option>
+              {chapterOptions.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
     </section>
