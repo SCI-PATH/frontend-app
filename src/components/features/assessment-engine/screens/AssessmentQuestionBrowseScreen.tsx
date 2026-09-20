@@ -51,6 +51,8 @@ export function AssessmentQuestionBrowseScreen() {
     useState<QuestionBankGradeFilter>(bootGrade);
   const [status, setStatus] = useState<StatusFilter>("approved");
   const [chapterId, setChapterId] = useState("");
+  /** Empty = all; "1"|"2"|"3"|"4" = Webb dok_level (UI: Difficulty Level). */
+  const [dokLevel, setDokLevel] = useState("");
   const [view, setView] = useState<BankView>("bank");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -83,10 +85,20 @@ export function AssessmentQuestionBrowseScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const dok =
+      dokLevel === "1" ||
+      dokLevel === "2" ||
+      dokLevel === "3" ||
+      dokLevel === "4"
+        ? Number(dokLevel)
+        : undefined;
+    const matchesDok = (q: { dok_level?: number }) =>
+      dok == null || Number(q.dok_level) === dok;
     try {
       if (status === "all") {
         const listQuery = {
           topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
+          dok_level: dok,
           q: search.trim() || undefined,
           offset: 0,
           limit: 100,
@@ -101,6 +113,7 @@ export function AssessmentQuestionBrowseScreen() {
         const needle = search.trim().toLowerCase();
         const chapter = chapterId.toUpperCase();
         const filtered = result.questions.filter((q) => {
+          if (!matchesDok(q)) return false;
           if (
             chapter &&
             chapterIdFromTopicId(q.topic_id) !== chapter
@@ -121,6 +134,7 @@ export function AssessmentQuestionBrowseScreen() {
         const result = await fetchTeacherQuestionsAllGrades({
           status,
           topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
+          dok_level: dok,
           q: search.trim() || undefined,
           offset: 0,
           limit: 100,
@@ -128,6 +142,7 @@ export function AssessmentQuestionBrowseScreen() {
         const needle = search.trim().toLowerCase();
         const chapter = chapterId.toUpperCase();
         const filtered = result.questions.filter((q) => {
+          if (!matchesDok(q)) return false;
           if (chapter && chapterIdFromTopicId(q.topic_id) !== chapter) {
             return false;
           }
@@ -146,6 +161,7 @@ export function AssessmentQuestionBrowseScreen() {
           grade: filterGrade,
           status,
           topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
+          dok_level: dok,
           q: search.trim() || undefined,
           offset: Math.max(0, (page - 1) * PAGE_SIZE),
           limit: PAGE_SIZE,
@@ -162,7 +178,7 @@ export function AssessmentQuestionBrowseScreen() {
     } finally {
       setLoading(false);
     }
-  }, [filterGrade, status, chapterId, search, page, setError]);
+  }, [filterGrade, status, chapterId, dokLevel, search, page, setError]);
 
   const loadMostMissed = useCallback(async () => {
     try {
@@ -188,7 +204,7 @@ export function AssessmentQuestionBrowseScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, filterGrade, chapterId, search, view]);
+  }, [status, filterGrade, chapterId, dokLevel, search, view]);
 
   useEffect(() => {
     void loadTopics();
@@ -204,12 +220,29 @@ export function AssessmentQuestionBrowseScreen() {
 
   const visibleMissed = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const dok =
+      dokLevel === "1" ||
+      dokLevel === "2" ||
+      dokLevel === "3" ||
+      dokLevel === "4"
+        ? Number(dokLevel)
+        : undefined;
     return mostMissed.filter((row) => {
       if (
         chapterId &&
         chapterIdFromTopicId(row.topic_id) !== chapterId.toUpperCase()
       ) {
         return false;
+      }
+      if (dok != null) {
+        const matched = questions.find((q) => q.id === row.question_id);
+        const rowDok = matched?.dok_level;
+        if (rowDok != null && Number(rowDok) !== dok) return false;
+        if (rowDok == null && matched == null) {
+          // No bank row loaded yet — keep row rather than hide everything.
+        } else if (rowDok == null) {
+          return false;
+        }
       }
       if (!needle) return true;
       const hay = [
@@ -224,7 +257,7 @@ export function AssessmentQuestionBrowseScreen() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [mostMissed, chapterId, search]);
+  }, [mostMissed, chapterId, search, dokLevel, questions]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -300,6 +333,8 @@ export function AssessmentQuestionBrowseScreen() {
               value: c.id,
               label: c.label,
             }))}
+            dokLevel={dokLevel}
+            onDokLevel={setDokLevel}
             view={view}
             onViewChange={setView}
           />
