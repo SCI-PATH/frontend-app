@@ -37,6 +37,12 @@ export const STUDENT_PROFILE_PATH = "/profile";
 /** Student learning-path / chapter content. */
 export const STUDENT_LEARNING_PATH = "/learning-path";
 
+/** Student Science mind map (textbook RAG + frustration-aware Grok). */
+export const STUDENT_MIND_MAP_PATH = "/mind-map";
+
+/** Educator textbook URL ingest into ChromaDB. */
+export const EDUCATOR_TEXTBOOK_INGEST_PATH = "/textbook-ingest";
+
 /** Student marker AR library (heart / kidney APKs). */
 export const STUDENT_AR_LIBRARY_PATH = "/ar-library";
 
@@ -77,6 +83,7 @@ export function requiredRoleForPath(
     path.startsWith("/educator") ||
     path.startsWith("/classroom") ||
     path.startsWith("/content-generation") ||
+    path.startsWith("/textbook-ingest") ||
     path.startsWith("/question-generation") ||
     path.startsWith("/matrix") ||
     path.startsWith("/assessment-engine-dev-hub")
@@ -88,6 +95,7 @@ export function requiredRoleForPath(
   if (
     path.startsWith("/dashboard") ||
     path.startsWith("/learning-path") ||
+    path.startsWith("/mind-map") ||
     path.startsWith("/profile") ||
     path.startsWith("/tutor") ||
     path.startsWith("/assessment") ||
