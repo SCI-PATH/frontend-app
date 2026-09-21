@@ -1729,13 +1729,65 @@ pre.lesson {
   margin-bottom: 0.85rem;
 }
 
-/* Knight sprite tutor ? single upbeat mode */
+/* Arthur (farm boy) — square art, no letterboxing */
 .tutor-mascot {
   transform-origin: 50% 100%;
-  width: 148px;
-  height: 148px;
-  display: grid;
-  place-items: end center;
+  width: auto;
+  height: auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.tutor-mascot.size-lg .tutor-mascot__photo {
+  width: 10.5rem;
+  height: auto;
+}
+
+.tutor-mascot.size-sm .tutor-mascot__photo {
+  width: 4.5rem;
+  height: auto;
+}
+
+.tutor-mascot--farm {
+  animation: tutor-knight-float 2.8s ease-in-out infinite;
+}
+
+.tutor-mascot__frame {
+  width: auto;
+  height: auto;
+  line-height: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.tutor-mascot__photo {
+  width: 10.5rem;
+  height: auto;
+  max-width: 100%;
+  display: block;
+  vertical-align: top;
+  user-select: none;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.14));
+}
+
+.tutor-mascot__sparkles {
+  position: absolute;
+  top: -4px;
+  right: 4px;
+  font-size: 1.1rem;
+  color: #fb5607;
+  filter: drop-shadow(0 2px 4px rgba(251, 86, 7, 0.35));
+}
+
+.tutor-mascot.is-celebrating .tutor-mascot__frame {
+  border-color: rgba(112, 224, 0, 0.55);
+  box-shadow: 0 0 0 4px rgba(112, 224, 0, 0.15), 0 10px 24px rgba(15, 23, 42, 0.14);
 }
 
 .tutor-mascot--teach {
@@ -2145,14 +2197,8 @@ pre.lesson {
   align-items: center;
 }
 
-.tutor-mascot {
-  width: 7.25rem;
-  height: 8rem;
-}
-
-.tutor-mascot__sprite {
-  width: 9rem;
-  height: 9rem;
+.tutor-mascot.size-lg .tutor-mascot__photo {
+  width: 9.5rem;
 }
 
 .lesson-stage__mascot-name {
@@ -2237,6 +2283,21 @@ pre.lesson {
 .lesson-step__p--stepped {
   font-size: clamp(1.25rem, 1.55vw, 1.48rem);
   line-height: 1.78;
+}
+
+.lesson-step--multi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.lesson-step--multi .lesson-step__p {
+  margin: 0;
+}
+
+.lesson-step__p--heading {
+  font-weight: 800;
+  color: var(--lpe-purple-700, #6d28d9);
 }
 
 .lesson-step__term {
@@ -2415,17 +2476,9 @@ pre.lesson {
   box-shadow: 0 2px 0 rgba(146, 64, 14, 0.25);
 }
 
-/* Reliable self-contained knight artwork */
-.tutor-mascot {
-  width: 6.5rem;
-  height: 7.25rem;
-}
-
-.tutor-mascot__art {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 7px 8px rgba(49, 46, 129, 0.2));
+/* Arthur portrait in lesson split layout */
+.tutor-mascot.size-lg .tutor-mascot__photo {
+  width: 9rem;
 }
 
 .tutor-mascot.is-celebrating {
@@ -3081,14 +3134,8 @@ pre.lesson {
     justify-content: center;
   }
 
-  .tutor-mascot {
-    width: 5rem;
-    height: 5rem;
-  }
-
-  .tutor-mascot__sprite {
-    width: 6rem;
-    height: 6rem;
+  .tutor-mascot.size-lg .tutor-mascot__photo {
+    width: 6.5rem;
   }
 
   .speech-bubble::before {

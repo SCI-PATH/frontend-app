@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Heart, ScanLine, Sparkles } from "lucide-react";
+import { ArrowLeft, Heart, Rocket, ScanLine, Sparkles } from "lucide-react";
 
 import { AR_EXPERIENCES } from "@/components/features/learning-path-engine/ar-library/catalog";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
@@ -29,7 +29,7 @@ export function ArLibraryHub() {
                 AR Library
               </p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
-                Marker experiences
+                Marker Experiences
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-brand-text/65 sm:text-base">
                 Pick an organ, open its marker, download the matching Android app, then
@@ -102,6 +102,42 @@ export function ArLibraryHub() {
               </Link>
             );
           })}
+
+          <article
+            aria-label="More AR models coming soon"
+            className="relative flex min-h-[14rem] flex-col overflow-hidden rounded-3xl border border-dashed border-brand-special/30 bg-gradient-to-br from-white via-brand-background/50 to-brand-special/8 shadow-sm sm:col-span-2"
+          >
+            <BrandGradientBar />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -left-8 bottom-0 size-40 rounded-full bg-brand-primary/10 blur-3xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-6 -top-6 size-36 rounded-full bg-brand-accent/15 blur-2xl"
+            />
+            <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-8 text-center sm:flex-row sm:gap-8 sm:px-10 sm:py-10 sm:text-left">
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-primary to-brand-special text-white shadow-lg shadow-brand-special/20">
+                <Rocket className="size-8" aria-hidden />
+              </span>
+              <div className="mt-5 max-w-xl sm:mt-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-special/25 bg-brand-special/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-special">
+                  <Sparkles className="size-3.5" aria-hidden />
+                  Coming soon
+                </span>
+                <h2 className="mt-3 text-xl font-bold tracking-tight text-brand-text sm:text-2xl">
+                  New AR models are on the way
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-brand-text/65 sm:text-base">
+                  We&apos;re building more marker AR experiences for the SCI PATH library.
+                  Try the models available today — and check back soon for new ones.
+                </p>
+                <p className="mt-4 text-sm font-semibold text-brand-primary">
+                  Stay tuned — more AR models are on the way.
+                </p>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </div>

@@ -124,9 +124,21 @@ export function EducatorDashboardView() {
     void loadTeacherClasses();
   }, [loadTeacherClasses]);
 
+  const priorByTopicId = useMemo(() => {
+    const priors: Record<string, number> = {};
+    for (const topic of topicCatalog) {
+      priors[topic.topicId] = topic.pL0;
+    }
+    return priors;
+  }, [topicCatalog]);
+
   const bandCounts = useMemo(
-    () => countMatrixBands(masteryMatrix, studentIds, topicIds),
-    [masteryMatrix, studentIds, topicIds]
+    () =>
+      countMatrixBands(masteryMatrix, studentIds, topicIds, {
+        attemptMatrix,
+        priorByTopicId,
+      }),
+    [attemptMatrix, masteryMatrix, priorByTopicId, studentIds, topicIds]
   );
 
   const selectedRow =
@@ -150,7 +162,12 @@ export function EducatorDashboardView() {
   const isRefreshing = isLoadingDashboard && hasData;
 
   return (
-    <div className="relative mx-auto flex w-full max-w-[1800px] flex-col gap-4 pb-8">
+    <div className="relative mx-auto flex w-full max-w-[1800px] flex-col gap-5 pb-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E818,_transparent_45%),radial-gradient(ellipse_at_top_right,_#7209B714,_transparent_40%),radial-gradient(ellipse_at_bottom,_#70E00012,_transparent_45%)]"
+      />
+      <div className="relative z-10 flex flex-col gap-5">
       <DashboardHeader
         classMeta={classMeta}
         teacherClasses={teacherClasses}
@@ -211,6 +228,7 @@ export function EducatorDashboardView() {
             classCode={classMeta.classCode}
             masteryMatrix={masteryMatrix}
             attemptMatrix={attemptMatrix}
+            priorByTopicId={priorByTopicId}
             atRiskAlerts={atRiskAlerts}
             selectedStudentId={selectedStudentId}
             onSelectStudent={setSelectedStudentId}
@@ -272,6 +290,8 @@ export function EducatorDashboardView() {
                     selectedStudentId={selectedStudentId}
                     topicIds={topicIds}
                     matrixRow={selectedRow}
+                    attemptMatrix={attemptMatrix}
+                    priorByTopicId={priorByTopicId}
                     profile={studentProfile}
                     isLoading={isLoadingProfile}
                     error={profileError}
@@ -283,6 +303,7 @@ export function EducatorDashboardView() {
           ) : null}
         </>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -175,6 +175,9 @@ export interface EngagementTimelinePoint {
   timestamp?: string | null;
   topic_id?: string | null;
   persona_id?: string | null;
+  student_message?: string | null;
+  tutor_hint?: string | null;
+  critical_confusion?: boolean;
 }
 
 export interface DistractorTagCount {
@@ -212,6 +215,20 @@ export interface TimeOnTaskTrend {
 }
 
 export interface StudentFocusArea extends AtRiskStudentAlert {}
+
+/** Lightweight hub-card payload from GET /api/v1/analytics/student-mastery-summary/{user_id} */
+export interface StudentMasterySummaryResponse {
+  success: boolean;
+  mode?: "live_state";
+  user_id: string;
+  overall_mastery: number | null;
+  skills_practised: number;
+  mastered: number;
+  learning: number;
+  at_risk: number;
+  quiz_attempts: number;
+  error?: string;
+}
 
 export interface StudentProfileResponse {
   success: boolean;
@@ -254,6 +271,7 @@ export interface MatrixBandCounts {
   mastered: number;
   learning: number;
   atRisk: number;
+  notStarted: number;
   total: number;
 }
 

@@ -114,6 +114,19 @@ export function MasteryMatrix({
     [topicCatalog]
   );
 
+  const priorByTopicId = useMemo(() => {
+    const priors: Record<string, number> = {};
+    for (const topic of topicCatalog) {
+      priors[topic.topicId] = topic.pL0;
+    }
+    return priors;
+  }, [topicCatalog]);
+
+  const statusContext = useMemo(
+    () => ({ attemptMatrix, priorByTopicId }),
+    [attemptMatrix, priorByTopicId]
+  );
+
   const visibleTopicIds = useMemo(
     () => filterTopicIdsByGrade(topicIds, gradeFilter),
     [topicIds, gradeFilter]
@@ -125,9 +138,10 @@ export function MasteryMatrix({
         matrix,
         studentIds,
         visibleTopicIds,
-        statusFilter
+        statusFilter,
+        statusContext
       ),
-    [matrix, studentIds, visibleTopicIds, statusFilter]
+    [matrix, studentIds, visibleTopicIds, statusFilter, statusContext]
   );
 
   const matchingCellCount = useMemo(
@@ -136,9 +150,10 @@ export function MasteryMatrix({
         matrix,
         visibleStudentIds,
         visibleTopicIds,
-        statusFilter
+        statusFilter,
+        statusContext
       ),
-    [matrix, visibleStudentIds, visibleTopicIds, statusFilter]
+    [matrix, visibleStudentIds, visibleTopicIds, statusFilter, statusContext]
   );
 
   const resolveTitle = (topicId: string) =>
@@ -221,7 +236,8 @@ export function MasteryMatrix({
                           matrix,
                           studentIds,
                           visibleTopicIds,
-                          value
+                          value,
+                          statusContext
                         );
                   return (
                     <TabsTrigger
@@ -326,7 +342,9 @@ export function MasteryMatrix({
                         const percent = masteryPercent(probability);
                         const matchesStatus = cellMatchesStatusFilter(
                           probability,
-                          statusFilter
+                          statusFilter,
+                          pL0,
+                          attempts
                         );
                         const showValue =
                           statusFilter === "all" || matchesStatus;

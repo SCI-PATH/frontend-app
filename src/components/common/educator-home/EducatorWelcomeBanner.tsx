@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { GraduationCap, Sparkles, UserRound } from "lucide-react";
+import { Sparkles, UserRound, Zap } from "lucide-react";
 
 import { TeacherAvatar } from "@/components/common/TeacherAvatar";
+import { WelcomeBannerShell } from "@/components/common/WelcomeBannerShell";
 import { Button } from "@/components/ui/button";
 import { EDUCATOR_PROFILE_PATH } from "@/lib/auth-routes";
 import { useUserStore } from "@/store/useUserStore";
@@ -13,61 +14,63 @@ export function EducatorWelcomeBanner() {
   const firstName = (user?.name || "Teacher").split(" ")[0];
   const section = user?.sectionName;
   const grades = user?.gradesTaught ?? [];
+  const gradeLabel =
+    grades.length > 0
+      ? grades.map((grade) => `Grade ${grade}`).join(" · ")
+      : "Grades 6–9 Science";
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-special via-brand-primary to-brand-accent px-6 py-7 text-white sm:px-8 sm:py-8">
-      <div
-        className="pointer-events-none absolute -right-10 -top-16 size-56 rounded-full bg-white/20 blur-2xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -bottom-10 left-1/4 size-44 rounded-full bg-brand-secondary/35 blur-3xl"
-        aria-hidden
-      />
+    <WelcomeBannerShell>
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
+        <div className="welcome-rise-1 welcome-banner__avatar-wrap shrink-0">
+          <div className="welcome-banner__halo" aria-hidden />
+          <TeacherAvatar
+            size="lg"
+            className="relative z-10 ring-2 ring-white/80 shadow-lg shadow-black/20"
+          />
+        </div>
 
-      <Button
-        asChild
-        size="sm"
-        className="absolute top-4 right-4 z-10 h-9 rounded-full bg-white/95 px-4 text-brand-special shadow-sm hover:bg-white"
-      >
-        <Link href={EDUCATOR_PROFILE_PATH}>
-          <UserRound className="size-4" aria-hidden />
-          Edit profile
-        </Link>
-      </Button>
-
-      <div className="relative flex flex-col gap-6 pr-0 pt-10 sm:flex-row sm:items-center sm:gap-7 sm:pt-2 sm:pr-36">
-        <TeacherAvatar size="hero" className="ring-2 ring-white/70" />
-        <div className="min-w-0 space-y-2.5">
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
-            <Sparkles className="size-4" aria-hidden />
-            Educator workspace
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Welcome back, {firstName}
-          </h1>
-          <p className="max-w-xl text-base leading-snug text-white/90 sm:text-lg">
-            Guide your science classes, review mastery, and generate learning
-            materials from one place.
-          </p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="welcome-rise-2 welcome-banner__badge inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide backdrop-blur-md sm:justify-start">
+            <Sparkles className="size-3.5 shrink-0 text-white" aria-hidden />
+            Educator
             {section ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-medium">
-                <GraduationCap className="size-4" aria-hidden />
-                {section}
+              <span className="font-semibold normal-case tracking-normal">
+                · {section}
               </span>
             ) : null}
-            {grades.map((grade) => (
-              <span
-                key={grade}
-                className="rounded-full bg-brand-secondary/25 px-3 py-1 text-sm font-semibold text-white"
-              >
-                Grade {grade}
-              </span>
-            ))}
-          </div>
+            <span className="welcome-banner__code rounded-full px-2 py-0.5 font-mono text-[10px] font-bold normal-case tracking-wide">
+              {gradeLabel}
+            </span>
+          </p>
+
+          <h1 className="welcome-rise-3 welcome-banner__title text-xl font-black tracking-tight drop-shadow-sm sm:text-2xl">
+            Welcome back, {firstName}!
+          </h1>
+
+          <p className="welcome-rise-4 flex items-start justify-center gap-1.5 text-sm leading-snug text-white/95 sm:justify-start sm:text-[0.95rem]">
+            <Zap
+              className="mt-0.5 size-4 shrink-0 text-[#ccefff] drop-shadow"
+              aria-hidden
+            />
+            <span>
+              Guide your science classes, review mastery, and generate learning
+              materials from one place.
+            </span>
+          </p>
         </div>
+
+        <Button
+          asChild
+          size="sm"
+          className="welcome-rise-2 h-9 shrink-0 rounded-full bg-white/95 px-4 text-brand-special shadow-sm hover:bg-white"
+        >
+          <Link href={EDUCATOR_PROFILE_PATH}>
+            <UserRound className="size-4" aria-hidden />
+            Edit profile
+          </Link>
+        </Button>
       </div>
-    </section>
+    </WelcomeBannerShell>
   );
 }

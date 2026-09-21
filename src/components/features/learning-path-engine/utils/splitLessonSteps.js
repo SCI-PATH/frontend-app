@@ -57,14 +57,7 @@ export function splitLessonIntoSteps(lessonText, profileOrMax = "basic") {
 function groupSentencesIntoParagraphs(sentences, profile) {
   if (sentences.length <= 1) return sentences;
 
-  const key = String(profile || "basic").toLowerCase();
-  const targetWords =
-    key === "advanced" || key === "strong" || key === "smart"
-      ? 140
-      : key === "intermediate" || key === "average" || key === "typical"
-        ? 120
-        : 95;
-  const maxSentences = key === "basic" || key === "weak" ? 4 : 5;
+  const { targetWords, maxSentences, minSentences = 1 } = paragraphLimits(profile);
   const grouped = [];
   let card = [];
   let words = 0;
@@ -79,8 +72,12 @@ function groupSentencesIntoParagraphs(sentences, profile) {
     }
 
     const sentenceWords = sentence.split(/\s+/).filter(Boolean).length;
-    const full = card.length >= maxSentences || (card.length >= 2 && words + sentenceWords > targetWords);
-    if (full) {
+    const atMaxSentences = card.length >= maxSentences;
+    const wouldOverflow =
+      card.length >= 1 && words + sentenceWords > targetWords;
+    const shouldFlush =
+      atMaxSentences || (wouldOverflow && card.length >= minSentences);
+    if (shouldFlush) {
       grouped.push(card.join(" "));
       card = [];
       words = 0;
@@ -91,6 +88,19 @@ function groupSentencesIntoParagraphs(sentences, profile) {
 
   if (card.length) grouped.push(card.join(" "));
   return grouped.filter(Boolean);
+}
+
+/** Per-profile slide size: basic groups 3–4 sentences; higher bands stay tighter. */
+function paragraphLimits(profile) {
+  const key = String(profile || "basic").toLowerCase();
+  if (key === "advanced" || key === "strong" || key === "smart") {
+    return { targetWords: 70, maxSentences: 2, minSentences: 1 };
+  }
+  if (key === "intermediate" || key === "average" || key === "typical") {
+    return { targetWords: 55, maxSentences: 2, minSentences: 1 };
+  }
+  // basic / weak — short paragraph cards (3–4 sentences)
+  return { targetWords: 110, maxSentences: 4, minSentences: 3 };
 }
 
 /** Drop trailing / mid lesson "Recap" blocks from older generated text. */

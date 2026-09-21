@@ -924,7 +924,7 @@ export function ResultsSummary({
             className="h-12 gap-2 rounded-2xl bg-brand-accent px-8 text-base text-white shadow-sm hover:bg-brand-accent/90"
           >
             <RefreshCw className="size-5" aria-hidden />
-            Try again
+            New quiz
           </Button>
         ) : null}
       </div>

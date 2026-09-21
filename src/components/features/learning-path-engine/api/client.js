@@ -12,6 +12,20 @@ const apiBase =
     : ""
   ).replace(/\/$/, "");
 
+/** Bearer token from persisted educator/student session (Zustand persist). */
+function getStoredAccessToken() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("sci-path-user-session");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const state = parsed?.state || parsed;
+    return state?.accessToken || state?.token || null;
+  } catch {
+    return null;
+  }
+}
+
 function looksLikeNetworkGate(rawText) {
   const t = String(rawText || "");
   return /Web Filter Violation|Intrusion Prevention|Access Blocked|Web Page Blocked|Internet usage policy|cloudflare|cf-ray|<html|<!DOCTYPE/i.test(
@@ -72,6 +86,12 @@ async function fetchJson(path, options, { timeoutMs = 0 } = {}) {
   const url = `${apiBase}${path}`;
   let res;
   const fetchOptions = { ...options };
+  const headers = { ...(fetchOptions.headers || {}) };
+  if (path.startsWith("/teacher/") || path.startsWith("/admin/")) {
+    const token = getStoredAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  fetchOptions.headers = headers;
   if (timeoutMs > 0 && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
     fetchOptions.signal = AbortSignal.timeout(timeoutMs);
   }

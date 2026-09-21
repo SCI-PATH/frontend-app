@@ -20,6 +20,8 @@ const config: Config = {
         "brand-accent": "#FF6B35",
         // Creative Purple — gamification & special rewards
         "brand-special": "#7209B7",
+        // Discovery Gold — placement, milestones & unlock moments
+        "brand-gold": "#FFB703",
         // Ink Charcoal — high-contrast body / heading text
         "brand-text": "#212529",
         // Soft Slate — component surfaces, borders, dividers

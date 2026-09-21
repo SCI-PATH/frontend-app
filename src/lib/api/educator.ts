@@ -7,6 +7,7 @@ import type {
   ClassroomSliceResponse,
   MasteryMatrixRequest,
   MasteryMatrixResponse,
+  StudentMasterySummaryResponse,
   StudentProfileResponse,
 } from "@/types/educator";
 import { buildStudentCatalog, normalizeStudentCatalog } from "@/lib/educator/students";
@@ -16,6 +17,7 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 const MASTERY_MATRIX_PATH = "/api/v1/mastery/matrix";
 const AT_RISK_PATH = "/api/v1/analytics/at-risk-students";
 const STUDENT_PROFILE_PATH = "/api/v1/analytics/student-profile";
+const STUDENT_MASTERY_SUMMARY_PATH = "/api/v1/analytics/student-mastery-summary";
 const CLASS_SUMMARY_PATH = "/api/v1/analytics/class-summary";
 const CLASSROOM_DASHBOARD_PATH = "/api/v1/analytics/classroom-dashboard";
 const CLASSROOM_SLICE_PATH = "/api/educator/classroom-slice";
@@ -201,6 +203,19 @@ export async function fetchAtRiskStudents(
   const payload = await postJson<AtRiskStudentsResponse>(AT_RISK_PATH, body);
   if (payload.success === false) {
     throw new Error(payload.error ?? "At-risk analytics request failed.");
+  }
+  return payload;
+}
+
+export async function fetchStudentMasterySummary(
+  userId: string
+): Promise<StudentMasterySummaryResponse> {
+  const payload = await getAnalyticsJson<StudentMasterySummaryResponse>(
+    `${STUDENT_MASTERY_SUMMARY_PATH}/${encodeURIComponent(userId)}`,
+    15_000
+  );
+  if (payload.success === false) {
+    throw new Error(payload.error ?? "Mastery summary request failed.");
   }
   return payload;
 }

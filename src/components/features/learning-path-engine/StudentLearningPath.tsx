@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import { Navbar } from "@/components/common/Navbar";
-import { RoleAvatar } from "@/components/common/RoleAvatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,8 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SocratesChatToggle } from "@/components/common/student-home/SocratesChatToggle";
-import { getStudentInitialCategory } from "@/lib/api/assessment";
-import { fetchLatestAnalyticsKnowledgeLevel } from "@/lib/api/learner-mastery";
+import { resolveLearnerProfileForLesson } from "@/lib/api/learner-mastery";
 import { STUDENT_AR_LIBRARY_PATH, STUDENT_HOME_PATH } from "@/lib/auth-routes";
 import {
   buildGamingServiceLaunchUrl,
@@ -52,14 +50,13 @@ import {
   getCurriculum,
   getHealth,
   getProgress,
-  postAnalyticsProfile,
   postLesson,
   postProgress,
 } from "./api/client.js";
 import LessonStage from "./components/LessonStage.jsx";
 import ScienceExplorer from "./components/ScienceExplorer.jsx";
 import TestKnowledgeModal from "./components/TestKnowledgeModal.jsx";
-import { isOfflineError, notifyUserFacingError, toUserFacingMessage } from "./errors.js";
+import { isOfflineError, notifyUserFacingError, toUserFacingMessage, alertTeacherLessonNotPublished, isTeacherLessonUnavailable, TEACHER_LESSON_NOT_PUBLISHED_MSG } from "./errors.js";
 import FeatureShell from "./FeatureShell";
 import { useAppStore } from "./store/appStore.js";
 
@@ -75,83 +72,6 @@ const PROFILE_LABEL: Record<string, string> = {
   strong: "Advanced",
   smart: "Advanced",
 };
-
-type ResolveProfileOptions = {
-  lessonId?: string | null;
-  /** Lessons already finished — empty means first chapter after aptitude → IAE. */
-  completedLessonIds?: string[];
-  /** Persist into LPE `/analytics/profile` (do this on real lesson start). */
-  persist?: boolean;
-};
-
-/**
- * Aptitude (IAE) is required before any lesson.
- * First chapter after aptitude → IAE category.
- * After at least one finished chapter → latest analytics mastery_category
- * (from finished-chapter quizzes), mapped to basic|intermediate|advanced content.
- */
-async function resolveLearnerProfileForLesson(
-  userId: string,
-  grade: number,
-  options: ResolveProfileOptions = {}
-): Promise<{
-  profile: string | null;
-  reason: "ok" | "no_aptitude" | "assessment_unreachable";
-  source?: "intelligent_assessment_engine" | "learner_analytics";
-}> {
-  const {
-    lessonId = null,
-    completedLessonIds = [],
-    persist = true,
-  } = options;
-
-  let iaeCategory: string | null = null;
-  try {
-    const fromIae = await getStudentInitialCategory(userId);
-    iaeCategory = fromIae.category;
-    if (!iaeCategory) {
-      return { profile: null, reason: "no_aptitude" };
-    }
-  } catch (err) {
-    const status = (err as { status?: number })?.status;
-    if (status === 404) {
-      return { profile: null, reason: "no_aptitude" };
-    }
-    return { profile: null, reason: "assessment_unreachable" };
-  }
-
-  const hasFinishedAChapter = completedLessonIds.length > 0;
-  let profile = iaeCategory;
-  let source: "intelligent_assessment_engine" | "learner_analytics" =
-    "intelligent_assessment_engine";
-
-  if (hasFinishedAChapter) {
-    try {
-      const fromAnalytics = await fetchLatestAnalyticsKnowledgeLevel(
-        userId,
-        completedLessonIds
-      );
-      if (fromAnalytics) {
-        profile = fromAnalytics;
-        source = "learner_analytics";
-      }
-    } catch {
-      // Analytics down / empty → keep IAE aptitude band.
-    }
-  }
-
-  if (persist) {
-    await postAnalyticsProfile({
-      user_id: userId,
-      profile,
-      source,
-      lesson_id: lessonId || null,
-      grade,
-    }).catch(() => {});
-  }
-
-  return { profile, reason: "ok", source };
-}
 
 const selectClassName =
   "h-8 w-full rounded-lg border border-brand-surface bg-white px-2.5 text-sm text-brand-text outline-none focus-visible:border-brand-primary focus-visible:ring-3 focus-visible:ring-brand-primary/30";
@@ -315,8 +235,9 @@ export default function StudentLearningPath() {
           setGameReturn(returned);
           setPickedLessonId(returned.nextLessonId || "");
           setView("chapterChoice");
+          let nextProgress: Awaited<ReturnType<typeof postProgress>> | null = null;
           try {
-            const nextProgress = await postProgress({
+            nextProgress = await postProgress({
               user_id: userId,
               action: "record_quiz",
               lesson_id: returned.lessonId,
@@ -348,7 +269,21 @@ export default function StudentLearningPath() {
               /* ignore */
             }
           }
-          if (resolved.profile) setProfile(resolved.profile);
+          const completedAfterGame = Array.isArray(nextProgress?.completed_lesson_ids)
+            ? nextProgress.completed_lesson_ids
+            : done.includes(returned.lessonId)
+              ? done
+              : [...done, returned.lessonId];
+          const afterGame = await resolveLearnerProfileForLesson(userId, grade, {
+            lessonId: returned.nextLessonId || returned.lessonId,
+            completedLessonIds: completedAfterGame,
+            persist: true,
+            analyticsAttempts: 5,
+            analyticsRetryDelayMs: 2500,
+          });
+          if (cancelled) return;
+          if (afterGame.profile) setProfile(afterGame.profile);
+          else if (resolved.profile) setProfile(resolved.profile);
           return;
         }
         const restored = p?.current_lesson_id;
@@ -439,18 +374,21 @@ export default function StudentLearningPath() {
       targetIndex >= 0 &&
       !isChapterUnlockedForLearning(targetIndex, gradeLessons, quizzes, done)
     ) {
-      const prev = gradeLessons[targetIndex - 1];
-      const prevTitle = lessonTitleOf(prev) || "the previous chapter";
-      const msg = `Finish the ${prevTitle} farm game first. That unlocks this chapter.`;
+      const pending = findPendingChapterGame(gradeLessons, done, quizzes);
+      const msg = pending
+        ? `Finish Game level ${pending.levelId} (${pending.title}) first — other chapters are locked until then.`
+        : "This chapter is not available yet.";
       setChoiceError(msg);
       return { ok: false as const, error: msg };
     }
 
-    // Fresh pull every lesson: aptitude gate, then latest analytics level after first chapter.
+    // Fresh pull every lesson: analytics latest → stored LPE → IAE aptitude.
     const resolved = await resolveLearnerProfileForLesson(userId, grade, {
       lessonId: lid,
       completedLessonIds: done,
       persist: true,
+      analyticsAttempts: done.length > 0 ? 4 : 1,
+      analyticsRetryDelayMs: done.length > 0 ? 2500 : 0,
     });
     if (!resolved.profile) {
       const msg =
@@ -486,16 +424,13 @@ export default function StudentLearningPath() {
         use_stored_mastery: true,
       });
 
-      if (data?.status === "unavailable" || !(data?.lesson_text || "").trim()) {
-        const raw =
-          data?.message ||
-          "This chapter is not ready yet. Ask your teacher to generate and save it, or pick another chapter.";
-        const msg = toUserFacingMessage(raw, {
-          fallback:
-            "This chapter is not ready yet. Ask your teacher to generate and save it, or pick another chapter.",
-        });
-        setChoiceError(msg);
-        return { ok: false as const, error: msg, data };
+      if (isTeacherLessonUnavailable(data)) {
+        const meta = gradeLessons.find((l) => l.lesson_id === lid);
+        const chapterTitle =
+          meta?.display_title || meta?.title || data?.lesson_title || lid;
+        alertTeacherLessonNotPublished(chapterTitle);
+        setChoiceError(TEACHER_LESSON_NOT_PUBLISHED_MSG);
+        return { ok: false as const, error: TEACHER_LESSON_NOT_PUBLISHED_MSG, data };
       }
 
       if (data?.profile) setProfile(data.profile);
@@ -693,7 +628,7 @@ export default function StudentLearningPath() {
                 Learning path
               </p>
               <h1 className="mb-4 text-2xl font-bold tracking-tight text-brand-text">
-                {gameReturn ? "Farm complete — next chapter unlocked" : "Chapter complete"}
+                {gameReturn ? "Farm complete — full syllabus unlocked" : "Chapter complete"}
               </h1>
               <Card className="border-brand-secondary/25 bg-white shadow-sm">
                 <CardHeader>
@@ -704,11 +639,13 @@ export default function StudentLearningPath() {
                       {gameReturn?.chapterTitle || finishedTitle}
                     </strong>
                     {gameReturn?.levelId ? ` (Game level ${gameReturn.levelId})` : ""}.
-                    {nextMeta ? (
+                    {gameReturn ? (
+                      " Every chapter in this grade is now open — pick any one to study."
+                    ) : nextMeta ? (
                       <>
                         {" "}
-                        <strong>{nextTitle}</strong> is now unlocked. Learn it to open Game
-                        level {farmLevelFromLessonId(nextMeta.lesson_id, gradeLessons)}.
+                        Play the farm for <strong>{finishedTitle}</strong> when you&apos;re
+                        ready, or keep learning.
                       </>
                     ) : (
                       " That was the last chapter in this grade."
@@ -746,11 +683,11 @@ export default function StudentLearningPath() {
                   )}
 
                   <label htmlFor="pickChapter" className="text-sm font-medium text-brand-text">
-                    Or pick an unlocked chapter
+                    Or pick any chapter
                   </label>
                   <p className="text-xs text-brand-text/70">
-                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). Next
-                    chapter unlocks after you complete its farm game.
+                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). After a
+                    farm game, every chapter is open.
                   </p>
                   <select
                     id="pickChapter"
@@ -886,8 +823,8 @@ export default function StudentLearningPath() {
                     Your science chapters
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm text-brand-text/65 sm:text-base">
-                    Pick a chapter to start or revise. The next chapter unlocks after you
-                    finish that chapter&apos;s farm game.
+                    Pick any chapter to start or revise. Finish a pending farm game to unlock
+                    the full syllabus for this grade.
                   </p>
                 </div>
               </div>
@@ -917,9 +854,6 @@ export default function StudentLearningPath() {
             <section className="rounded-2xl border border-brand-primary/15 bg-white p-5 shadow-sm sm:p-7">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-                  <div className="rounded-full bg-brand-primary/10 p-1.5 ring-1 ring-brand-primary/20">
-                    <RoleAvatar role="student" size="lg" showRing />
-                  </div>
                   <div className="min-w-0">
                     <h2 className="truncate text-xl font-bold text-brand-text sm:text-2xl">
                       {learnerName}
@@ -984,8 +918,8 @@ export default function StudentLearningPath() {
                     Choose a chapter
                   </h2>
                   <p className="mt-1 text-sm text-brand-text/60">
-                    Completed chapters stay open so you can revise. New chapters unlock after
-                    you finish the previous chapter&apos;s farm game.
+                    When a farm game is waiting, only that chapter stays open — finish the
+                    farm to unlock the full syllabus. After that, pick any chapter you like.
                   </p>
                 </div>
                 {sessionGrade == null ? (
@@ -1018,8 +952,8 @@ export default function StudentLearningPath() {
                       Play the farm for {pendingChapterGame.title}
                     </p>
                     <p className="mt-1 text-xs text-brand-text/60">
-                      Finish this farm to unlock the next chapter. {pendingChapterGame.rewardLabel}{" "}
-                      is waiting on the farm.
+                      Finish this farm to unlock the full syllabus for this grade.{" "}
+                      {pendingChapterGame.rewardLabel} is waiting on the farm.
                     </p>
                   </div>
                   <Button
@@ -1044,7 +978,7 @@ export default function StudentLearningPath() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Lock className="size-3" aria-hidden />
-                  Locked until previous farm is done
+                  Locked until pending farm is done
                 </span>
               </div>
 
@@ -1058,7 +992,9 @@ export default function StudentLearningPath() {
                     const pending =
                       pendingChapterGame?.lessonId === lesson.lesson_id;
                     const status = !unlocked
-                      ? "Locked — finish the previous farm first"
+                      ? pendingChapterGame
+                        ? `Locked — finish Game level ${pendingChapterGame.levelId} first`
+                        : "Not available yet"
                       : pending
                         ? `Farm level ${pendingChapterGame.levelId} ready`
                         : complete

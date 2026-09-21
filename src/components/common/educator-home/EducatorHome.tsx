@@ -14,6 +14,7 @@ import {
 
 import { EducatorNavbar } from "@/components/common/educator-home/EducatorNavbar";
 import { EducatorWelcomeBanner } from "@/components/common/educator-home/EducatorWelcomeBanner";
+import { LearningHubCardShell } from "@/components/common/student-home/LearningHubCardShell";
 import { Button } from "@/components/ui/button";
 import {
   EDUCATOR_CLASSROOMS_PATH,
@@ -22,7 +23,6 @@ import {
   EDUCATOR_QUESTION_GENERATION_PATH,
 } from "@/lib/auth-routes";
 import { fetchTeacherClasses } from "@/lib/user-management";
-import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
 import type { TeacherClass } from "@/types";
 
@@ -34,8 +34,11 @@ const TOOLS = [
     description:
       "Mastery matrix, at-risk learners, and student deep-dives for the selected class.",
     icon: BarChart3,
-    accent: "primary",
+    tone: "primary" as const,
     cta: "Open dashboard",
+    chips: ["Mastery grid", "At-risk alerts", "Deep-dive"],
+    button:
+      "h-11 w-full rounded-2xl bg-brand-primary text-base font-semibold text-white shadow-md shadow-brand-primary/25 hover:bg-brand-primary/90",
   },
   {
     href: EDUCATOR_CLASSROOMS_PATH,
@@ -44,8 +47,11 @@ const TOOLS = [
     description:
       "View your classes, copy join codes, and create a new class for students to join.",
     icon: Users,
-    accent: "special",
+    tone: "special" as const,
     cta: "Manage classes",
+    chips: ["Join codes", "Create class", "Roster"],
+    button:
+      "h-11 w-full rounded-2xl bg-brand-special text-base font-semibold text-white shadow-md shadow-brand-special/25 hover:bg-brand-special/90",
   },
   {
     href: EDUCATOR_CONTENT_GENERATION_PATH,
@@ -54,8 +60,11 @@ const TOOLS = [
     description:
       "Build and approve adaptive lesson content for your Grade 6–9 science classes.",
     icon: BookOpen,
-    accent: "secondary",
+    tone: "secondary" as const,
     cta: "Open library",
+    chips: ["Lessons", "Approve", "Adapt"],
+    button:
+      "h-11 w-full rounded-2xl bg-brand-secondary text-base font-semibold text-brand-text shadow-md shadow-brand-secondary/25 hover:bg-brand-secondary/90",
   },
   {
     href: EDUCATOR_QUESTION_GENERATION_PATH,
@@ -64,45 +73,13 @@ const TOOLS = [
     description:
       "Generate quiz items, review pending questions, and approve or reject for your classes.",
     icon: ClipboardList,
-    accent: "accent",
+    tone: "accent" as const,
     cta: "Open question bank",
+    chips: ["Generate", "Review", "Approve"],
+    button:
+      "h-11 w-full rounded-2xl bg-brand-accent text-base font-semibold text-white shadow-md shadow-brand-accent/25 hover:bg-brand-accent/90",
   },
 ] as const;
-
-const accentStyles = {
-  primary: {
-    kicker: "text-brand-primary",
-    icon: "bg-brand-primary text-white shadow-md shadow-brand-primary/25",
-    button: "bg-brand-primary text-white hover:bg-brand-primary/90",
-    border: "border-brand-primary/15",
-    card: "bg-gradient-to-br from-white to-brand-primary/8",
-    glow: "bg-brand-primary/15",
-  },
-  special: {
-    kicker: "text-brand-special",
-    icon: "bg-brand-special text-white shadow-md shadow-brand-special/25",
-    button: "bg-brand-special text-white hover:bg-brand-special/90",
-    border: "border-brand-special/15",
-    card: "bg-gradient-to-br from-white to-brand-special/8",
-    glow: "bg-brand-special/15",
-  },
-  secondary: {
-    kicker: "text-brand-secondary",
-    icon: "bg-brand-secondary text-brand-text shadow-md shadow-brand-secondary/25",
-    button: "bg-brand-secondary text-brand-text hover:bg-brand-secondary/90",
-    border: "border-brand-secondary/20",
-    card: "bg-gradient-to-br from-white to-brand-secondary/10",
-    glow: "bg-brand-secondary/20",
-  },
-  accent: {
-    kicker: "text-brand-accent",
-    icon: "bg-brand-accent text-white shadow-md shadow-brand-accent/25",
-    button: "bg-brand-accent text-white hover:bg-brand-accent/90",
-    border: "border-brand-accent/15",
-    card: "bg-gradient-to-br from-white to-brand-accent/8",
-    glow: "bg-brand-accent/15",
-  },
-} as const;
 
 export function EducatorHome() {
   const token = useUserStore((state) => state.token);
@@ -136,79 +113,75 @@ export function EducatorHome() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-brand-background">
+    <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
       <EducatorNavbar />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-3 pt-5 pb-10 sm:gap-10 sm:px-5">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#00A8E818,_transparent_45%),radial-gradient(ellipse_at_top_right,_#7209B714,_transparent_40%),radial-gradient(ellipse_at_bottom,_#70E00012,_transparent_45%)]"
+      />
+
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-3 pt-5 pb-16 sm:gap-12 sm:px-5 sm:pt-6">
         <EducatorWelcomeBanner />
 
-        <section className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2">
-          {TOOLS.map((tool) => {
-            const Icon = tool.icon;
-            const styles = accentStyles[tool.accent];
-            return (
-              <article
+        <section className="space-y-6 sm:space-y-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-special">
+              Teacher tools
+            </p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-brand-text sm:text-3xl">
+              Insights, classes, content &amp; questions
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-brand-text/60 sm:text-base">
+              Pick a workspace and keep your Grade 6–9 science classes moving.
+            </p>
+          </div>
+
+          <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+            {TOOLS.map((tool) => (
+              <LearningHubCardShell
                 key={tool.href}
-                className={cn(
-                  "relative flex min-h-[17rem] flex-col overflow-hidden rounded-3xl border p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
-                  styles.border,
-                  styles.card
-                )}
+                tone={tool.tone}
+                eyebrow={tool.kicker}
+                title={tool.title}
+                description={tool.description}
+                icon={tool.icon}
+                footer={
+                  <Button asChild className={tool.button}>
+                    <Link href={tool.href}>
+                      {tool.cta}
+                      <ArrowRight className="size-4" aria-hidden />
+                    </Link>
+                  </Button>
+                }
               >
-                <div
-                  className={cn(
-                    "pointer-events-none absolute -right-8 -top-10 size-28 rounded-full blur-2xl",
-                    styles.glow
-                  )}
-                  aria-hidden
-                />
-                <div className="relative flex items-start justify-between gap-3">
-                  <p
-                    className={cn(
-                      "text-sm font-bold uppercase tracking-wider",
-                      styles.kicker
-                    )}
-                  >
-                    {tool.kicker}
-                  </p>
-                  <span
-                    className={cn(
-                      "flex size-12 items-center justify-center rounded-2xl",
-                      styles.icon
-                    )}
-                  >
-                    <Icon className="size-6" aria-hidden />
-                  </span>
-                </div>
-                <h2 className="relative mt-4 text-xl font-semibold text-brand-text">
-                  {tool.title}
-                </h2>
-                <p className="relative mt-2 text-base leading-snug text-brand-text/65">
-                  {tool.description}
-                </p>
-                <Button asChild className={cn("relative mt-auto w-full", styles.button)}>
-                  <Link href={tool.href}>
-                    {tool.cta}
-                    <ArrowRight className="size-4" aria-hidden />
-                  </Link>
-                </Button>
-              </article>
-            );
-          })}
+                <ul className="flex flex-wrap gap-1.5">
+                  {tool.chips.map((chip) => (
+                    <li
+                      key={chip}
+                      className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-brand-text/70 ring-1 ring-black/5"
+                    >
+                      {chip}
+                    </li>
+                  ))}
+                </ul>
+              </LearningHubCardShell>
+            ))}
+          </div>
         </section>
 
-        <section className="rounded-3xl border border-brand-special/15 bg-gradient-to-br from-white to-brand-special/5 p-6 shadow-sm sm:p-7">
+        <section className="overflow-hidden rounded-[1.75rem] border border-brand-special/20 bg-gradient-to-br from-white via-white to-brand-special/8 p-6 shadow-sm sm:p-7">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-brand-special">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-special">
                 Your classes
               </p>
-              <h2 className="text-xl font-semibold text-brand-text">
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-brand-text sm:text-2xl">
                 Share a class code so students can join
               </h2>
             </div>
             <Button
               asChild
-              className="bg-brand-special text-white hover:bg-brand-special/90"
+              className="rounded-full bg-brand-special text-white hover:bg-brand-special/90"
             >
               <Link href={EDUCATOR_CLASSROOMS_PATH}>
                 <Plus className="size-4" aria-hidden />
@@ -262,7 +235,7 @@ export function EducatorHome() {
                     <Button
                       asChild
                       size="sm"
-                      className="h-8 bg-brand-primary text-white hover:bg-brand-primary/90"
+                      className="h-8 rounded-full bg-brand-primary text-white hover:bg-brand-primary/90"
                     >
                       <Link
                         href={EDUCATOR_DASHBOARD_PATH}

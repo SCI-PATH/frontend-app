@@ -113,6 +113,14 @@ export async function requestHintAutoTopic(
 
   if (request.persona_id) body.persona_id = request.persona_id;
   if (request.topic_id) body.topic_id = request.topic_id;
+  if (
+    typeof request.grade === "number" &&
+    Number.isFinite(request.grade) &&
+    request.grade >= 6 &&
+    request.grade <= 9
+  ) {
+    body.grade = Math.trunc(request.grade);
+  }
   if (request.conversation_history?.length) {
     body.conversation_history = request.conversation_history;
   }

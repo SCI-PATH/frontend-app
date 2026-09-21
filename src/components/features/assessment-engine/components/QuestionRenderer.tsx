@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import type { QuestionType } from "../types";
 
 const fieldClassName =
-  "h-11 border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
+  "h-12 rounded-xl border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
 
 export function normalizeOptions(
   options?: Record<string, string> | string[] | null
@@ -68,8 +68,8 @@ export function QuestionRenderer({
       : promptToString(prompt);
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-5 text-center">
-      <p className="text-lg font-medium leading-relaxed whitespace-pre-wrap text-brand-text sm:text-xl">
+    <div className="mx-auto w-full space-y-6 text-left">
+      <p className="text-xl font-semibold leading-snug tracking-tight whitespace-pre-wrap text-brand-text sm:text-2xl">
         {stem}
       </p>
 
@@ -129,7 +129,7 @@ function McqOptions({
       : ["A", "B", "C", "D"].map((key) => ({ key, label: `Option ${key}` }));
 
   return (
-    <div className="mx-auto grid w-full max-w-lg gap-3 sm:grid-cols-2">
+    <div className="grid w-full gap-3">
       {list.map((opt) => {
         const selected = value === opt.key || value === opt.label;
         return (
@@ -139,24 +139,24 @@ function McqOptions({
             disabled={disabled}
             onClick={() => onChange(opt.key)}
             className={cn(
-              "flex min-h-14 items-start gap-3 rounded-xl border px-4 py-3 text-left transition-all",
+              "flex min-h-[3.5rem] items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all duration-200",
               selected
-                ? "border-brand-primary bg-brand-primary/10 shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30"
-                : "border-brand-surface bg-white hover:border-brand-primary/40 hover:bg-brand-primary/5",
+                ? "border-transparent bg-white shadow-md ring-2 ring-brand-primary"
+                : "border-brand-surface bg-brand-background/60 hover:-translate-y-0.5 hover:border-brand-primary/30 hover:bg-white",
               disabled && "opacity-60"
             )}
           >
             <span
               className={cn(
-                "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
+                "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
                 selected
                   ? "bg-brand-primary text-white"
-                  : "bg-brand-surface text-brand-text"
+                  : "bg-white text-brand-text ring-1 ring-brand-surface"
               )}
             >
               {opt.key}
             </span>
-            <span className="text-sm font-medium text-brand-text sm:text-base">
+            <span className="pt-1 text-sm font-medium leading-snug text-brand-text sm:text-base">
               {opt.label}
             </span>
           </button>
@@ -178,7 +178,7 @@ function TrueFalseOptions({
   const choices = ["True", "False"] as const;
 
   return (
-    <div className="mx-auto grid w-full max-w-sm grid-cols-2 gap-3">
+    <div className="grid w-full grid-cols-2 gap-3">
       {choices.map((c) => {
         const selected =
           value.toLowerCase() === c.toLowerCase() ||
@@ -190,10 +190,10 @@ function TrueFalseOptions({
             disabled={disabled}
             onClick={() => onChange(c)}
             className={cn(
-              "flex h-16 items-center justify-center rounded-xl border text-lg font-semibold transition-all",
+              "flex h-16 items-center justify-center rounded-2xl border text-lg font-semibold transition-all duration-200",
               selected
-                ? "border-brand-primary bg-brand-primary/10 text-brand-text shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30"
-                : "border-brand-surface bg-white text-brand-text hover:border-brand-primary/40 hover:bg-brand-primary/5",
+                ? "border-transparent bg-white text-brand-text shadow-md ring-2 ring-brand-primary"
+                : "border-brand-surface bg-brand-background/60 text-brand-text hover:-translate-y-0.5 hover:bg-white",
               disabled && "opacity-60"
             )}
           >
@@ -219,10 +219,10 @@ function MultiBlankInputs({
   const blanks = Array.from({ length: count }, (_, i) => value[i] ?? "");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-3 text-left">
+    <div className="w-full space-y-3">
       {blanks.map((blank, i) => (
-        <div key={i} className="space-y-1">
-          <label className="text-xs font-medium text-brand-text/60">
+        <div key={i} className="space-y-1.5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-brand-text/50">
             Blank {i + 1}
           </label>
           <Input

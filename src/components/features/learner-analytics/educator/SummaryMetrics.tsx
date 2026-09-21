@@ -35,36 +35,44 @@ export function SummaryMetrics({ bands }: SummaryMetricsProps) {
     {
       title: "Needs support",
       count: bands.atRisk.toLocaleString(),
-      meta: `${shareLabel(bands.atRisk, bands.total)} · < 50%`,
+      meta: `${shareLabel(bands.atRisk, bands.total)} · attempted · < 50%`,
       accent: `border-l-red-500 ${EDUCATOR_AT_RISK.metricBg}`,
       countClass: EDUCATOR_AT_RISK.textStrong,
       ring: "ring-red-200",
+    },
+    {
+      title: "Not started",
+      count: bands.notStarted.toLocaleString(),
+      meta: `${shareLabel(bands.notStarted, bands.total)} · no quiz evidence`,
+      accent: "border-l-slate-400 bg-slate-50",
+      countClass: "text-slate-600",
+      ring: "ring-slate-200",
     },
   ] as const;
 
   return (
     <section
       aria-label="Summary metrics"
-      className="grid gap-1.5 sm:grid-cols-3"
+      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
       {cards.map((card) => (
         <div
           key={card.title}
           className={cn(
-            "flex items-center justify-between gap-2 rounded-lg border border-brand-surface border-l-[3px] px-2.5 py-1.5 ring-1",
+            "flex items-center justify-between gap-3 rounded-2xl border border-brand-surface border-l-[4px] px-4 py-3 shadow-sm ring-1",
             card.accent,
             card.ring
           )}
         >
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-brand-text/60">
+            <p className="truncate text-xs font-bold uppercase tracking-wide text-brand-text/60">
               {card.title}
             </p>
-            <p className="truncate text-[10px] text-brand-text/45">{card.meta}</p>
+            <p className="mt-0.5 truncate text-xs text-brand-text/45">{card.meta}</p>
           </div>
           <p
             className={cn(
-              "shrink-0 text-base font-bold tabular-nums leading-none",
+              "shrink-0 text-2xl font-black tabular-nums leading-none",
               card.countClass
             )}
           >

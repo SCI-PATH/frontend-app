@@ -74,6 +74,8 @@ export interface HintAutoTopicRequest {
   user_id: string;
   student_answer: string;
   topic_id?: string | null;
+  /** Student grade 6–9; scopes auto topic routing when the lesson is unlocked. */
+  grade?: number | null;
   conversation_history?: TutorHistoryTurn[];
   context_k?: number;
   persona_id?: TutorPersonaId;

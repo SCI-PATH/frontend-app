@@ -7,7 +7,7 @@ export async function downloadCheatsheetPdf(cheatsheet, lessonTitle = "") {
 
   const { jsPDF } = await import("jspdf");
 
-  const title = String(cheatsheet.title || lessonTitle || "Chapter cheat sheet").trim();
+  const title = String(cheatsheet.title || lessonTitle || "Chapter reference sheet").trim();
   const headline = String(cheatsheet.headline || "").trim();
   const sections = Array.isArray(cheatsheet.sections) ? cheatsheet.sections : [];
   const terms = Array.isArray(cheatsheet.terms) ? cheatsheet.terms : [];
@@ -78,13 +78,13 @@ export async function downloadCheatsheetPdf(cheatsheet, lessonTitle = "") {
   }
 
   ensureSpace(24);
-  writeWrapped("SCI-PATH · revision cheat sheet", {
+  writeWrapped("SCI-PATH · reference sheet", {
     fontSize: 9,
     color: [148, 163, 184],
     gap: 0,
   });
 
-  doc.save(`${slugifyFilename(title)}-cheat-sheet.pdf`);
+  doc.save(`${slugifyFilename(title)}-reference-sheet.pdf`);
 }
 
 /** jsPDF Helvetica is WinAnsi — strip / replace chars it cannot encode. */

@@ -57,6 +57,7 @@ function toAmplitudeSurveyPayload(body: AmplitudeSurveyRequest) {
   return {
     user_id: body.user_id,
     grade: body.grade,
+    completed_chapter_ids: body.completed_chapter_ids ?? [],
     completed_chapters_count:
       body.completed_chapters_count ??
       body.completed_chapter_ids?.length ??
@@ -64,6 +65,8 @@ function toAmplitudeSurveyPayload(body: AmplitudeSurveyRequest) {
     past_grade_marks_range: body.past_grade_marks_range,
     study_hours_per_week: body.study_hours_per_week,
     self_confidence: body.self_confidence,
+    science_self_efficacy: body.science_self_efficacy,
+    prerequisite_ready_count: body.prerequisite_ready_count,
   };
 }
 
@@ -120,6 +123,7 @@ function normalizeAmplitudeQuestion(
     paragraph: q.paragraph,
     question_type: q.question_type,
     dok_level: q.dok_level,
+    chapter_name: raw.chapter_name ?? q.chapter_name,
   };
 }
 

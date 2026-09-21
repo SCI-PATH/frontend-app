@@ -1,8 +1,8 @@
 /**
- * Build launch URL for the SCI_PATH farm (Vite app under this folder).
- * Default local dev: http://localhost:5173
+ * Build launch URL for the SCI_PATH farm (Vite app on Render or local Vite).
+ * Default deployed farm: https://gaming-service-dex5.onrender.com
  *
- * Set in `.env.local`:
+ * Override in `.env.local` for local farm dev:
  *   NEXT_PUBLIC_GAMING_SERVICE_URL=http://localhost:5173
  */
 export type GamingServiceLaunchParams = {
@@ -35,7 +35,7 @@ export type GamingServiceLaunchParams = {
 export function getGamingServiceBaseUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_GAMING_SERVICE_URL?.trim() ||
-    "http://localhost:5173";
+    "https://gaming-service-dex5.onrender.com";
   return raw.replace(/\/+$/, "");
 }
 

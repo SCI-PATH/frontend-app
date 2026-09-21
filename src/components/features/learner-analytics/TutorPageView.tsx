@@ -18,12 +18,28 @@ export function TutorPageView() {
     const fromFarm = searchParams.get("from") === "farm";
     const topicId =
       searchParams.get("topicId") || searchParams.get("topic_id") || "";
+    const frustrationRaw =
+      searchParams.get("frustrationScore") ||
+      searchParams.get("frustration_score") ||
+      "";
+    const frustrationOverride = Number(frustrationRaw);
     if (topicId.trim()) {
       primeFarmLesson(topicId);
-      return;
-    }
-    if (fromFarm) {
+    } else if (fromFarm) {
       noteFarmHandoff();
+    }
+    // Farm Ask Socrates already POSTs the cue. Skip unless that write failed
+    // (no cuePosted=1). React Strict Mode remounts this effect in dev.
+    if (fromFarm && searchParams.get("cuePosted") !== "1") {
+      void import("@/lib/api/frustration")
+        .then(({ syncFarmFrustrationFromGaming }) =>
+          syncFarmFrustrationFromGaming(
+            Number.isFinite(frustrationOverride) ? frustrationOverride : null
+          )
+        )
+        .catch(() => {
+          /* Gaming GET is optional; chat still works without a cue. */
+        });
     }
   }, [noteFarmHandoff, primeFarmLesson, searchParams]);
 
