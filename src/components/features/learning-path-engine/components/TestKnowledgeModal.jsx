@@ -31,7 +31,7 @@ export default function TestKnowledgeModal({
           Test your knowledge!
         </h2>
         <p className="user-error-modal__body">
-          Nice work on <strong>{chapterLabel}</strong>. Game level {levelId} is ready.
+          Nice work on <strong>{chapterLabel}</strong>. GAME LEVEL {levelId || 1} READY.
           Finish the farm, then you&apos;ll return here so the next chapter can unlock.
           {rewardLabel ? (
             <>
@@ -41,7 +41,7 @@ export default function TestKnowledgeModal({
           ) : null}
         </p>
         <button type="button" className="user-error-modal__ok" onClick={() => onOk?.()}>
-          Play Game Level {levelId}
+          Play Game Level {levelId || 1}
         </button>
       </div>
     </div>
