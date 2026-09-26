@@ -50,7 +50,13 @@ export const EDUCATOR_TEXTBOOK_INGEST_PATH = "/textbook-ingest";
 /** Student marker AR library (heart / kidney APKs). */
 export const STUDENT_AR_LIBRARY_PATH = "/ar-library";
 
-const PUBLIC_PATHS = new Set([BASE_PATH, LOGIN_PATH, REGISTER_PATH, TERMS_PATH]);
+const PUBLIC_PATHS = new Set([
+  BASE_PATH,
+  LOGIN_PATH,
+  REGISTER_PATH,
+  TERMS_PATH,
+  "/logout",
+]);
 
 function normalizePath(pathname: string | null | undefined): string {
   if (!pathname) return BASE_PATH;

@@ -180,6 +180,14 @@ export async function signupTeacher(input: {
   return { user: userFromApi(response.user), token: response.access_token };
 }
 
+export async function revokeUserSession(token: string) {
+  await requestJson<{ message: string; code: string }>(
+    "/auth/logout",
+    { method: "POST" },
+    token
+  );
+}
+
 export async function checkUserSession(token: string) {
   const response = await requestJson<SessionResponse>(
     "/auth/session",
