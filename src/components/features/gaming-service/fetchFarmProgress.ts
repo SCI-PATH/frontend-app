@@ -10,8 +10,8 @@ export type FarmProgressSnapshot = {
 export function getGamingApiBaseUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_GAMING_API_URL?.trim() ||
-    // Same default as gaming-service Vite `/api` proxy (engagement DB).
-    "http://3.6.20.31:8002";
+    // Same default as gaming-service Vite `/api` proxy (Sydney engagement DB).
+    "http://54.253.38.67:8002";
   return raw.replace(/\/+$/, "");
 }
 
