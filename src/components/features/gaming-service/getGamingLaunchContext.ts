@@ -5,6 +5,7 @@ import { useUserStore } from "@/store/useUserStore";
 import {
   chapterRewardItemId,
   farmLevelFromLessonId,
+  lessonOrdinalFromLessonId,
   lessonTitleOf,
   type CurriculumLessonLike,
 } from "./chapterGameProgress";
@@ -119,6 +120,7 @@ export function buildChapterGameLaunchParams(
   const lessonId = String(lesson?.lesson_id || "").trim();
   const gradeLessons = input.gradeLessons || [];
   const levelId = farmLevelFromLessonId(lessonId, gradeLessons);
+  const chapterOrdinal = lessonOrdinalFromLessonId(lessonId, gradeLessons);
   const idx = gradeLessons.findIndex((l) => String(l.lesson_id || "") === lessonId);
   const next = idx >= 0 ? gradeLessons[idx + 1] : null;
   const topicId = String(lesson?.topic_id || "").trim() || base.topicId;
@@ -135,10 +137,10 @@ export function buildChapterGameLaunchParams(
     startLevel: levelId,
     cash: input.cash ?? null,
     lessonId: lessonId || null,
-    chapterTitle: lessonTitleOf(lesson) || `Chapter ${levelId}`,
+    chapterTitle: lessonTitleOf(lesson) || "this chapter",
     nextLessonId: next?.lesson_id || null,
     nextChapterTitle: lessonTitleOf(next) || null,
-    rewardItem: chapterRewardItemId(levelId),
+    rewardItem: chapterRewardItemId(chapterOrdinal),
     returnUrl,
   };
 }

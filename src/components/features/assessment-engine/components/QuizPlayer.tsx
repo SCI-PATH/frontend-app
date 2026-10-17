@@ -666,7 +666,7 @@ export function QuizPlayer({
                     variant="outline"
                     className="border-brand-special/30 bg-brand-special/8 text-brand-special"
                   >
-                    DOK {dok}
+                    Difficulty Level {dok}
                   </Badge>
                 ) : null}
                 {question.chapter_name ? (

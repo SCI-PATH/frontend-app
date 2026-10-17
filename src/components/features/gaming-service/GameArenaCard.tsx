@@ -124,7 +124,7 @@ export function GameArenaCard() {
             disabled={!canLaunch}
             onClick={handleLaunch}
           >
-            Play level {pending?.levelId}
+            Play Game Level {pending?.levelId || 1}
             <Rocket className="size-4" aria-hidden />
           </Button>
         ) : (
@@ -152,7 +152,7 @@ export function GameArenaCard() {
           <div className="min-w-0 flex-1">
             <p className="line-clamp-1 text-sm font-semibold text-brand-text">
               {gameAvailable
-                ? `Level ${pending?.levelId} · ${pending?.title}`
+                ? `GAME LEVEL ${pending?.levelId || 1} READY`
                 : pathReady
                   ? "Next farm locked"
                   : "Checking path…"}
@@ -171,7 +171,7 @@ export function GameArenaCard() {
           </div>
           <span className="shrink-0 rounded-full bg-brand-special/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-special">
             {gameAvailable
-              ? `L${pending?.levelId}`
+              ? `L${pending?.levelId || 1}`
               : progress?.highestCompletedLevel
                 ? `L${progress.highestCompletedLevel}`
                 : "—"}

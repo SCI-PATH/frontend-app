@@ -34,7 +34,9 @@ import { readGamingLaunchParams, buildChapterGameLaunchParams } from "@/componen
 import {
   chapterRewardItemId,
   chapterRewardLabel,
+  GAME_PASS_THRESHOLD,
   farmLevelFromLessonId,
+  lessonOrdinalFromLessonId,
   findPendingChapterGame,
   isChapterUnlockedForLearning,
   lessonTitleOf,
@@ -233,17 +235,32 @@ export default function StudentLearningPath() {
           gameReturnHandledRef.current = true;
           setFinishedLessonId(returned.lessonId);
           setGameReturn(returned);
-          setPickedLessonId(returned.nextLessonId || "");
+          setPickedLessonId(
+            returned.retryLesson ? returned.lessonId : returned.nextLessonId || "",
+          );
           setView("chapterChoice");
           let nextProgress: Awaited<ReturnType<typeof postProgress>> | null = null;
           try {
+            const reported = Number(returned.mastery);
+            const score = returned.retryLesson
+              ? Math.min(0.64, Number.isFinite(reported) ? Math.max(0, reported) : 0.4)
+              : Math.max(GAME_PASS_THRESHOLD, Number.isFinite(reported) ? reported : 1);
             nextProgress = await postProgress({
               user_id: userId,
               action: "record_quiz",
               lesson_id: returned.lessonId,
-              score: 1,
+              score,
               grade,
             });
+            if (returned.retryLesson) {
+              const pinned = await postProgress({
+                user_id: userId,
+                action: "set_current",
+                lesson_id: returned.lessonId,
+                grade,
+              });
+              if (pinned) nextProgress = pinned;
+            }
             if (cancelled) return;
             if (Array.isArray(nextProgress?.completed_lesson_ids)) {
               setCompletedLessonIds(nextProgress.completed_lesson_ids);
@@ -628,7 +645,11 @@ export default function StudentLearningPath() {
                 Learning path
               </p>
               <h1 className="mb-4 text-2xl font-bold tracking-tight text-brand-text">
-                {gameReturn ? "Farm complete — full syllabus unlocked" : "Chapter complete"}
+                {gameReturn?.retryLesson
+                  ? "Let's master this topic before moving on!"
+                  : gameReturn
+                    ? "Next chapter unlocked"
+                    : "Chapter complete"}
               </h1>
               <Card className="border-brand-secondary/25 bg-white shadow-sm">
                 <CardHeader>
@@ -639,8 +660,10 @@ export default function StudentLearningPath() {
                       {gameReturn?.chapterTitle || finishedTitle}
                     </strong>
                     {gameReturn?.levelId ? ` (Game level ${gameReturn.levelId})` : ""}.
-                    {gameReturn ? (
-                      " Every chapter in this grade is now open — pick any one to study."
+                    {gameReturn?.retryLesson ? (
+                      " This chapter stays open for another try. The next chapter stays locked until this farm feels steadier."
+                    ) : gameReturn ? (
+                      " The next chapter is open. Later chapters stay locked until you pass the one before them."
                     ) : nextMeta ? (
                       <>
                         {" "}
@@ -667,7 +690,15 @@ export default function StudentLearningPath() {
                     </div>
                   ) : null}
 
-                  {nextMeta?.lesson_id ? (
+                  {gameReturn?.retryLesson ? (
+                    <Button
+                      disabled={choiceBusy}
+                      className="bg-brand-primary text-white hover:bg-brand-primary/90"
+                      onClick={() => void loadChosenChapter(gameReturn.lessonId)}
+                    >
+                      {choiceBusy ? "Loading…" : `Practice this chapter again: ${gameReturn.chapterTitle || finishedTitle}`}
+                    </Button>
+                  ) : nextMeta?.lesson_id ? (
                     <Button
                       disabled={choiceBusy}
                       className="bg-brand-primary text-white hover:bg-brand-primary/90"
@@ -686,8 +717,8 @@ export default function StudentLearningPath() {
                     Or pick any chapter
                   </label>
                   <p className="text-xs text-brand-text/70">
-                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). After a
-                    farm game, every chapter is open.
+                    ✓ = lesson finished ({completedInGrade} of {gradeLessons.length}). A passed
+                    farm opens the next chapter. A tough run keeps this chapter open.
                   </p>
                   <select
                     id="pickChapter"
@@ -775,7 +806,7 @@ export default function StudentLearningPath() {
             levelId={farmLevelFromLessonId(result?.lesson_id || lessonId, gradeLessons)}
             rewardLabel={chapterRewardLabel(
               chapterRewardItemId(
-                farmLevelFromLessonId(result?.lesson_id || lessonId, gradeLessons),
+                lessonOrdinalFromLessonId(result?.lesson_id || lessonId, gradeLessons),
               ),
             )}
             onOk={onTestKnowledgeOk}
@@ -946,7 +977,7 @@ export default function StudentLearningPath() {
                 <div className="flex flex-col gap-3 rounded-2xl border border-brand-special/25 bg-brand-special/8 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-brand-special">
-                      Game level {pendingChapterGame.levelId} ready
+                      GAME LEVEL {pendingChapterGame.levelId || 1} READY
                     </p>
                     <p className="mt-1 text-sm font-semibold text-brand-text">
                       Play the farm for {pendingChapterGame.title}
@@ -962,7 +993,7 @@ export default function StudentLearningPath() {
                     onClick={launchPendingChapterGame}
                   >
                     <Gamepad2 className="size-4" aria-hidden />
-                    Play Game Level {pendingChapterGame.levelId}
+                    Play Game Level {pendingChapterGame.levelId || 1}
                   </Button>
                 </div>
               ) : null}
@@ -993,10 +1024,10 @@ export default function StudentLearningPath() {
                       pendingChapterGame?.lessonId === lesson.lesson_id;
                     const status = !unlocked
                       ? pendingChapterGame
-                        ? `Locked — finish Game level ${pendingChapterGame.levelId} first`
+                        ? `Locked — finish Game level ${pendingChapterGame.levelId || 1} first`
                         : "Not available yet"
                       : pending
-                        ? `Farm level ${pendingChapterGame.levelId} ready`
+                        ? `GAME LEVEL ${pendingChapterGame.levelId || 1} READY`
                         : complete
                           ? "Completed — revise"
                           : "Not started";

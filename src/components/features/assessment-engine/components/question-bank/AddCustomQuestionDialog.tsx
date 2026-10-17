@@ -272,12 +272,12 @@ export function AddCustomQuestionDialog({
               }))}
             />
             <FieldSelect
-              label="DOK"
+              label="Difficulty Level"
               value={dok}
               onChange={setDok}
               options={[1, 2, 3, 4].map((d) => ({
                 value: String(d),
-                label: `DOK ${d}`,
+                label: `Level ${d}`,
               }))}
             />
             <FieldSelect
