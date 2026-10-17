@@ -6,7 +6,7 @@ import {
   getAnalyticsProfile,
   postAnalyticsProfile,
 } from "@/components/features/learning-path-engine/api/client.js";
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiBaseUrl } from "@/lib/api/config";
 import {
   getStudentInitialCategory,
   normalizeAssessmentCategory,
@@ -48,7 +48,7 @@ async function fetchTopicMasteryLevel(
   const timer = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
     const response = await fetch(
-      `${API_BASE_URL}${MASTERY_PATH}/${encodeURIComponent(userId)}/${encodeURIComponent(topicId)}`,
+      `${getApiBaseUrl()}${MASTERY_PATH}/${encodeURIComponent(userId)}/${encodeURIComponent(topicId)}`,
       {
         headers: { Accept: "application/json" },
         signal: controller.signal,

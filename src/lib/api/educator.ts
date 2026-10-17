@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiBaseUrl } from "@/lib/api/config";
 import type {
   AtRiskStudentsRequest,
   AtRiskStudentsResponse,
@@ -67,7 +67,7 @@ async function postJson<T>(
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -99,7 +99,7 @@ async function getAnalyticsJson<T>(
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
       method: "GET",
       signal: controller.signal,
     });

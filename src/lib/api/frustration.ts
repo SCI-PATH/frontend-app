@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiBaseUrl } from "@/lib/api/config";
 import { useUserStore } from "@/store/useUserStore";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -80,7 +80,7 @@ export async function postFrustrationCue(input: {
     return true;
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/engagement/frustration-cue`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/engagement/frustration-cue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

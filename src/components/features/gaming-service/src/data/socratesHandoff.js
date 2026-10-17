@@ -14,13 +14,24 @@ import {
   syncFrustration,
 } from './engagementSync.js';
 
-const DEFAULT_ANALYTICS_API = 'http://52.66.167.213:8003';
+const DEFAULT_ANALYTICS_API = 'http://54.253.36.7:8003';
 const DEFAULT_SCIPATH_APP = 'http://127.0.0.1:3000';
 
 function envUrl(key, fallback) {
   try {
     const raw = String(import.meta.env?.[key] || '').trim();
     if (raw) return raw.replace(/\/+$/, '');
+  } catch {
+    /* Next.js has no Vite import.meta.env */
+  }
+  try {
+    if (
+      key === 'VITE_LEARNER_ANALYTICS_API_BASE' &&
+      typeof process !== 'undefined'
+    ) {
+      const next = String(process.env?.NEXT_PUBLIC_API_URL || '').trim();
+      if (next) return next.replace(/\/+$/, '');
+    }
   } catch {
     /* use fallback */
   }
@@ -79,7 +90,18 @@ function liveFrustration(telemetry = {}, metrics = {}) {
 }
 
 async function postFrustrationCue({ userId, frustrationScore, source }) {
-  const base = envUrl('VITE_LEARNER_ANALYTICS_API_BASE', DEFAULT_ANALYTICS_API);
+  let base = envUrl('VITE_LEARNER_ANALYTICS_API_BASE', DEFAULT_ANALYTICS_API);
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      typeof process !== 'undefined' &&
+      process.env?.NEXT_PUBLIC_API_URL
+    ) {
+      base = `${window.location.origin}/analytics-api`;
+    }
+  } catch {
+    /* keep analytics host */
+  }
   const res = await fetch(`${base}/api/v1/engagement/frustration-cue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiBaseUrl } from "@/lib/api/config";
 import { CURRICULUM_TOPIC_IDS, getCurriculumTopic } from "@/lib/curriculum/topics";
 import { postgresConfigured, queryRows } from "@/lib/db/postgres";
 import type {
@@ -63,7 +63,7 @@ const CLASS_ATTEMPT_MATRIX_SQL = `
 `;
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -83,7 +83,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     cache: "no-store",
   });
   const payload: unknown = await response.json().catch(() => null);

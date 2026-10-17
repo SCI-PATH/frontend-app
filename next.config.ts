@@ -11,6 +11,11 @@ const GAMING_API =
   process.env.GAMING_API_PROXY_TARGET || "http://127.0.0.1:8002";
 const ASSESSMENT_API =
   process.env.ASSESSMENT_API_PROXY_TARGET || "http://127.0.0.1:8004";
+const ANALYTICS_API = (
+  process.env.ANALYTICS_API_PROXY_TARGET ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://127.0.0.1:8003"
+).replace(/\/$/, "");
 
 const apiPaths = [
   "health",
@@ -37,6 +42,10 @@ const nextConfig: NextConfig = {
         { source: `/${p}`, destination: `${API}/${p}` },
       ]);
     return [
+      {
+        source: "/analytics-api/:path*",
+        destination: `${ANALYTICS_API}/:path*`,
+      },
       {
         source: "/user-api/:path*",
         destination: `${USER_API}/:path*`,

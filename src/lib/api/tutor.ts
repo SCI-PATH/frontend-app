@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiBaseUrl } from "@/lib/api/config";
 import {
   parseTopicRouting,
   resolvePersonaId,
@@ -125,7 +125,7 @@ export async function requestHintAutoTopic(
     body.conversation_history = request.conversation_history;
   }
 
-  const response = await fetch(`${API_BASE_URL}${HINT_AUTO_TOPIC_PATH}`, {
+  const response = await fetch(`${getApiBaseUrl()}${HINT_AUTO_TOPIC_PATH}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
