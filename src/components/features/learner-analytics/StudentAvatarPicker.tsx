@@ -42,7 +42,7 @@ export function StudentAvatarPicker() {
         <Button
           type="button"
           variant="outline"
-          size="icon-lg"
+          size="icon"
           aria-label="Previous avatar"
           onClick={() => step(-1)}
           className="shrink-0 rounded-full border-white/50 bg-white/90 text-brand-special hover:bg-white"
@@ -51,7 +51,7 @@ export function StudentAvatarPicker() {
         </Button>
 
         <div
-          className="relative size-36 cursor-grab touch-pan-y select-none overflow-hidden rounded-full bg-white p-1 shadow-lg shadow-brand-special/20 ring-4 ring-white/50 sm:size-40"
+          className="relative size-20 cursor-grab touch-pan-y select-none overflow-hidden rounded-full bg-white p-0.5 shadow-md shadow-brand-special/20 ring-1 ring-white sm:size-24"
           onPointerDown={(event) => {
             pointerStartX.current = event.clientX;
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -84,7 +84,7 @@ export function StudentAvatarPicker() {
             src={current.src}
             alt={current.label}
             fill
-            sizes="160px"
+            sizes="96px"
             className="object-contain"
             draggable={false}
             priority
@@ -94,7 +94,7 @@ export function StudentAvatarPicker() {
         <Button
           type="button"
           variant="outline"
-          size="icon-lg"
+          size="icon"
           aria-label="Next avatar"
           onClick={() => step(1)}
           className="shrink-0 rounded-full border-white/50 bg-white/90 text-brand-special hover:bg-white"
@@ -103,8 +103,8 @@ export function StudentAvatarPicker() {
         </Button>
       </div>
 
-      <p className="text-sm font-medium text-white/90">
-        Swipe or tap to pick your look · {current.label}
+      <p className="text-xs font-medium text-white/80">
+        {current.label}
       </p>
 
       <div className="flex flex-wrap justify-center gap-2">
@@ -118,7 +118,7 @@ export function StudentAvatarPicker() {
               aria-label={option.label}
               aria-pressed={selected}
               className={cn(
-                "relative size-11 overflow-hidden rounded-full bg-white ring-2 transition",
+                "relative size-8 overflow-hidden rounded-full bg-white ring-2 transition",
                 selected
                   ? "ring-brand-secondary ring-offset-2 ring-offset-transparent"
                   : "ring-white/40 hover:ring-white"
@@ -128,7 +128,7 @@ export function StudentAvatarPicker() {
                 src={option.src}
                 alt=""
                 fill
-                sizes="44px"
+                sizes="32px"
                 className="object-contain"
                 draggable={false}
               />
