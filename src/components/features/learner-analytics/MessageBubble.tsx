@@ -8,6 +8,23 @@ interface MessageBubbleProps {
   message: ChatMessage;
 }
 
+const NUMBERED_LINE = /^\s*(?:\(?[1-9]\)?[.)]|[-*])\s+/;
+
+function extractCoachPreamble(content: string, question: string | null): string {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !NUMBERED_LINE.test(line))
+    .filter((line) => {
+      const closing = question?.trim();
+      if (closing && line === closing) return false;
+      return !line.endsWith("?");
+    })
+    .join(" ")
+    .trim();
+}
+
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isStudent = message.role === "student";
   const steps = message.steps?.filter(Boolean) ?? [];
@@ -18,6 +35,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const followUp = !isStudent ? splitTutorFollowUp(message.content) : null;
   const body = followUp?.body ?? message.content;
   const question = followUp?.question ?? message.closingQuestion ?? null;
+  const preamble = showSteps
+    ? extractCoachPreamble(message.content, question)
+    : "";
 
   return (
     <div
@@ -49,16 +69,21 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </span>
         ) : null}
         {showSteps ? (
-          <ol className="space-y-1.5">
-            {steps.slice(0, 3).map((step, index) => (
-              <li key={`${message.id}-step-${index}`} className="flex gap-2">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-secondary/15 text-[11px] font-semibold text-brand-primary">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
+          <>
+            {preamble ? (
+              <p className="mb-2 whitespace-pre-wrap">{preamble}</p>
+            ) : null}
+            <ol className="space-y-1.5">
+              {steps.slice(0, 3).map((step, index) => (
+                <li key={`${message.id}-step-${index}`} className="flex gap-2">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-secondary/15 text-[11px] font-semibold text-brand-primary">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </>
         ) : body.trim() ? (
           <p className="whitespace-pre-wrap">{body}</p>
         ) : null}
