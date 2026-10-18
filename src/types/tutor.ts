@@ -54,6 +54,9 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   isHint?: boolean;
+  personaId?: TutorPersonaId;
+  steps?: string[];
+  closingQuestion?: string | null;
 }
 
 export interface TutorHistoryTurn {
@@ -91,6 +94,8 @@ export interface HintAutoTopicResponse {
   hint_mode: string | null;
   mastery_probability: number | null;
   mastery_probability_before: number | null;
+  hint_steps: string[];
+  closing_question: string | null;
   error?: string;
 }
 
@@ -154,10 +159,88 @@ export function formatTopicLabel(topicId: string | null | undefined): string {
   return formatTopicDisplay(topicId);
 }
 
+const NUMBERED_LINE = /^\s*(?:\(?([1-9])\)?[.)]|[-*])\s+(.+?)\s*$/;
+
+/** Pull the last follow-up question out of a Socrates reply. */
+export function splitTutorFollowUp(hintText: string): {
+  body: string;
+  question: string | null;
+} {
+  const raw = hintText.trim();
+  if (!raw) return { body: "", question: null };
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lastLine = lines.at(-1) ?? "";
+  if (lines.length > 1 && lastLine.includes("?")) {
+    return {
+      body: lines.slice(0, -1).join("\n").trim(),
+      question: lastLine,
+    };
+  }
+
+  const sentenceSplit = raw.match(/^(.*[.!])\s+([^?]*\?)\s*$/s);
+  if (sentenceSplit?.[1] && sentenceSplit[2]) {
+    return {
+      body: sentenceSplit[1].trim(),
+      question: sentenceSplit[2].trim(),
+    };
+  }
+
+  if (raw.endsWith("?") && !/[.!]\s+/.test(raw.slice(0, -1))) {
+    return { body: "", question: raw };
+  }
+
+  return { body: raw, question: null };
+}
+
+/** Split an Analytical Coach reply into 3 steps + a closing question. */
+export function parseAnalyticalCoachSteps(hintText: string): {
+  steps: string[];
+  closingQuestion: string | null;
+} {
+  const raw = hintText.trim();
+  if (!raw) return { steps: [], closingQuestion: null };
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const steps: string[] = [];
+  const other: string[] = [];
+  for (const line of lines) {
+    const match = line.match(NUMBERED_LINE);
+    if (match?.[2]) {
+      steps.push(match[2].replace(/\?+/g, "").trim());
+    }
+    else other.push(line);
+  }
+
+  if (steps.length < 2) {
+    const inline = [
+      ...raw.matchAll(/(?:^|\s)\(?([1-3])\)?[.)]\s+(.+?)(?=(?:\s*\(?[1-3]\)?[.)])|$)/g),
+    ];
+    if (inline.length >= 2) {
+      return {
+        steps: inline
+          .slice(0, 3)
+          .map((part) => part[2].replace(/\?+/g, "").trim().replace(/[.\s]+$/, "")),
+        closingQuestion: other.at(-1) ?? null,
+      };
+    }
+  }
+
+  let closingQuestion = other.at(-1) ?? null;
+  if (!closingQuestion && steps.at(-1)?.endsWith("?")) {
+    closingQuestion = steps.pop() ?? null;
+  }
+
+  return {
+    steps: steps.slice(0, 3),
+    closingQuestion,
+  };
+}
+
 export function createChatMessage(
   role: ChatRole,
   content: string,
-  extras?: Partial<Pick<ChatMessage, "isHint">>
+  extras?: Partial<Pick<ChatMessage, "isHint" | "personaId" | "steps" | "closingQuestion">>
 ): ChatMessage {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

@@ -5,6 +5,7 @@ import { useUserStore } from "@/store/useUserStore";
 import {
   createChatMessage,
   DEFAULT_TUTOR_PERSONA_ID,
+  splitTutorFollowUp,
   type ChatMessage,
   type HintAutoTopicRequest,
   type TopicRouting,
@@ -121,17 +122,26 @@ function applySuccessfulTurn(
     hint_mode: string | null;
     mastery_probability: number | null;
     mastery_probability_before: number | null;
+    hint_steps: string[];
+    closing_question: string | null;
   }
 ): Partial<TutorState> {
   const nextTopicId = response.topic_id_resolved ?? state.activeTopicId;
   rememberTopicForFarm(nextTopicId);
   const switched =
     response.topic_routing === "switched" && Boolean(response.topic_id_resolved);
+  const split = splitTutorFollowUp(hintText);
 
   return {
     messages: [
       ...state.messages,
-      createChatMessage("tutor", hintText, { isHint }),
+      createChatMessage("tutor", hintText, {
+        isHint,
+        personaId: response.persona_id,
+        steps: response.hint_steps,
+        closingQuestion:
+          split.question ?? response.closing_question,
+      }),
     ],
     personaId: response.persona_id,
     preferredPersonaId: state.preferredPersonaId,

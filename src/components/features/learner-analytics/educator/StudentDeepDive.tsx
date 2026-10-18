@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo } from "react";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -103,60 +100,6 @@ function MetricPill({
       <p className="text-sm font-bold tabular-nums">{value}</p>
     </div>
   );
-}
-
-interface MisconceptionTooltipProps {
-  active?: boolean;
-  payload?: readonly {
-    value?: number | string;
-    payload?: { tag?: string };
-  }[];
-  coordinate?: { x: number; y: number };
-  chartContainerRef: React.RefObject<HTMLDivElement | null>;
-}
-
-function MisconceptionChartTooltip({
-  active,
-  payload,
-  coordinate,
-  chartContainerRef,
-}: MisconceptionTooltipProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!active || !payload?.length || !mounted) return null;
-
-  const tag = String(payload[0]?.payload?.tag ?? "");
-  const count = payload[0]?.value;
-  const rect = chartContainerRef.current?.getBoundingClientRect();
-  const left =
-    rect && coordinate ? rect.left + coordinate.x + 12 : undefined;
-  const top =
-    rect && coordinate ? rect.top + coordinate.y - 36 : undefined;
-
-  const tooltip = (
-    <div
-      className="pointer-events-none z-[200] max-w-[min(18rem,calc(100vw-1.5rem))] rounded-lg border border-brand-surface bg-white px-3 py-2 text-xs shadow-lg"
-      style={
-        left !== undefined && top !== undefined
-          ? { position: "fixed", left, top }
-          : undefined
-      }
-    >
-      <p className="break-words font-semibold leading-snug text-brand-text">
-        {tag}
-      </p>
-      <p className="mt-1 text-brand-text/65">
-        Selected <span className="font-semibold tabular-nums">{count}</span>{" "}
-        time{count === 1 ? "" : "s"} on incorrect attempts
-      </p>
-    </div>
-  );
-
-  return createPortal(tooltip, document.body);
 }
 
 function FocusAreaList({ areas }: { areas: StudentFocusArea[] }) {
@@ -798,7 +741,6 @@ export function StudentDeepDive({
   error,
   onStudentChange,
 }: StudentDeepDiveProps) {
-  const misconceptionChartRef = useRef<HTMLDivElement>(null);
   const selectedStudentName = selectedStudentId
     ? getStudentDisplayName(selectedStudentId, students)
     : null;
@@ -1105,46 +1047,30 @@ export function StudentDeepDive({
             <SectionInfoHint text="Wrong answers this learner picks most often on quizzes." />
           </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-visible">
+        <CardContent>
           {misconceptionData.length === 0 ? (
             <p className="py-8 text-center text-sm text-brand-text/60">
               No distractor tags available yet.
             </p>
           ) : (
-            <div ref={misconceptionChartRef} className="h-80 w-full overflow-visible">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={misconceptionData}
-                  layout="vertical"
-                  margin={{ top: 8, right: 24, bottom: 8, left: 12 }}
+            <ol className="space-y-2">
+              {misconceptionData.map((item, index) => (
+                <li
+                  key={item.tag}
+                  className="flex items-start gap-3 rounded-xl border border-brand-accent/20 bg-brand-accent/5 px-3 py-2.5"
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="tag"
-                    width={240}
-                    tick={{ fontSize: 10 }}
-                    interval={0}
-                  />
-                  <Tooltip
-                    content={(props) => (
-                      <MisconceptionChartTooltip
-                        active={props.active}
-                        payload={
-                          props.payload as MisconceptionTooltipProps["payload"]
-                        }
-                        coordinate={props.coordinate}
-                        chartContainerRef={misconceptionChartRef}
-                      />
-                    )}
-                    cursor={{ fill: "rgba(0, 168, 232, 0.08)" }}
-                    isAnimationActive={false}
-                  />
-                  <Bar dataKey="count" fill="#FF6B35" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                  <span className="mt-0.5 w-5 shrink-0 text-xs font-bold tabular-nums text-brand-text/35">
+                    {index + 1}
+                  </span>
+                  <p className="min-w-0 flex-1 text-sm leading-relaxed text-brand-text">
+                    {item.tag}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-brand-accent px-2 py-0.5 text-[0.65rem] font-semibold text-white">
+                    {item.count} time{item.count === 1 ? "" : "s"}
+                  </span>
+                </li>
+              ))}
+            </ol>
           )}
         </CardContent>
       </Card>
