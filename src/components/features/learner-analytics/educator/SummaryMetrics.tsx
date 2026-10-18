@@ -1,25 +1,47 @@
 "use client";
 
-import { EDUCATOR_AT_RISK } from "@/lib/educator/theme";
+import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
 import { cn } from "@/lib/utils";
 import type { MatrixBandCounts } from "@/types/educator";
 
 interface SummaryMetricsProps {
   bands: MatrixBandCounts;
+  frustration?: {
+    class_average?: number | null;
+    samples?: number;
+  } | null;
+  frustrationLoading?: boolean;
 }
 
 function shareLabel(count: number, total: number) {
   if (total <= 0) return "No data yet";
   const pct = Math.round((count / total) * 100);
-  return `${pct}% of skill cells`;
+  return `${pct}% of attempted cells`;
 }
 
-export function SummaryMetrics({ bands }: SummaryMetricsProps) {
+export function SummaryMetrics({
+  bands,
+  frustration,
+  frustrationLoading = false,
+}: SummaryMetricsProps) {
+  const average = frustration?.class_average;
+  const samples = frustration?.samples ?? 0;
+  const frustrationScore =
+    average === null || average === undefined || Number.isNaN(average)
+      ? null
+      : Math.round(average * 100);
+  const frustrationMeta = frustrationLoading
+    ? "Loading check-ins"
+    : samples > 0
+      ? `Average of ${samples} check-in${samples === 1 ? "" : "s"} · 0–100`
+      : "No check-ins yet";
+
+  const attempted = bands.mastered + bands.learning + bands.atRisk;
   const cards = [
     {
       title: "Mastered",
       count: bands.mastered.toLocaleString(),
-      meta: `${shareLabel(bands.mastered, bands.total)} · ≥ 80%`,
+      meta: `${shareLabel(bands.mastered, attempted)} · ≥ 80%`,
       accent: "border-l-brand-secondary bg-brand-secondary/[0.06]",
       countClass: "text-brand-secondary",
       ring: "ring-brand-secondary/20",
@@ -27,7 +49,7 @@ export function SummaryMetrics({ bands }: SummaryMetricsProps) {
     {
       title: "Still learning",
       count: bands.learning.toLocaleString(),
-      meta: `${shareLabel(bands.learning, bands.total)} · 50–79%`,
+      meta: `${shareLabel(bands.learning, attempted)} · 50–79%`,
       accent: "border-l-brand-primary bg-brand-primary/[0.06]",
       countClass: "text-brand-primary",
       ring: "ring-brand-primary/20",
@@ -35,18 +57,18 @@ export function SummaryMetrics({ bands }: SummaryMetricsProps) {
     {
       title: "Needs support",
       count: bands.atRisk.toLocaleString(),
-      meta: `${shareLabel(bands.atRisk, bands.total)} · attempted · < 50%`,
+      meta: `${shareLabel(bands.atRisk, attempted)} · < 50%`,
       accent: `border-l-red-500 ${EDUCATOR_AT_RISK.metricBg}`,
       countClass: EDUCATOR_AT_RISK.textStrong,
       ring: "ring-red-200",
     },
     {
-      title: "Not started",
-      count: bands.notStarted.toLocaleString(),
-      meta: `${shareLabel(bands.notStarted, bands.total)} · no quiz evidence`,
-      accent: "border-l-slate-400 bg-slate-50",
-      countClass: "text-slate-600",
-      ring: "ring-slate-200",
+      title: "Class frustration",
+      count: frustrationScore === null ? "—" : String(frustrationScore),
+      meta: frustrationMeta,
+      accent: `border-l-brand-special ${EDUCATOR_PURPLE.bgSoft}`,
+      countClass: EDUCATOR_PURPLE.text,
+      ring: "ring-brand-special/20",
     },
   ] as const;
 

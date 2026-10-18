@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -18,7 +19,6 @@ import {
   parseRiskReasons,
   recentQuizStatus,
   recommendedAction,
-  RISK_REASON_POINTS,
   RISK_TIERS,
 } from "@/lib/educator/risk";
 import { EDUCATOR_AT_RISK, EDUCATOR_PURPLE } from "@/lib/educator/theme";
@@ -36,16 +36,19 @@ interface AtRiskFeedProps {
   students?: readonly ClassroomStudentMeta[];
   topicCatalog?: readonly ClassroomTopicMeta[];
   showHeader?: boolean;
+  onSelectStudent?: (studentId: string) => void;
 }
 
 function AlertCard({
   alert,
   studentName,
   topicTitle,
+  onSelectStudent,
 }: {
   alert: AtRiskStudentAlert;
   studentName: string;
   topicTitle: string;
+  onSelectStudent?: (studentId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const tier = getRiskTier(alert.risk_score);
@@ -60,13 +63,13 @@ function AlertCard({
         tier.borderClass
       )}
     >
-      <button
-        type="button"
-        className="flex w-full items-start gap-3 p-3 text-left transition hover:bg-brand-background/40"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        <div className="min-w-0 flex-1 space-y-2">
+      <div className="flex items-start gap-3 p-3">
+        <button
+          type="button"
+          className="min-w-0 flex-1 space-y-2 text-left"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+        >
           <Badge className={cn("text-[0.65rem]", tier.pillClass)}>
             {tier.label} · Risk {alert.risk_score}%
           </Badge>
@@ -108,14 +111,34 @@ function AlertCard({
               <span className="font-semibold">Why flagged:</span> {alert.reason}
             </p>
           ) : null}
-        </div>
+        </button>
 
-        {open ? (
-          <ChevronUp className="mt-1 size-4 shrink-0 text-brand-text/45" />
-        ) : (
-          <ChevronDown className="mt-1 size-4 shrink-0 text-brand-text/45" />
-        )}
-      </button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <button
+            type="button"
+            className="rounded-md p-1 text-brand-text/45 hover:bg-brand-background"
+            onClick={() => setOpen((value) => !value)}
+            aria-label={open ? "Hide risk details" : "Show risk details"}
+          >
+            {open ? (
+              <ChevronUp className="size-4" />
+            ) : (
+              <ChevronDown className="size-4" />
+            )}
+          </button>
+          {onSelectStudent ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 border-brand-surface bg-white px-2 text-xs text-brand-text hover:bg-brand-background"
+              onClick={() => onSelectStudent(alert.student_id)}
+            >
+              View profile
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
       {open ? (
         <div className="space-y-3 border-t border-brand-surface px-3 pb-3 pt-2 text-sm">
@@ -123,18 +146,13 @@ function AlertCard({
             <p className="text-xs font-semibold uppercase text-brand-text/50">
               Why this learner was flagged
             </p>
-            <ul className="mt-1.5 space-y-1">
+            <p className="mt-1 text-xs text-brand-text/55">
+              These signals make up the risk score shown on the card.
+            </p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-4">
               {reasons.map((reason) => (
-                <li
-                  key={reason}
-                  className="flex items-center justify-between gap-2 text-xs text-brand-text/80"
-                >
-                  <span>{reason}</span>
-                  {RISK_REASON_POINTS[reason] ? (
-                    <span className="font-mono text-brand-text/50">
-                      +{RISK_REASON_POINTS[reason]}
-                    </span>
-                  ) : null}
+                <li key={reason} className="text-xs text-brand-text/80">
+                  {reason}
                 </li>
               ))}
             </ul>
@@ -167,6 +185,7 @@ export function AtRiskFeed({
   students = [],
   topicCatalog = [],
   showHeader = true,
+  onSelectStudent,
 }: AtRiskFeedProps) {
   const grouped = groupAlertsByTier(alerts);
   const defaultTier = useMemo<RiskTierId>(() => {
@@ -213,13 +232,6 @@ export function AtRiskFeed({
           </p>
         </div>
       ) : null}
-
-      <p className="rounded-lg border border-brand-surface bg-brand-background/70 px-3 py-2 text-xs leading-relaxed text-brand-text/65">
-        One alert per learner (their most urgent skill). Tap a risk tier to
-        filter the cards below. Use{" "}
-        <span className="font-medium text-brand-text">Learner diagnostics</span>{" "}
-        for a full picture of that student.
-      </p>
 
       {alerts.length > 0 ? (
         <div
@@ -287,6 +299,7 @@ export function AtRiskFeed({
               alert={alert}
               studentName={resolveStudentName(alert.student_id)}
               topicTitle={resolveTitle(alert.topic_id)}
+              onSelectStudent={onSelectStudent}
             />
           ))}
         </div>
