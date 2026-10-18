@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import LessonCheatSheet from "./LessonCheatSheet.jsx";
+import LessonStageAmbiance from "./LessonStageAmbiance.jsx";
 import LessonVisualExplore from "./LessonVisualExplore.jsx";
 import LessonStepContent from "./LessonStepContent.jsx";
 import TutorMascot from "./TutorMascot.jsx";
@@ -287,6 +288,7 @@ export default function LessonStage({
 
       {showExplore ? (
         <div className="lesson-stage__explore">
+          <LessonStageAmbiance />
           <LessonVisualExplore lessonId={lessonId} lessonTitle={lessonTitle} />
         </div>
       ) : (
@@ -296,6 +298,7 @@ export default function LessonStage({
           }`}
         >
           <div className="lesson-stage__col lesson-stage__col--text">
+            <LessonStageAmbiance />
             <div className="lesson-stage__dialog lesson-stage__dialog--split">
               <div className="lesson-stage__mascot-wrap">
                 <TutorMascot celebrate={isWrapUp} />

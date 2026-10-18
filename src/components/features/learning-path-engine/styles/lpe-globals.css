@@ -478,8 +478,14 @@ pre.lesson {
   font-family: var(--font-body);
   color: var(--duo-ink);
   position: relative;
+  isolation: isolate;
   overflow: hidden;
-  background: radial-gradient(circle at 12% 0%, var(--brand-focus-soft) 0%, var(--brand-canvas) 45%, var(--brand-slate) 100%);
+  background:
+    radial-gradient(circle at 10% 15%, rgb(0 168 232 / 0.2), transparent 42%),
+    radial-gradient(circle at 90% 12%, rgb(114 9 183 / 0.18), transparent 40%),
+    radial-gradient(circle at 82% 88%, rgb(112 224 0 / 0.16), transparent 38%),
+    radial-gradient(circle at 8% 82%, rgb(255 107 53 / 0.14), transparent 36%),
+    linear-gradient(160deg, #f4fbff 0%, #faf7ff 42%, #fff8f2 100%);
 }
 
 .lesson-stage--split {
@@ -519,12 +525,19 @@ pre.lesson {
 }
 
 .lesson-stage__col--text {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: rgba(255,255,255,0.95);
+  background:
+    radial-gradient(circle at 12% 18%, rgb(0 168 232 / 0.16), transparent 42%),
+    radial-gradient(circle at 88% 14%, rgb(114 9 183 / 0.14), transparent 40%),
+    radial-gradient(circle at 78% 86%, rgb(112 224 0 / 0.14), transparent 38%),
+    radial-gradient(circle at 10% 78%, rgb(255 107 53 / 0.12), transparent 36%),
+    linear-gradient(160deg, #f3fbff 0%, #faf6ff 48%, #fff8f1 100%);
   border-radius: 16px;
-  border: 1px solid rgba(0, 168, 232, 0.12);
+  border: 1px solid rgba(0, 168, 232, 0.16);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
 
@@ -536,7 +549,9 @@ pre.lesson {
 
 .lesson-stage__footer--split {
   flex-shrink: 0;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid rgba(15, 23, 42, 0.06);
 }
 
@@ -564,10 +579,20 @@ pre.lesson {
   flex-direction: column;
   margin: 0.35rem 0.65rem 0.65rem;
   padding: 0.5rem;
-  background: #fff;
+  background:
+    radial-gradient(circle at 12% 18%, rgb(0 168 232 / 0.16), transparent 42%),
+    radial-gradient(circle at 88% 14%, rgb(114 9 183 / 0.14), transparent 40%),
+    radial-gradient(circle at 78% 86%, rgb(112 224 0 / 0.14), transparent 38%),
+    radial-gradient(circle at 10% 78%, rgb(255 107 53 / 0.12), transparent 36%),
+    linear-gradient(160deg, #f3fbff 0%, #faf6ff 48%, #fff8f1 100%);
   border-radius: 16px;
-  border: 1px solid rgba(0, 168, 232, 0.12);
+  border: 1px solid rgba(0, 168, 232, 0.16);
   overflow: hidden;
+}
+
+.lesson-stage__explore > .lesson-explore-panel {
+  position: relative;
+  z-index: 1;
 }
 
 .lesson-explore-panel {
@@ -711,44 +736,102 @@ pre.lesson {
   font-size: 0.9rem;
 }
 
-.lesson-stage::before,
-.lesson-stage::after {
-  content: "";
+/* Floating dots + icons inside the lesson content column */
+.lesson-stage__ambiance {
   position: absolute;
-  inset: -12%;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
-.lesson-stage::before {
-  background-image:
-    radial-gradient(circle at 10% 20%, rgba(0, 168, 232, 0.22) 0 2px, transparent 3px),
-    radial-gradient(circle at 28% 36%, rgba(112, 224, 0, 0.18) 0 1.5px, transparent 3px),
-    radial-gradient(circle at 62% 18%, rgba(0, 168, 232, 0.16) 0 2px, transparent 3px),
-    radial-gradient(circle at 80% 42%, rgba(114, 9, 183, 0.12) 0 1.5px, transparent 3px),
-    radial-gradient(circle at 38% 74%, rgba(0, 168, 232, 0.14) 0 1.8px, transparent 3px);
-  animation: soft-breathe 8s linear infinite;
+.lesson-stage__ambiance-dot {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: 0.85;
+  animation: lesson-ambiance-dot 3.4s ease-in-out infinite;
 }
 
-.lesson-stage::after {
-  background-image:
-    radial-gradient(circle at 18% 68%, rgba(112, 224, 0, 0.12) 0 2px, transparent 3px),
-    radial-gradient(circle at 48% 50%, rgba(0, 168, 232, 0.12) 0 1.6px, transparent 3px),
-    radial-gradient(circle at 74% 78%, rgba(255, 107, 53, 0.1) 0 1.8px, transparent 3px);
-  animation: soft-breathe 11s linear infinite reverse;
+.lesson-stage__ambiance-float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 8px 18px -8px rgb(114 9 183 / 0.45);
+  animation: lesson-ambiance-float 4.2s ease-in-out infinite;
 }
 
-@keyframes soft-breathe {
-  0% {
-    transform: translateY(0px);
-    opacity: 0.72;
+.lesson-stage__ambiance-float--zap {
+  color: #ffb703;
+}
+
+.lesson-stage__ambiance-float--flask {
+  color: #7209b7;
+}
+
+.lesson-stage__ambiance-float--star {
+  color: #00a8e8;
+}
+
+.lesson-stage__ambiance-wow {
+  position: absolute;
+  padding: 0.28rem 0.55rem;
+  border-radius: 9999px;
+  background: #ff6b35;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 18px rgba(255, 107, 53, 0.35);
+  animation: lesson-ambiance-wow 2.8s ease-in-out infinite;
+}
+
+.lesson-stage__ambiance-wow--alt {
+  background: #7209b7;
+  box-shadow: 0 8px 18px rgba(114, 9, 183, 0.35);
+  animation-delay: 0.8s;
+}
+
+.lesson-stage__col--text > .lesson-stage__dialog,
+.lesson-stage__col--text > .lesson-stage__footer {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lesson-ambiance-dot {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.55;
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-10px) scale(1.25);
     opacity: 1;
   }
+}
+
+@keyframes lesson-ambiance-float {
+  0%,
   100% {
-    transform: translateY(0px);
-    opacity: 0.72;
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+
+@keyframes lesson-ambiance-wow {
+  0%,
+  100% {
+    transform: rotate(-12deg) scale(1);
+  }
+  50% {
+    transform: rotate(-6deg) scale(1.08);
   }
 }
 
@@ -780,9 +863,10 @@ pre.lesson {
   align-items: center;
   gap: 0.75rem;
   padding: 0.55rem 0.85rem;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .lesson-stage__mode {
@@ -2679,6 +2763,8 @@ pre.lesson {
 
 /* Mind map / gallery / interactive map sections */
 .lesson-explore-panel__tabs {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 0.5rem;
   padding: 0.15rem 0.15rem 0.65rem;
@@ -2707,11 +2793,13 @@ pre.lesson {
 }
 
 .lesson-explore-panel__content {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow: auto;
   border-radius: 14px;
-  background: linear-gradient(145deg, #faf7ff, #f4fbff);
+  background: transparent;
 }
 
 .lesson-explore-panel__mindmap {
