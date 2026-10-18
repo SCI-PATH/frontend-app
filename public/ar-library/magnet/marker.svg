@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Magnet AR marker placeholder">
+  <rect width="512" height="512" fill="#ffffff"/>
+  <rect x="24" y="24" width="464" height="464" fill="none" stroke="#111827" stroke-width="28"/>
+  <rect x="64" y="64" width="384" height="384" fill="none" stroke="#111827" stroke-width="14"/>
+  <rect x="150" y="170" width="90" height="130" rx="10" fill="#EF4444"/>
+  <rect x="240" y="170" width="90" height="130" rx="10" fill="#3B82F6"/>
+  <text x="195" y="250" text-anchor="middle" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#ffffff">N</text>
+  <text x="285" y="250" text-anchor="middle" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#ffffff">S</text>
+  <text x="256" y="448" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#111827">MAGNET MARKER</text>
+  <text x="256" y="478" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#6B7280">Replace with marker.png</text>
+</svg>

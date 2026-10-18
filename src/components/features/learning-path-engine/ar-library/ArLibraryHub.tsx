@@ -1,13 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Heart, Rocket, ScanLine, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Atom,
+  CircuitBoard,
+  Droplets,
+  Heart,
+  Magnet,
+  Rocket,
+  ScanLine,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
-import { AR_EXPERIENCES } from "@/components/features/learning-path-engine/ar-library/catalog";
+import { AR_EXPERIENCES, type ArExperienceId } from "@/components/features/learning-path-engine/ar-library/catalog";
 import { BrandGradientBar } from "@/components/common/BrandGradientBar";
 import { Button } from "@/components/ui/button";
 import { STUDENT_LEARNING_PATH } from "@/lib/auth-routes";
 import { cn } from "@/lib/utils";
+
+const EXPERIENCE_ICONS: Record<ArExperienceId, LucideIcon> = {
+  heart: Heart,
+  kidney: ScanLine,
+  circuit: CircuitBoard,
+  atom: Atom,
+  magnet: Magnet,
+  water: Droplets,
+};
+
+const EXPERIENCE_ICON_BG: Record<ArExperienceId, string> = {
+  heart: "bg-brand-accent shadow-brand-accent/25",
+  kidney: "bg-brand-primary shadow-brand-primary/25",
+  circuit: "bg-brand-primary shadow-brand-primary/25",
+  atom: "bg-brand-special shadow-brand-special/25",
+  magnet: "bg-brand-accent shadow-brand-accent/25",
+  water: "bg-brand-primary shadow-brand-primary/25",
+};
+
+const EXPERIENCE_BLOB: Record<ArExperienceId, string> = {
+  heart: "bg-brand-accent/20",
+  kidney: "bg-brand-primary/20",
+  circuit: "bg-brand-primary/20",
+  atom: "bg-brand-special/20",
+  magnet: "bg-brand-accent/20",
+  water: "bg-brand-primary/20",
+};
 
 export function ArLibraryHub() {
   return (
@@ -32,8 +70,8 @@ export function ArLibraryHub() {
                 Marker Experiences
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-brand-text/65 sm:text-base">
-                Pick an organ, open its marker, download the matching Android app, then
-                scan to explore in AR.
+                Pick a model, open its marker, download the matching Android app, then
+                scan to explore biology, chemistry, and physics in AR.
               </p>
             </div>
           </div>
@@ -52,7 +90,7 @@ export function ArLibraryHub() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           {AR_EXPERIENCES.map((item) => {
-            const Icon = item.id === "heart" ? Heart : ScanLine;
+            const Icon = EXPERIENCE_ICONS[item.id];
             return (
               <Link
                 key={item.id}
@@ -64,7 +102,7 @@ export function ArLibraryHub() {
                   aria-hidden
                   className={cn(
                     "pointer-events-none absolute -right-10 -top-10 size-32 rounded-full blur-2xl",
-                    item.id === "heart" ? "bg-brand-accent/20" : "bg-brand-primary/20"
+                    EXPERIENCE_BLOB[item.id]
                   )}
                 />
                 <div className="relative flex flex-1 flex-col p-6 sm:p-7">
@@ -81,9 +119,7 @@ export function ArLibraryHub() {
                     <span
                       className={cn(
                         "flex size-11 items-center justify-center rounded-2xl text-white shadow-md",
-                        item.id === "heart"
-                          ? "bg-brand-accent shadow-brand-accent/25"
-                          : "bg-brand-primary shadow-brand-primary/25"
+                        EXPERIENCE_ICON_BG[item.id]
                       )}
                     >
                       <Icon className="size-5" aria-hidden />
@@ -126,14 +162,11 @@ export function ArLibraryHub() {
                   Coming soon
                 </span>
                 <h2 className="mt-3 text-xl font-bold tracking-tight text-brand-text sm:text-2xl">
-                  New AR models are on the way
+                  More AR models are on the way
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-brand-text/65 sm:text-base">
-                  We&apos;re building more marker AR experiences for the SCI PATH library.
-                  Try the models available today — and check back soon for new ones.
-                </p>
-                <p className="mt-4 text-sm font-semibold text-brand-primary">
-                  Stay tuned — more AR models are on the way.
+                  Try the models available today — markers and APKs for circuit, atom,
+                  magnet, and water will light up fully once you add the files.
                 </p>
               </div>
             </div>

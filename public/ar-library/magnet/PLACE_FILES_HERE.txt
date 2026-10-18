@@ -1,0 +1,5 @@
+# Markers stay in this folder (git).
+# Drop the real marker as: marker.png  (or marker.jpg — then update catalog.ts)
+#
+# APK is on S3:
+#   s3://sci-path-demo-assets-dhanu/ar-models/ar-library/magnet/app.apk
