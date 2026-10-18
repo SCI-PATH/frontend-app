@@ -26,6 +26,7 @@ const apiPaths = [
   "client-log",
   "teacher",
   "ar-media",
+  "lesson-media-proxy",
   "analytics",
 ];
 

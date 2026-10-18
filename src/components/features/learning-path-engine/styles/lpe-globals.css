@@ -2819,27 +2819,57 @@ pre.lesson {
   align-items: center;
   gap: 0.75rem;
   width: 100%;
+  margin-top: 0;
   padding: 0.75rem 0.9rem;
   border: 1px solid #dbe4ee;
   border-radius: 12px;
   background: #fff;
+  color: #0f172a;
   text-align: left;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.lesson-explore-video__item:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .lesson-explore-video__item.is-active {
   border-color: #8338ec;
   background: #f5f0ff;
+  color: #3b0764;
+}
+
+.lesson-explore-video__item.is-active:hover:not(:disabled) {
+  background: #ede9fe;
+  border-color: #8338ec;
 }
 
 .lesson-explore-video__item strong {
   display: block;
   font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.lesson-explore-video__item.is-active strong {
+  color: #5b21b6;
 }
 
 .lesson-explore-video__item small {
-  color: #64748b;
+  color: #475569;
   font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.lesson-explore-video__item.is-active small {
+  color: #6d28d9;
+}
+
+.lesson-explore-video__item svg {
+  flex-shrink: 0;
+  color: #8338ec;
 }
 
 .lesson-materials-list {
@@ -2871,12 +2901,14 @@ pre.lesson {
 .lesson-materials-list strong {
   display: block;
   font-size: 0.95rem;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .lesson-materials-list small {
   display: block;
   margin-top: 0.15rem;
-  color: #64748b;
+  color: #475569;
   font-size: 0.78rem;
   word-break: break-all;
 }
