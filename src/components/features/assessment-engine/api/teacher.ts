@@ -87,6 +87,62 @@ function mergeQuestionListResults(
   return { questions, total };
 }
 
+/** Which segments of a concatenated list a page should read. */
+export function spansForPage(
+  totals: number[],
+  start: number,
+  pageSize: number
+): { index: number; offset: number; limit: number }[] {
+  const spans: { index: number; offset: number; limit: number }[] = [];
+  let cursor = Math.max(0, start);
+  let remaining = Math.max(0, pageSize);
+  for (let index = 0; index < totals.length && remaining > 0; index += 1) {
+    const count = Math.max(0, totals[index] ?? 0);
+    if (cursor >= count) {
+      cursor -= count;
+      continue;
+    }
+    const limit = Math.min(remaining, count - cursor);
+    spans.push({ index, offset: cursor, limit });
+    remaining -= limit;
+    cursor = 0;
+  }
+  return spans;
+}
+
+/**
+ * "All grades" is four separate bank queries. Each response's `total` is the
+ * real count; `questions` is only the requested page. Walk those totals so
+ * the label is not capped at 100 items per grade.
+ */
+export async function fetchTeacherQuestionsAcrossSegments(
+  segments: Array<Omit<TeacherQuestionsQuery, "offset" | "limit">>,
+  page: number,
+  pageSize: number
+): Promise<TeacherQuestionListResult> {
+  const heads = await Promise.all(
+    segments.map((segment) =>
+      fetchTeacherQuestions({ ...segment, offset: 0, limit: 1 })
+    )
+  );
+  const totals = heads.map((head) => head.total);
+  const total = totals.reduce((sum, count) => sum + count, 0);
+  const spans = spansForPage(totals, Math.max(0, page - 1) * pageSize, pageSize);
+  const pages = await Promise.all(
+    spans.map((span) =>
+      fetchTeacherQuestions({
+        ...segments[span.index],
+        offset: span.offset,
+        limit: span.limit,
+      })
+    )
+  );
+  return {
+    questions: pages.flatMap((part) => part.questions),
+    total,
+  };
+}
+
 export async function fetchTeacherTopicsAllGrades() {
   const lists = await Promise.all(
     QUESTION_BANK_GRADES.map((grade) => fetchTeacherTopics(grade))

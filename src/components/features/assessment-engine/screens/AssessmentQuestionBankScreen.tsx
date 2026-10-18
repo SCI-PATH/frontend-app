@@ -53,6 +53,7 @@ export function AssessmentQuestionBankScreen() {
   const [chapterId, setChapterId] = useState("");
   /** Empty = all; "1"|"2"|"3"|"4" = Webb dok_level (UI: Difficulty Level). */
   const [dokLevel, setDokLevel] = useState("");
+  const [questionType, setQuestionType] = useState("");
   const [page, setPage] = useState(1);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const sessionTeacherIds = useRef<Set<string>>(new Set());
@@ -134,7 +135,7 @@ export function AssessmentQuestionBankScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, filterGrade, chapterId, dokLevel, search]);
+  }, [status, filterGrade, chapterId, dokLevel, questionType, search]);
 
   const filterChapterOptions = useMemo(
     () => chaptersFromTopics(filterTopics),
@@ -213,6 +214,9 @@ export function AssessmentQuestionBankScreen() {
       if (dok != null && Number(q.dok_level) !== dok) {
         return false;
       }
+      if (questionType && q.question_type !== questionType) {
+        return false;
+      }
       if (!needle) return true;
       const hay = [q.prompt, q.expected_answer, q.topic_id, q.chapter_name]
         .filter(Boolean)
@@ -220,7 +224,7 @@ export function AssessmentQuestionBankScreen() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [questions, chapterId, dokLevel, search]);
+  }, [questions, chapterId, dokLevel, questionType, search]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const paged = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -444,7 +448,10 @@ export function AssessmentQuestionBankScreen() {
             onSearch={setSearchInput}
             searchPlaceholder="Search your questions…"
             grade={filterGrade}
-            onGrade={setFilterGrade}
+            onGrade={(next) => {
+              setFilterGrade(next);
+              setChapterId("");
+            }}
             status={status}
             onStatus={(v) => setStatus(v as StatusFilter)}
             chapterId={chapterId}
@@ -453,6 +460,8 @@ export function AssessmentQuestionBankScreen() {
               value: c.id,
               label: c.label,
             }))}
+            questionType={questionType}
+            onQuestionType={setQuestionType}
             dokLevel={dokLevel}
             onDokLevel={setDokLevel}
           />
