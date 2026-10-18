@@ -490,8 +490,8 @@
 
 .daily-fact-card__wow {
   position: absolute;
-  top: -0.65rem;
-  right: 0;
+  top: -0.7rem;
+  right: 1rem;
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 9999px;
@@ -524,7 +524,7 @@
 
 .daily-fact-card__bubble {
   position: relative;
-  padding: 1.15rem 1.35rem;
+  padding: 1.35rem 1.5rem 1.25rem;
   border-radius: 1.25rem;
   background: rgb(255 255 255 / 0.9);
   border: 1px solid rgb(255 107 53 / 0.18);

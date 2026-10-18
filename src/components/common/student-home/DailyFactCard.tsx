@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Atom,
-  CalendarDays,
   FlaskConical,
   Lightbulb,
   Sparkles,
@@ -11,24 +10,21 @@ import {
   Zap,
 } from "lucide-react";
 
-import {
-  formatFactDateLabel,
-  pickDailyFact,
-} from "@/data/dailyFacts";
+import { factsForGrade, randomFactIndex } from "@/data/dailyFacts";
 import { useUserStore } from "@/store/useUserStore";
 
 import "./daily-fact.css";
 
 export function DailyFactCard() {
-  const userId = useUserStore((state) => state.userId);
   const grade = useUserStore((state) => state.grade) ?? 7;
+  const pool = useMemo(() => factsForGrade(grade), [grade]);
+  const [index, setIndex] = useState<number | null>(null);
 
-  const today = useMemo(() => new Date(), []);
-  const fact = useMemo(
-    () => pickDailyFact({ userId, grade, date: today }),
-    [grade, today, userId]
-  );
-  const dateLabel = useMemo(() => formatFactDateLabel(today), [today]);
+  useEffect(() => {
+    setIndex(randomFactIndex(pool.length));
+  }, [pool]);
+
+  const fact = index === null ? null : pool[index]!;
 
   return (
     <section className="daily-fact-section space-y-5 sm:space-y-6">
@@ -42,7 +38,7 @@ export function DailyFactCard() {
           Did you know?
         </h2>
         <p className="mt-2 text-sm text-brand-text/55 sm:text-base">
-          One weird, wonderful science fact — fresh every day.
+          One weird, wonderful science fact from your grade.
         </p>
       </div>
 
@@ -101,39 +97,48 @@ export function DailyFactCard() {
               </div>
             </div>
 
-            <div className="w-full space-y-4">
+            <div key={fact?.id ?? "loading"} className="w-full space-y-4">
               <div className="daily-fact-rise-2 flex flex-wrap items-center justify-center gap-2">
                 <p className="daily-fact-badge-label inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em]">
                   <Sparkles className="size-3.5 animate-pulse" aria-hidden />
-                  Today&apos;s fact
+                  Fun fact
                 </p>
                 <span className="daily-fact-badge-topic rounded-full px-3.5 py-1.5 text-xs font-bold">
-                  Grade {fact.grade} · {fact.topic}
+                  Grade {fact?.grade ?? grade}
+                  {fact ? ` · ${fact.topic}` : ""}
                 </span>
               </div>
 
-              <div className="daily-fact-rise-3 relative px-2">
+              <div className="daily-fact-rise-3 daily-fact-card__bubble relative mx-auto max-w-2xl">
                 <span className="daily-fact-card__wow" aria-hidden>
                   wow!
                 </span>
-                <h3 className="daily-fact-card__headline text-2xl font-black tracking-tight sm:text-[1.75rem] sm:leading-tight">
-                  {fact.headline}
+                <h3 className="daily-fact-card__headline text-xl font-black tracking-tight sm:text-2xl sm:leading-snug">
+                  {fact?.headline ?? "Picking a fact…"}
                 </h3>
+                {fact ? (
+                  <p className="mt-3 text-base leading-relaxed text-brand-text/80 sm:text-lg">
+                    {fact.body}
+                  </p>
+                ) : null}
               </div>
 
-              <div className="daily-fact-rise-4 daily-fact-card__bubble mx-auto max-w-2xl">
-                <p className="text-base leading-relaxed text-brand-text/80 sm:text-lg">
-                  {fact.body}
-                </p>
-              </div>
-
-              <p className="daily-fact-rise-5 inline-flex items-center justify-center gap-2 rounded-full border border-brand-accent/20 bg-white/95 px-4 py-2 text-sm font-semibold text-brand-text/60 shadow-sm">
-                <CalendarDays
+              <button
+                type="button"
+                onClick={() =>
+                  setIndex((current) =>
+                    ((current ?? 0) + 1) % Math.max(pool.length, 1)
+                  )
+                }
+                disabled={!fact || pool.length < 2}
+                className="daily-fact-rise-5 inline-flex items-center justify-center gap-2 rounded-full border border-brand-accent/20 bg-white/95 px-4 py-2 text-sm font-semibold text-brand-text/60 shadow-sm disabled:opacity-60"
+              >
+                <Sparkles
                   className="size-4 shrink-0 text-brand-accent"
                   aria-hidden
                 />
-                {dateLabel} · New fact tomorrow
-              </p>
+                Another fact
+              </button>
             </div>
           </div>
         </div>
