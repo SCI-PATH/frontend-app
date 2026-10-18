@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { updateStudentProfile } from "@/lib/user-management";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,13 @@ import type { GradeLevel } from "@/types";
 const GRADE_OPTIONS: GradeLevel[] = ["Grade 6", "Grade 7", "Grade 8", "Grade 9"];
 
 const fieldClassName =
-  "h-10 border-brand-surface bg-brand-background/70 text-brand-text placeholder:text-brand-text/40 transition-colors focus-visible:border-brand-primary focus-visible:bg-white focus-visible:ring-brand-primary/25";
+  "h-10 border-brand-surface bg-white text-brand-text placeholder:text-brand-text/35 shadow-none transition-colors focus-visible:border-brand-primary focus-visible:ring-brand-primary/20";
 
-export function StudentProfileDetailsForm() {
+export function StudentProfileDetailsForm({
+  onSaved,
+}: {
+  onSaved?: () => void;
+}) {
   const user = useUserStore((state) => state.user);
   const token = useUserStore((state) => state.token);
   const setSession = useUserStore((state) => state.setSession);
@@ -27,7 +32,6 @@ export function StudentProfileDetailsForm() {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setFullName(user?.name ?? "");
@@ -65,7 +69,6 @@ export function StudentProfileDetailsForm() {
 
     setIsSaving(true);
     setError(null);
-    setSaved(false);
     try {
       const nextUser = await updateStudentProfile(token, {
         fullName: name,
@@ -73,7 +76,7 @@ export function StudentProfileDetailsForm() {
         prevYearScienceMarks: parsedMarks,
       });
       setSession({ user: nextUser });
-      setSaved(true);
+      onSaved?.();
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not save your profile."
@@ -84,58 +87,73 @@ export function StudentProfileDetailsForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-brand-primary/20 bg-white p-5 sm:p-6"
-    >
-      <h2 className="text-lg font-semibold text-brand-text">Profile details</h2>
-      <p className="mb-4 text-sm text-brand-text/60">
-        Update the name and grade stored in your SCI-PATH account.
-      </p>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <label className="block space-y-1.5">
+        <span className="text-xs font-semibold tracking-wide text-brand-text/55 uppercase">
+          Full name
+        </span>
+        <Input
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          className={fieldClassName}
+          autoComplete="name"
+          required
+        />
+      </label>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1.5 sm:col-span-2">
-          <span className="text-sm font-medium text-brand-text">Full name</span>
-          <Input
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
-            className={fieldClassName}
-            autoComplete="name"
-            required
-          />
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-brand-text">Email</span>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-semibold tracking-wide text-brand-text/55 uppercase">
+          Email
+        </span>
+        <div className="relative">
           <Input
             value={user?.email ?? ""}
             readOnly
-            className={cn(fieldClassName, "cursor-not-allowed opacity-80")}
-          />
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-brand-text">Grade</span>
-          <select
-            value={grade}
-            onChange={(event) => setGrade(event.target.value as GradeLevel)}
             className={cn(
               fieldClassName,
-              "w-full rounded-lg border px-2.5 text-sm outline-none"
+              "cursor-default bg-brand-background/80 pr-9 text-brand-text/70"
             )}
-          >
-            {GRADE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+          <Lock
+            className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-brand-text/35"
+            aria-hidden
+          />
+        </div>
+        <p className="text-xs text-brand-text/45">Tied to your login.</p>
+      </label>
 
-        <label className="block space-y-1.5 sm:col-span-2">
-          <span className="text-sm font-medium text-brand-text">
-            Previous-year science marks
-          </span>
+      <fieldset className="space-y-1.5">
+        <legend className="text-xs font-semibold tracking-wide text-brand-text/55 uppercase">
+          Grade
+        </legend>
+        <div className="grid grid-cols-4 gap-2">
+          {GRADE_OPTIONS.map((option) => {
+            const selected = grade === option;
+            return (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setGrade(option)}
+                className={cn(
+                  "rounded-xl border px-2 py-2 text-sm font-semibold transition-colors",
+                  selected
+                    ? "border-brand-primary bg-brand-primary text-white shadow-sm"
+                    : "border-brand-surface bg-brand-background/60 text-brand-text hover:border-brand-primary/40 hover:bg-white"
+                )}
+              >
+                {option.replace("Grade ", "")}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <label className="block space-y-1.5">
+        <span className="text-xs font-semibold tracking-wide text-brand-text/55 uppercase">
+          Previous-year science marks
+        </span>
+        <div className="relative">
           <Input
             type="number"
             min={0}
@@ -143,35 +161,41 @@ export function StudentProfileDetailsForm() {
             step="0.1"
             value={marks}
             onChange={(event) => setMarks(event.target.value)}
-            placeholder="Optional, 0–100"
-            className={fieldClassName}
+            placeholder="Optional"
+            className={cn(fieldClassName, "pr-14")}
           />
-        </label>
-      </div>
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-brand-text/40">
+            / 100
+          </span>
+        </div>
+      </label>
 
       {error ? (
-        <p className="mt-3 text-sm text-brand-accent" role="alert">
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
-      {saved ? (
-        <p className="mt-3 text-sm font-medium text-brand-secondary">
-          Profile saved.
-        </p>
-      ) : null}
 
-      <Button
-        type="submit"
-        disabled={isSaving}
-        className="mt-5 bg-brand-primary text-white hover:bg-brand-primary/90"
-      >
-        {isSaving ? (
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-        ) : (
-          <Save className="size-4" aria-hidden />
-        )}
-        {isSaving ? "Saving…" : "Save changes"}
-      </Button>
+      <div className="flex items-center justify-end gap-2 border-t border-brand-surface pt-4">
+        <DialogClose asChild>
+          <Button type="button" variant="outline" disabled={isSaving}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button
+          type="submit"
+          disabled={isSaving}
+          className="bg-brand-primary text-white hover:bg-brand-primary/90"
+        >
+          {isSaving ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : null}
+          {isSaving ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
     </form>
   );
 }

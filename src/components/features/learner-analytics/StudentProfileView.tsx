@@ -1,13 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
-  BookOpen,
   ClipboardList,
   Loader2,
+  Pencil,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -16,8 +14,12 @@ import { StudentAvatarPicker } from "@/components/features/learner-analytics/Stu
 import { StudentProfileDetailsForm } from "@/components/features/learner-analytics/StudentProfileDetailsForm";
 import { ProfileRecentQuizAttempts } from "@/components/features/assessment-engine/components/ProfileRecentQuizAttempts";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { STUDENT_HOME_PATH } from "@/lib/auth-routes";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { fetchStudentProfile } from "@/lib/api/educator";
 import { getCurriculumTitle } from "@/lib/curriculum/topics";
 import { countStudentTopicBands, masteryPercent } from "@/lib/educator/bkt";
@@ -142,6 +144,7 @@ export function StudentProfileView() {
   const [enrolledClasses, setEnrolledClasses] = useState<TeacherClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -195,6 +198,9 @@ export function StudentProfileView() {
 
   const focusAreas = profile?.focus_areas ?? [];
   const enrolled = enrolledClasses[0] ?? null;
+  const gradeLabel = enrolled
+    ? `Grade ${enrolled.grade_level} · ${enrolled.class_name}`
+    : (user?.grade ?? "Grade");
   const distractors = (
     profile?.assessment_insights?.most_frequent_distractor_tags ?? []
   ).filter((item) => isMisconceptionPhrase(item.tag));
@@ -202,46 +208,56 @@ export function StudentProfileView() {
   const quizAttempts = profile?.assessment_insights?.attempts_count ?? recentAttempts.length;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 py-6 sm:px-5">
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-primary via-brand-special to-brand-accent px-5 py-6 text-white sm:px-8 sm:py-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-3 py-5 sm:px-5">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-primary via-brand-special to-brand-accent px-4 py-3 text-white sm:px-5">
         <div
-          className="pointer-events-none absolute -right-12 -top-16 size-52 rounded-full bg-white/15 blur-2xl"
+          className="pointer-events-none absolute -right-10 -top-12 size-36 rounded-full bg-white/15 blur-2xl"
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute bottom-0 left-1/3 size-40 rounded-full bg-brand-secondary/30 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 space-y-3">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
-              <Sparkles className="size-4" aria-hidden />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-2">
+            <p className="inline-flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-white/80">
+              <Sparkles className="size-3.5" aria-hidden />
               Learner profile
             </p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {user?.name || "Your profile"}
-            </h1>
-            <p className="max-w-xl text-base text-white/90">
-              {user?.grade ?? "Grade"}
-              {enrolled ? ` · ${enrolled.class_name}` : " · Choose an avatar and keep your details up to date"}
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">
+                {user?.name || "Your profile"}
+              </h1>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white hover:text-brand-primary"
+                aria-label="Edit profile"
+              >
+                <Pencil className="size-4" aria-hidden />
+              </button>
+            </div>
+            <p className="inline-flex max-w-full flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-semibold text-brand-special shadow-sm">
+                {gradeLabel}
+              </span>
+              {enrolled?.class_code ? (
+                <span className="font-mono text-xs text-white/85">
+                  {enrolled.class_code}
+                </span>
+              ) : null}
             </p>
-            {enrolled ? (
-              <p className="font-mono text-sm text-white/80">{enrolled.class_code}</p>
-            ) : null}
-            <Button
-              asChild
-              variant="outline"
-              className="border-white/50 bg-white/10 text-white hover:bg-white hover:text-brand-primary"
-            >
-              <Link href={STUDENT_HOME_PATH}>
-                <ArrowLeft className="size-4" aria-hidden />
-                Back to home
-              </Link>
-            </Button>
           </div>
           <StudentAvatarPicker />
         </div>
       </section>
+
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="gap-5 sm:max-w-md">
+          <DialogHeader className="pr-6">
+            <DialogTitle className="text-lg font-semibold text-brand-text">
+              Edit profile
+            </DialogTitle>
+          </DialogHeader>
+          <StudentProfileDetailsForm onSaved={() => setIsEditing(false)} />
+        </DialogContent>
+      </Dialog>
 
       {isLoading ? (
         <ProfileLoadingOverlay />
@@ -251,72 +267,34 @@ export function StudentProfileView() {
         </p>
       ) : (
         <>
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-            <StudentProfileDetailsForm />
-            <section className="grid gap-3 sm:grid-cols-2">
-              <StatCard
-                label="Overall mastery"
-                value={overallMastery != null ? `${overallMastery}%` : "—"}
-                hint="Average P(L) from lesson quizzes"
-              />
-              <StatCard
-                label="Skills practised"
-                value={String(quizSkills.length)}
-              />
-              <StatCard
-                label="Mastered"
-                value={String(bands.mastered)}
-                tone="ok"
-              />
-              <StatCard
-                label="Still learning"
-                value={String(bands.learning)}
-              />
-              <StatCard
-                label="Needs support"
-                value={String(bands.atRisk)}
-                tone={bands.atRisk > 0 ? "alert" : "default"}
-              />
-              <StatCard
-                label="Quiz attempts"
-                value={String(quizAttempts)}
-              />
-            </section>
-          </div>
+          <section
+            aria-label="Mastery summary"
+            className="flex flex-wrap gap-1.5"
+          >
+            <StatChip
+              label="Overall mastery"
+              value={overallMastery != null ? `${overallMastery}%` : "—"}
+              tone="mastery"
+            />
+            <StatChip label="Skills practised" value={String(quizSkills.length)} tone="practised" />
+            <StatChip label="Mastered" value={String(bands.mastered)} tone="mastered" />
+            <StatChip label="Still learning" value={String(bands.learning)} tone="learning" />
+            <StatChip
+              label="Needs support"
+              value={String(bands.atRisk)}
+              tone="support"
+            />
+            <StatChip label="Quiz attempts" value={String(quizAttempts)} tone="attempts" />
+          </section>
 
-          {enrolled ? (
-            <section className="flex items-start gap-3 rounded-2xl border border-brand-primary/20 bg-white px-5 py-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
-                <BookOpen className="size-5" aria-hidden />
-              </span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-                  Enrolled class
-                </p>
-                <h2 className="text-lg font-semibold text-brand-text">
-                  {enrolled.class_name}
-                </h2>
-                <p className="text-sm text-brand-text/60">
-                  Grade {enrolled.grade_level}
-                  {enrolled.subject ? ` · ${enrolled.subject}` : ""} ·{" "}
-                  <span className="font-mono text-brand-primary">
-                    {enrolled.class_code}
-                  </span>
-                </p>
-              </div>
-            </section>
-          ) : null}
-
-          <section className="rounded-2xl border border-brand-accent/25 bg-white p-5 sm:p-6">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+          <section className="rounded-2xl border border-brand-accent/25 bg-white p-4 sm:p-5">
             <div className="mb-4 flex items-center gap-2">
               <Target className="size-5 text-brand-accent" aria-hidden />
               <div>
-                <h2 className="text-lg font-semibold text-brand-text">
+                <h2 className="text-base font-semibold text-brand-text">
                   Skills to practise
                 </h2>
-                <p className="text-sm text-brand-text/60">
-                  These are your at-risk / focus areas from live BKT mastery.
-                </p>
               </div>
               <Badge className={`ml-auto ${EDUCATOR_AT_RISK.badge}`}>
                 {focusAreas.length}
@@ -365,11 +343,10 @@ export function StudentProfileView() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-brand-surface bg-white p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-brand-text">Skill mastery</h2>
-            <p className="mb-4 text-sm text-brand-text/60">
-              Current P(L) for skills scored on lesson quizzes. Socrates chat does
-              not change these values.
+          <section className="rounded-2xl border border-brand-surface bg-white p-4 sm:p-5">
+            <h2 className="text-base font-semibold text-brand-text">Skill mastery</h2>
+            <p className="mb-3 text-xs text-brand-text/55">
+              From lesson quizzes. Tutor chat does not change these.
             </p>
             {quizSkills.length === 0 ? (
               <p className="text-sm text-brand-text/65">
@@ -433,8 +410,9 @@ export function StudentProfileView() {
               </ul>
             )}
           </section>
+          </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-2xl border border-brand-surface bg-white p-5 sm:p-6">
               <div className="mb-3 flex items-center gap-2">
                 <ClipboardList
@@ -461,19 +439,24 @@ export function StudentProfileView() {
                   engine appear here.
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {distractors.slice(0, 8).map((item) => (
+                <ol className="space-y-2">
+                  {distractors.slice(0, 8).map((item, index) => (
                     <li
                       key={item.tag}
-                      className="flex items-center justify-between gap-2 text-sm"
+                      className="flex items-start gap-2 text-sm"
                     >
-                      <span className="text-brand-text">{item.tag}</span>
-                      <span className="font-semibold text-brand-text/70">
-                        ×{item.count}
+                      <span className="mt-0.5 w-4 shrink-0 text-xs font-bold tabular-nums text-brand-text/35">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 leading-relaxed text-brand-text">
+                        {item.tag}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-brand-accent">
+                        {item.count} time{item.count === 1 ? "" : "s"}
                       </span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               )}
             </section>
           </div>
@@ -483,40 +466,35 @@ export function StudentProfileView() {
   );
 }
 
-function StatCard({
+function StatChip({
   label,
   value,
-  hint,
-  tone = "default",
+  tone,
 }: {
   label: string;
   value: string;
-  hint?: string;
-  tone?: "default" | "ok" | "alert";
+  tone: "mastery" | "practised" | "mastered" | "learning" | "support" | "attempts";
 }) {
+  const toneClass = {
+    mastery: "border-brand-special/30 bg-brand-special/10 text-brand-special",
+    practised: "border-cyan-200 bg-cyan-50 text-cyan-800",
+    mastered: "border-brand-secondary/50 bg-brand-secondary/15 text-green-800",
+    learning: "border-brand-primary/30 bg-brand-primary/10 text-brand-primary",
+    support: "border-red-200 bg-red-50 text-red-800",
+    attempts: "border-blue-200 bg-blue-50 text-blue-800",
+  }[tone];
+
   return (
     <div
       className={cn(
-        "rounded-2xl border bg-white px-4 py-4",
-        tone === "ok" && "border-brand-secondary/35",
-        tone === "alert" && "border-brand-accent/35",
-        tone === "default" && "border-brand-surface"
+        "inline-flex items-baseline gap-1.5 rounded-full border px-2.5 py-1",
+        toneClass
       )}
     >
-      <p className="text-xs font-semibold tracking-wide text-brand-text/55 uppercase">
+      <p className="text-[10px] font-semibold uppercase tracking-wide opacity-75">
         {label}
       </p>
-      <p
-        className={cn(
-          "mt-1 text-2xl font-bold",
-          tone === "ok" && "text-brand-secondary",
-          tone === "alert" && "text-brand-accent",
-          tone === "default" && "text-brand-text"
-        )}
-      >
-        {value}
-      </p>
-      {hint ? <p className="mt-1 text-xs text-brand-text/50">{hint}</p> : null}
+      <p className="text-sm font-bold tabular-nums">{value}</p>
     </div>
   );
 }
