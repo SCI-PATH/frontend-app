@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Trophy } from "lucide-react";
+import { LogOut } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "@/components/common/BrandLockup";
 import { StudentAvatar } from "@/components/common/StudentAvatar";
@@ -74,10 +73,12 @@ export function Navbar() {
         )}
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {/* Placeholder XP hidden until a real score is wired.
           <Badge className="hidden h-8 gap-1.5 rounded-full bg-brand-special/10 px-3 text-sm font-semibold text-brand-special hover:bg-brand-special/10 lg:inline-flex">
             <Trophy className="size-3.5" aria-hidden />
             1,250 XP
           </Badge>
+          */}
 
           <Link
             href={STUDENT_PROFILE_PATH}
