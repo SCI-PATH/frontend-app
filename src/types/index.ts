@@ -34,7 +34,9 @@ export {
   formatTopicDisplay,
   formatTopicLabel,
   getPersonaById,
+  parseAnalyticalCoachSteps,
   parseTopicRouting,
+  splitTutorFollowUp,
   resolvePersonaId,
 } from "./tutor";
 export type {

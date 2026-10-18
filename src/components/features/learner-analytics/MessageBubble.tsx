@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 
 import { SocratesAvatar } from "@/components/features/learner-analytics/SocratesAvatar";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "@/types";
+import { splitTutorFollowUp, type ChatMessage } from "@/types";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -10,6 +10,14 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isStudent = message.role === "student";
+  const steps = message.steps?.filter(Boolean) ?? [];
+  const showSteps =
+    !isStudent &&
+    message.personaId === "analytical_coach" &&
+    steps.length >= 2;
+  const followUp = !isStudent ? splitTutorFollowUp(message.content) : null;
+  const body = followUp?.body ?? message.content;
+  const question = followUp?.question ?? message.closingQuestion ?? null;
 
   return (
     <div
@@ -40,7 +48,32 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             Hint
           </span>
         ) : null}
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        {showSteps ? (
+          <ol className="space-y-1.5">
+            {steps.slice(0, 3).map((step, index) => (
+              <li key={`${message.id}-step-${index}`} className="flex gap-2">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-secondary/15 text-[11px] font-semibold text-brand-primary">
+                  {index + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        ) : body.trim() ? (
+          <p className="whitespace-pre-wrap">{body}</p>
+        ) : null}
+        {question ? (
+          <p
+            className={cn(
+              "italic text-brand-primary/90",
+              showSteps || body.trim()
+                ? "mt-2 border-t border-brand-surface pt-2"
+                : ""
+            )}
+          >
+            {question}
+          </p>
+        ) : null}
       </div>
     </div>
   );

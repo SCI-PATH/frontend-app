@@ -1,7 +1,9 @@
 import { getApiBaseUrl } from "@/lib/api/config";
 import {
+  parseAnalyticalCoachSteps,
   parseTopicRouting,
   resolvePersonaId,
+  splitTutorFollowUp,
   type HintAutoTopicRequest,
   type HintAutoTopicResponse,
 } from "@/types";
@@ -86,10 +88,33 @@ export function parseHintAutoTopicResponse(
       ? null
       : pickString(data.topic_id_resolved, data.topic_id);
 
+  const personaId = resolvePersonaId(data.persona_id ?? data.persona);
+  const fromApi = Array.isArray(data.hint_steps)
+    ? data.hint_steps
+        .map((step) => (typeof step === "string" ? step.trim() : ""))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+  const split = splitTutorFollowUp(hintText);
+  const parsed =
+    fromApi.length >= 2
+      ? {
+          steps: fromApi,
+          closingQuestion:
+            pickString(data.closing_question) ?? split.question,
+        }
+      : personaId === "analytical_coach"
+        ? parseAnalyticalCoachSteps(hintText)
+        : {
+            steps: [] as string[],
+            closingQuestion:
+              pickString(data.closing_question) ?? split.question,
+          };
+
   return {
     success: true,
     hint_text: hintText,
-    persona_id: resolvePersonaId(data.persona_id ?? data.persona),
+    persona_id: personaId,
     persona_label: pickString(data.persona_label),
     topic_id_resolved: topicIdResolved,
     topic_routing: topicRouting,
@@ -99,6 +124,8 @@ export function parseHintAutoTopicResponse(
       data.updated_mastery_probability
     ),
     mastery_probability_before: pickNumber(data.mastery_probability_before),
+    hint_steps: parsed.steps,
+    closing_question: parsed.closingQuestion,
   };
 }
 
