@@ -69,10 +69,9 @@ export function DashboardHeader({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
         <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
           <div className="welcome-rise-1 welcome-banner__avatar-wrap shrink-0">
-            <div className="welcome-banner__halo" aria-hidden />
             <TeacherAvatar
               size="lg"
-              className="relative z-10 ring-2 ring-white/80 shadow-lg shadow-black/20"
+              className="relative z-10 size-20 ring-1 ring-white shadow-md shadow-black/15"
             />
           </div>
 

@@ -17,14 +17,9 @@ import {
 import { AlertTriangle, ChevronDown, Timer } from "lucide-react";
 
 import { CollapsibleSection } from "@/components/features/learner-analytics/educator/CollapsibleSection";
+import { SectionInfoHint } from "@/components/features/learner-analytics/educator/SectionInfoHint";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,36 +60,47 @@ interface StudentDeepDiveProps {
   onStudentChange: (studentId: string) => void;
 }
 
+type MetricTone =
+  | "attempts"
+  | "topics"
+  | "engagement"
+  | "frustration"
+  | "mastered"
+  | "learning"
+  | "support"
+  | "focus";
+
+const metricToneClass: Record<MetricTone, string> = {
+  attempts: "border-blue-200 bg-blue-50 text-blue-800",
+  topics: "border-cyan-200 bg-cyan-50 text-cyan-800",
+  engagement: "border-brand-special/30 bg-brand-special/10 text-brand-special",
+  frustration: "border-brand-accent/30 bg-brand-accent/10 text-brand-accent",
+  mastered: "border-brand-secondary/50 bg-brand-secondary/15 text-green-800",
+  learning: "border-brand-primary/30 bg-brand-primary/10 text-brand-primary",
+  support: "border-red-200 bg-red-50 text-red-800",
+  focus: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
 function MetricPill({
   label,
   value,
-  tone = "default",
+  tone,
 }: {
   label: string;
   value: string | number;
-  tone?: "default" | "danger" | "special";
+  tone: MetricTone;
 }) {
   return (
     <div
       className={cn(
-        "min-w-0 rounded-lg border px-2 py-2",
-        tone === "danger" && "border-red-200 bg-red-50",
-        tone === "special" && "border-brand-special/20 bg-brand-special/5",
-        tone === "default" && "border-brand-surface bg-brand-background"
+        "inline-flex items-baseline gap-1.5 rounded-full border px-2.5 py-1",
+        metricToneClass[tone]
       )}
     >
-      <p className="text-[10px] uppercase leading-tight tracking-wide text-brand-text/50">
+      <p className="text-[10px] font-semibold uppercase tracking-wide opacity-75">
         {label}
       </p>
-      <p
-        className={cn(
-          "text-base font-bold tabular-nums text-brand-text",
-          tone === "danger" && EDUCATOR_AT_RISK.textStrong,
-          tone === "special" && EDUCATOR_PURPLE.text
-        )}
-      >
-        {value}
-      </p>
+      <p className="text-sm font-bold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -303,7 +309,7 @@ function isLowInsightStudentLine(text?: string | null): boolean {
   if (affectOnly.test(withoutEmoji) && withoutEmoji.length < 80) return true;
   if (
     withoutEmoji.length < 48 &&
-    /^(?:help(?: me)?|idk|i don['’]?t (?:get|understand|know)(?: this| it)?|give up)(?:\s*[.!?…]*)?$/i.test(
+    /^(?:help(?: me)?|idk|i don['’]?t (?:get|understand|know)(?: this| it)?|give up|(?:please\s+)?(?:give|show|tell)\s+me\s+(?:a\s+)?hint|hint(?:\s+please)?|(?:can|could|may)\s+i\s+(?:have|get)\s+(?:a\s+)?hint|i\s+need\s+(?:a\s+)?hint)(?:\s*[.!?…]*)?$/i.test(
       withoutEmoji
     )
   ) {
@@ -312,14 +318,66 @@ function isLowInsightStudentLine(text?: string | null): boolean {
   return false;
 }
 
-function extractTutorQuestion(hint?: string | null): string | null {
+function plainStudentLine(text?: string | null): string {
+  return (text ?? "")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isHintRequest(text?: string | null): boolean {
+  return /^(?:(?:please\s+)?(?:give|show|tell)\s+me\s+(?:a\s+)?hint|hint(?:\s+please)?|(?:can|could|may)\s+i\s+(?:have|get)\s+(?:a\s+)?hint|i\s+need\s+(?:a\s+)?hint)(?:\s*[.!?…]*)?$/i.test(
+    plainStudentLine(text)
+  );
+}
+
+function tutorPrompt(
+  hint?: string | null
+): { kind: "asked" | "replied"; text: string } | null {
   const trimmed = (hint ?? "").replace(/\s+/g, " ").trim();
   if (!trimmed) return null;
   const questions = trimmed.match(/[^?]*\?/g);
   if (questions && questions.length > 0) {
-    return clipStudentMessage(questions[questions.length - 1].trim(), 180);
+    const question = clipStudentMessage(questions[questions.length - 1].trim(), 160);
+    if (question) return { kind: "asked", text: question };
   }
-  return clipStudentMessage(trimmed, 180);
+  const reply = clipStudentMessage(trimmed, 140);
+  if (!reply) return null;
+  return { kind: "replied", text: reply };
+}
+
+function withinMinutes(
+  a?: string | null,
+  b?: string | null,
+  minutes = 20
+): boolean {
+  if (!a || !b) return false;
+  const left = Date.parse(a);
+  const right = Date.parse(b);
+  if (Number.isNaN(left) || Number.isNaN(right)) return false;
+  return Math.abs(left - right) <= minutes * 60 * 1000;
+}
+
+function clusterStuckTurns(turns: ChatHistoryTurn[]): ChatHistoryTurn[][] {
+  const sorted = [...turns].sort((a, b) =>
+    String(a.timestamp ?? "").localeCompare(String(b.timestamp ?? ""))
+  );
+  const clusters: ChatHistoryTurn[][] = [];
+  for (const turn of sorted) {
+    const current = clusters.at(-1);
+    const previous = current?.at(-1);
+    if (
+      current &&
+      previous &&
+      sameTopic(previous.topic_id, turn.topic_id) &&
+      withinMinutes(previous.timestamp, turn.timestamp)
+    ) {
+      current.push(turn);
+    } else {
+      clusters.push([turn]);
+    }
+  }
+  return clusters;
 }
 
 function sameTopic(a?: string | null, b?: string | null): boolean {
@@ -373,9 +431,13 @@ function turnsFromProfile(profile: StudentProfileResponse | null): ChatHistoryTu
   );
 }
 
-function formatErrorCategory(value?: string | null): string {
-  if (!value) return "—";
-  if (value === "NO_ERROR") return "None";
+function formatErrorCategory(
+  value: string | null | undefined,
+  isCorrect: boolean
+): string {
+  if (!value || value === "NO_ERROR") {
+    return isCorrect || value === "NO_ERROR" ? "None" : "N/A";
+  }
   return value
     .toLowerCase()
     .split("_")
@@ -432,11 +494,18 @@ function RecentAttemptsTable({ attempts }: { attempts: RecentAttemptRow[] }) {
                     {row.is_correct ? "Correct" : "Incorrect"}
                   </Badge>
                 </td>
-                <td className="px-3 py-2 text-brand-text/70">
-                  {formatErrorCategory(row.error_category)}
+                <td
+                  className="px-3 py-2 text-brand-text/70"
+                  title={
+                    !row.error_category && !row.is_correct
+                      ? "Multiple-choice and true/false items don't use an error category."
+                      : undefined
+                  }
+                >
+                  {formatErrorCategory(row.error_category, row.is_correct)}
                 </td>
                 <td className="max-w-[8rem] px-3 py-2 text-brand-text/70">
-                  {row.distractor_label || "—"}
+                  {row.distractor_label || "None"}
                 </td>
                 <td className="px-3 py-2 tabular-nums text-brand-text/70">
                   {typeof row.response_time_s === "number"
@@ -528,7 +597,11 @@ function TutoringActivitySummary({
       );
     });
   }, [history, profile?.critical_confusion_turns]);
-  const confusionCount = confusionTurns.length;
+  const stuckEpisodes = useMemo(
+    () => clusterStuckTurns(confusionTurns),
+    [confusionTurns]
+  );
+  const confusionCount = stuckEpisodes.length;
   const recentTurns = profile?.engagement_timeline_last_10_turns ?? [];
   const recentTopics = useMemo(() => {
     const seen = new Set<string>();
@@ -555,21 +628,25 @@ function TutoringActivitySummary({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <Badge variant="outline">
-          {recentTurns.length} recent tutor turn
+          {recentTurns.length} recent chat
           {recentTurns.length === 1 ? "" : "s"}
         </Badge>
         {confusionCount > 0 ? (
           <Badge className="bg-red-600 text-white hover:bg-red-600">
-            {confusionCount} critical confusion signal
+            {confusionCount} stuck chat
             {confusionCount === 1 ? "" : "s"}
           </Badge>
         ) : (
           <Badge className="bg-brand-secondary/20 text-brand-text hover:bg-brand-secondary/20">
-            No critical confusion flagged
+            No stuck chats
           </Badge>
         )}
       </div>
       {recentTopics.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
+            Recent topics
+          </p>
         <ul className="space-y-1.5 text-sm">
           {recentTopics.map(({ topicId, timestamp }) => (
             <li
@@ -587,85 +664,123 @@ function TutoringActivitySummary({
             </li>
           ))}
         </ul>
+        </div>
       ) : null}
       {confusionCount > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-text/50">
-            What they were stuck on
+            Where they got stuck
           </p>
           <ul className="space-y-2">
-            {confusionTurns.map((turn: ChatHistoryTurn, index) => {
-              const topicId = String(turn.topic_id ?? "");
-              const tutorQuestion =
-                extractTutorQuestion(turn.tutor_hint) ??
-                extractTutorQuestion(
-                  [...history]
-                    .reverse()
-                    .find(
-                      (row) =>
-                        sameTopic(row.topic_id, topicId) &&
-                        Boolean(row.tutor_hint?.trim()) &&
-                        (!turn.timestamp ||
-                          !row.timestamp ||
-                          row.timestamp <= turn.timestamp)
-                    )?.tutor_hint
-                );
-              const scienceLine = isLowInsightStudentLine(turn.student_message)
-                ? findPriorScienceLine(turn, history)
-                : clipStudentMessage(turn.student_message, 180);
+            {stuckEpisodes.map((episode, index) => {
+              const topicId = String(episode[0]?.topic_id ?? "");
+              const quotes: string[] = [];
+              let askedForHint = false;
+              let saidTheyWereStuck = false;
+              for (const turn of episode) {
+                if (isHintRequest(turn.student_message)) {
+                  askedForHint = true;
+                  const prior = findPriorScienceLine(turn, history);
+                  if (prior && !quotes.includes(prior)) quotes.push(prior);
+                  continue;
+                }
+                if (isLowInsightStudentLine(turn.student_message)) {
+                  saidTheyWereStuck = true;
+                  const prior = findPriorScienceLine(turn, history);
+                  if (prior && !quotes.includes(prior)) quotes.push(prior);
+                  continue;
+                }
+                const line = clipStudentMessage(turn.student_message, 140);
+                if (line && !quotes.includes(line)) quotes.push(line);
+              }
+              let tutor = episode
+                .map((turn) => tutorPrompt(turn.tutor_hint))
+                .find((prompt) => prompt?.kind === "asked") ?? null;
+              if (!tutor) {
+                tutor =
+                  episode
+                    .map((turn) => tutorPrompt(turn.tutor_hint))
+                    .find((prompt) => prompt !== null) ?? null;
+              }
+              if (!tutor) {
+                const fallback = [...history]
+                  .reverse()
+                  .find(
+                    (row) =>
+                      sameTopic(row.topic_id, topicId) &&
+                      Boolean(row.tutor_hint?.trim())
+                  );
+                tutor = tutorPrompt(fallback?.tutor_hint);
+              }
+              const scores = episode
+                .map((turn) => turn.interaction_score)
+                .filter((score): score is number => typeof score === "number");
               const score =
-                typeof turn.interaction_score === "number"
-                  ? Math.round(turn.interaction_score * 100)
+                scores.length > 0
+                  ? Math.round(Math.min(...scores) * 100)
                   : null;
+              const when = episode.find((turn) => turn.timestamp)?.timestamp;
               return (
                 <li
-                  key={`${topicId}-${turn.timestamp ?? index}`}
+                  key={`${topicId}-${when ?? index}`}
                   className="rounded-xl border border-red-200 bg-red-50/70 px-3 py-2.5"
                 >
-                  <p className="text-sm font-medium text-brand-text">
-                    {topicId ? getCurriculumTitle(topicId) : "Unknown topic"}
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium text-brand-text">
+                      {topicId ? getCurriculumTitle(topicId) : "Unknown skill"}
+                    </p>
+                    {score !== null ? (
+                      <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[0.65rem] font-semibold text-white">
+                        {score}% chat
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-0.5 text-[0.65rem] text-brand-text/55">
-                    Chat score {score !== null ? `${score}%` : "n/a"}
-                    {turn.timestamp
-                      ? ` · ${formatEducatorTimestamp(turn.timestamp)}`
-                      : ""}
+                    Struggling in this chat
+                    {when ? ` · ${formatEducatorTimestamp(when)}` : ""}
                   </p>
-                  {tutorQuestion ? (
-                    <p className="mt-2 text-sm text-brand-text">
-                      <span className="font-semibold text-brand-text/70">
-                        Concept Socrates was checking:{" "}
-                      </span>
-                      {tutorQuestion}
-                    </p>
-                  ) : null}
-                  {scienceLine ? (
-                    <p className="mt-1.5 text-sm text-brand-text/85">
-                      <span className="font-semibold text-brand-text/70">
-                        What they tried to say:{" "}
-                      </span>
-                      {scienceLine}
-                    </p>
+                  {quotes.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      {quotes.map((quote) => (
+                        <p key={quote} className="text-sm text-brand-text">
+                          <span className="font-semibold text-brand-text/70">
+                            They said{" "}
+                          </span>
+                          “{quote}”
+                        </p>
+                      ))}
+                    </div>
                   ) : (
-                    <p className="mt-1.5 text-sm text-brand-text/70">
-                      They sent a stuck/help message without naming the science
-                      idea.
-                      {tutorQuestion
-                        ? " Use Socrates’ question above as the reteach target."
-                        : " Reteach from this skill title."}
+                    <p className="mt-2 text-sm text-brand-text/75">
+                      {askedForHint
+                        ? "They asked for a hint and didn’t name the idea."
+                        : "They said they were stuck and didn’t name the idea."}
                     </p>
                   )}
+                  {quotes.length > 0 && askedForHint ? (
+                    <p className="mt-1 text-xs text-brand-text/60">
+                      Then they asked for a hint.
+                    </p>
+                  ) : null}
+                  {quotes.length > 0 && saidTheyWereStuck && !askedForHint ? (
+                    <p className="mt-1 text-xs text-brand-text/60">
+                      They also said they were stuck.
+                    </p>
+                  ) : null}
+                  {tutor ? (
+                    <p className="mt-2 text-sm text-brand-text">
+                      <span className="font-semibold text-brand-text/70">
+                        {tutor.kind === "asked" ? "Tutor asked " : "Tutor replied "}
+                      </span>
+                      {tutor.text}
+                    </p>
+                  ) : null}
                 </li>
               );
             })}
           </ul>
         </div>
       ) : null}
-      <p className="text-xs leading-relaxed text-brand-text/50">
-        A critical confusion signal is a tutor turn scored below 30%. This
-        card shows the skill, the idea Socrates was probing, and any science
-        attempt from the student — not a full chat transcript.
-      </p>
     </div>
   );
 }
@@ -771,72 +886,58 @@ export function StudentDeepDive({
       timestamp: point.timestamp,
     }));
 
-  const metrics = useMemo(
-    () => [
-      {
-        label: "Attempts",
-        value: profile?.assessment_insights?.attempts_count ?? 0,
-        tone: "default" as const,
-      },
-      {
-        label: "Topics",
-        value: profile?.topics_covered_count ?? 0,
-        tone: "default" as const,
-      },
-      {
-        label: "Frustration",
-        value:
-          profile?.engagement_metrics?.average_frustration_cue !== null &&
-          profile?.engagement_metrics?.average_frustration_cue !== undefined
-            ? profile.engagement_metrics.average_frustration_cue.toFixed(2)
-            : "N/A",
-        tone: "default" as const,
-      },
-      {
-        label: "Mastered",
-        value: rowBands.mastered,
-        tone: "default" as const,
-      },
-      {
-        label: "Learning",
-        value: rowBands.learning,
-        tone: "default" as const,
-      },
-      {
-        label: "Needs support",
-        value: rowBands.atRisk,
-        tone: "danger" as const,
-      },
-      {
-        label: "Not started",
-        value: rowBands.notStarted,
-        tone: "default" as const,
-      },
-      {
-        label: "Engagement",
-        value:
-          profile?.engagement_average_last_10 !== null &&
-          profile?.engagement_average_last_10 !== undefined
-            ? `${Math.round(profile.engagement_average_last_10 * 100)}%`
-            : "N/A",
-        tone: "special" as const,
-      },
-      {
-        label: "Focus areas",
-        value: profile?.focus_areas_count ?? focusAreas.length,
-        tone: "danger" as const,
-      },
-    ],
-    [profile, rowBands, focusAreas.length]
-  );
+  const snapshot = useMemo(() => {
+    const frustration =
+      profile?.engagement_metrics?.average_frustration_cue !== null &&
+      profile?.engagement_metrics?.average_frustration_cue !== undefined
+        ? profile.engagement_metrics.average_frustration_cue.toFixed(2)
+        : "N/A";
+    const engagement =
+      profile?.engagement_average_last_10 !== null &&
+      profile?.engagement_average_last_10 !== undefined
+        ? `${Math.round(profile.engagement_average_last_10 * 100)}%`
+        : "N/A";
+
+    return {
+      activity: [
+        {
+          label: "Attempts",
+          value: profile?.assessment_insights?.attempts_count ?? 0,
+          tone: "attempts" as const,
+        },
+        {
+          label: "Topics",
+          value: profile?.topics_covered_count ?? 0,
+          tone: "topics" as const,
+        },
+        { label: "Engagement", value: engagement, tone: "engagement" as const },
+        { label: "Frustration", value: frustration, tone: "frustration" as const },
+      ],
+      skills: [
+        { label: "Mastered", value: rowBands.mastered, tone: "mastered" as const },
+        { label: "Learning", value: rowBands.learning, tone: "learning" as const },
+        {
+          label: "Needs support",
+          value: rowBands.atRisk,
+          tone: "support" as const,
+        },
+        {
+          label: "Focus areas",
+          value: profile?.focus_areas_count ?? focusAreas.length,
+          tone: "focus" as const,
+        },
+      ],
+      notStarted: rowBands.notStarted,
+    };
+  }, [profile, rowBands, focusAreas.length]);
 
   return (
     <section
       aria-label="Student diagnostic deep dive"
       className="space-y-5 rounded-2xl border border-brand-special/20 bg-white p-5 shadow-[0_12px_40px_-24px_rgba(114,9,183,0.45)] sm:p-6"
     >
-      <div className="flex flex-col gap-4 border-b border-brand-special/10 pb-4">
-        <div>
+      <div className="flex flex-col gap-3 border-b border-brand-special/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p
             className={cn(
               "text-xs font-semibold uppercase tracking-[0.16em]",
@@ -853,7 +954,7 @@ export function StudentDeepDive({
           </p>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-9 max-w-full items-center gap-2 rounded-lg border border-brand-surface bg-brand-background px-3 text-sm font-medium text-brand-text outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-brand-primary/30">
+          <DropdownMenuTrigger className="inline-flex h-9 w-64 max-w-full shrink-0 items-center justify-between gap-2 self-start rounded-lg border border-brand-surface bg-brand-background px-3 text-sm font-medium text-brand-text outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-brand-primary/30">
             <span className="truncate">
               {selectedStudentName ?? "Select student"}
             </span>
@@ -889,27 +990,48 @@ export function StudentDeepDive({
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {metrics.map((metric) => (
-          <MetricPill
-            key={metric.label}
-            label={metric.label}
-            value={metric.value}
-            tone={metric.tone}
-          />
-        ))}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-brand-text/45">
+            Activity
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {snapshot.activity.map((metric) => (
+              <MetricPill
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                tone={metric.tone}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="min-w-0 sm:flex sm:flex-col sm:items-end">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-brand-text/45">
+            Skills
+          </p>
+          <div className="flex flex-wrap gap-1.5 sm:justify-end">
+            {snapshot.skills.map((metric) => (
+              <MetricPill
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                tone={metric.tone}
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-brand-text/50 sm:text-right">
+            {snapshot.notStarted} not started
+          </p>
+        </div>
       </div>
 
       <Card className="border-brand-surface">
         <CardHeader>
-          <CardTitle className="text-base">
+          <CardTitle className="flex items-center gap-1.5 text-base">
             Quiz progress vs chat activity
+            <SectionInfoHint text="Last ~10 quiz P(L) values and last ~10 tutor chat scores for this learner. Points are recent events in order — they can mix skills, and the two lines are not the same item." />
           </CardTitle>
-          <CardDescription>
-            Last ~10 quiz P(L) values and last ~10 tutor chat scores for this
-            learner. Points are recent events in order — they can mix skills,
-            and the two lines are not the same item.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -964,6 +1086,7 @@ export function StudentDeepDive({
       <CollapsibleSection
         title="Recent Attempts"
         description="Latest quiz answers for this learner — what they got right or wrong, and common mistake patterns."
+        descriptionAsHint
         badge={recentAttempts.length}
         defaultOpen={false}
         accent="primary"
@@ -977,10 +1100,10 @@ export function StudentDeepDive({
 
       <Card className="border-brand-surface">
         <CardHeader>
-          <CardTitle className="text-base">Common mistakes</CardTitle>
-          <CardDescription>
-            Wrong answers this learner picks most often on quizzes.
-          </CardDescription>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            Common mistakes
+            <SectionInfoHint text="Wrong answers this learner picks most often on quizzes." />
+          </CardTitle>
         </CardHeader>
         <CardContent className="overflow-visible">
           {misconceptionData.length === 0 ? (
@@ -1029,6 +1152,7 @@ export function StudentDeepDive({
       <CollapsibleSection
         title="Learner Focus Areas"
         description="A topic lands here when at least 2 of 3 signals fire: mastery below 45%, last 3 quiz/chat scores falling, or recent performance average below 40%."
+        descriptionAsHint
         badge={focusAreas.length}
         defaultOpen={false}
         accent="special"
@@ -1044,11 +1168,11 @@ export function StudentDeepDive({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Timer className="size-4 text-brand-primary" />
-            Response Time Trends
+            <span className="inline-flex items-center gap-1.5">
+              Response Time Trends
+              <SectionInfoHint text="How long this learner takes on each skill. Longer times can mean they are unsure." />
+            </span>
           </CardTitle>
-          <CardDescription>
-            How long this learner takes on each skill. Longer times can mean they are unsure.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -1061,12 +1185,10 @@ export function StudentDeepDive({
 
       <Card className="border-brand-surface">
         <CardHeader>
-          <CardTitle className="text-base">Tutor help summary</CardTitle>
-          <CardDescription>
-            Topics they asked the tutor about. Critical confusion is a chat
-            score below 30% — the card names the skill and the idea Socrates
-            was checking, not just a stuck/help line.
-          </CardDescription>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            Tutor help summary
+            <SectionInfoHint text="Chats scored below 30%. Each card is one stuck moment: the skill, what the learner said, and what the tutor asked or replied." />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (

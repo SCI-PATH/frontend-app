@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -12,6 +12,7 @@ import { EnrolledStudents } from "@/components/features/learner-analytics/educat
 import { MasteryMatrix } from "@/components/features/learner-analytics/educator/MasteryMatrix";
 import { StudentDeepDive } from "@/components/features/learner-analytics/educator/StudentDeepDive";
 import { SummaryMetrics } from "@/components/features/learner-analytics/educator/SummaryMetrics";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EDUCATOR_CLASSROOMS_PATH } from "@/lib/auth-routes";
 import {
   buildMatrixCsv,
@@ -119,6 +120,9 @@ export function EducatorDashboardView() {
     (state) => state.refreshDashboard
   );
   const setActiveClassCode = useUserStore((state) => state.setActiveClassCode);
+  const [insightTab, setInsightTab] = useState<"classroom" | "learner">(
+    "classroom"
+  );
 
   useEffect(() => {
     void loadTeacherClasses();
@@ -154,7 +158,13 @@ export function EducatorDashboardView() {
 
   const handleClassChange = (classCode: string) => {
     setActiveClassCode(classCode);
+    setInsightTab("classroom");
     void refreshDashboard();
+  };
+
+  const openLearner = (studentId: string) => {
+    setSelectedStudentId(studentId);
+    setInsightTab("learner");
   };
 
   const hasData = studentIds.length > 0 && topicIds.length > 0;
@@ -221,86 +231,122 @@ export function EducatorDashboardView() {
             </div>
           ) : null}
 
-          <EnrolledStudents
-            students={students}
-            studentIds={studentIds}
-            topicIds={topicIds}
-            classCode={classMeta.classCode}
-            masteryMatrix={masteryMatrix}
-            attemptMatrix={attemptMatrix}
-            priorByTopicId={priorByTopicId}
-            atRiskAlerts={atRiskAlerts}
-            selectedStudentId={selectedStudentId}
-            onSelectStudent={setSelectedStudentId}
-          />
-
           {hasData ? (
-            <>
-              <SummaryMetrics bands={bandCounts} />
+            <Tabs
+              value={insightTab}
+              onValueChange={(value) =>
+                setInsightTab(value as "classroom" | "learner")
+              }
+            >
+              <TabsList className="mx-auto h-10 w-full max-w-md bg-white p-1 shadow-sm ring-1 ring-brand-surface">
+                <TabsTrigger
+                  value="classroom"
+                  className="h-8 data-[state=active]:bg-brand-primary data-[state=active]:text-white"
+                >
+                  Classroom
+                </TabsTrigger>
+                <TabsTrigger
+                  value="learner"
+                  className="h-8 data-[state=active]:bg-brand-primary data-[state=active]:text-white"
+                >
+                  Learner
+                </TabsTrigger>
+              </TabsList>
 
-              <ClassResearchSummary
-                summary={classSummary}
-                isLoading={isLoadingClassSummary}
-                error={classSummaryError}
-                students={students}
-                onSelectStudent={setSelectedStudentId}
-              />
+              <TabsContent value="classroom" className="flex flex-col gap-5">
+                <SummaryMetrics
+                  bands={bandCounts}
+                  frustration={classSummary?.frustration}
+                  frustrationLoading={isLoadingClassSummary && !classSummary}
+                />
 
-              <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
-                <div className="flex min-w-0 flex-col gap-5">
-                  <CollapsibleSection
-                    title="Priority follow-up list"
-                    description="Learners who may need your help soon."
-                    badge={atRiskAlerts.length}
-                    defaultOpen
-                    accent="danger"
-                  >
-                    <AtRiskFeed
-                      alerts={atRiskAlerts}
-                      students={students}
-                      topicCatalog={topicCatalog}
-                      showHeader={false}
-                    />
-                  </CollapsibleSection>
-
-                  <CollapsibleSection
-                    title="Classroom mastery grid"
-                    description="Every learner and skill in this class."
-                    badge={`${studentIds.length} × ${topicIds.length}`}
-                    defaultOpen={false}
-                    accent="primary"
-                  >
-                    <MasteryMatrix
-                      matrix={masteryMatrix}
-                      attemptMatrix={attemptMatrix}
-                      studentIds={studentIds}
-                      students={students}
-                      topicIds={topicIds}
-                      topicCatalog={topicCatalog}
-                      unknownTopicIds={unknownTopicIds}
-                      showHeader={false}
-                    />
-                  </CollapsibleSection>
-                </div>
-
-                <aside className="xl:sticky xl:top-6 xl:max-h-[92vh] xl:self-start xl:overflow-y-auto">
-                  <StudentDeepDive
+                <CollapsibleSection
+                  title="Classroom mastery grid"
+                  description="Skills with quiz evidence, with the ones needing the most support on the left. Switch to the full curriculum to see skills nobody has started."
+                  badge={`${studentIds.length} learners`}
+                  defaultOpen
+                  accent="primary"
+                >
+                  <MasteryMatrix
+                    matrix={masteryMatrix}
+                    attemptMatrix={attemptMatrix}
                     studentIds={studentIds}
                     students={students}
-                    selectedStudentId={selectedStudentId}
                     topicIds={topicIds}
-                    matrixRow={selectedRow}
-                    attemptMatrix={attemptMatrix}
-                    priorByTopicId={priorByTopicId}
-                    profile={studentProfile}
-                    isLoading={isLoadingProfile}
-                    error={profileError}
-                    onStudentChange={setSelectedStudentId}
+                    topicCatalog={topicCatalog}
+                    unknownTopicIds={unknownTopicIds}
+                    showHeader={false}
+                    gradeLevel={classMeta.gradeLevel}
+                    onSelectStudent={openLearner}
                   />
-                </aside>
-              </div>
-            </>
-          ) : null}
+                </CollapsibleSection>
+
+                <CollapsibleSection
+                  title="Priority follow-up list"
+                  description="Learners who may need your help soon."
+                  badge={atRiskAlerts.length}
+                  defaultOpen
+                  accent="danger"
+                >
+                  <AtRiskFeed
+                    alerts={atRiskAlerts}
+                    students={students}
+                    topicCatalog={topicCatalog}
+                    showHeader={false}
+                    onSelectStudent={openLearner}
+                  />
+                </CollapsibleSection>
+
+                <ClassResearchSummary
+                  summary={classSummary}
+                  isLoading={isLoadingClassSummary}
+                  error={classSummaryError}
+                />
+
+                <EnrolledStudents
+                  students={students}
+                  studentIds={studentIds}
+                  topicIds={topicIds}
+                  classCode={classMeta.classCode}
+                  masteryMatrix={masteryMatrix}
+                  attemptMatrix={attemptMatrix}
+                  priorByTopicId={priorByTopicId}
+                  atRiskAlerts={atRiskAlerts}
+                  selectedStudentId={selectedStudentId}
+                  onSelectStudent={openLearner}
+                />
+              </TabsContent>
+
+              <TabsContent value="learner">
+                <StudentDeepDive
+                  studentIds={studentIds}
+                  students={students}
+                  selectedStudentId={selectedStudentId}
+                  topicIds={topicIds}
+                  matrixRow={selectedRow}
+                  attemptMatrix={attemptMatrix}
+                  priorByTopicId={priorByTopicId}
+                  profile={studentProfile}
+                  isLoading={isLoadingProfile}
+                  error={profileError}
+                  onStudentChange={setSelectedStudentId}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <EnrolledStudents
+              students={students}
+              studentIds={studentIds}
+              topicIds={topicIds}
+              classCode={classMeta.classCode}
+              masteryMatrix={masteryMatrix}
+              attemptMatrix={attemptMatrix}
+              priorByTopicId={priorByTopicId}
+              atRiskAlerts={atRiskAlerts}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={openLearner}
+            />
+          )}
         </>
       ) : null}
       </div>

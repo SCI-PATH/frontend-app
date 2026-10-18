@@ -94,7 +94,7 @@ export function EnrolledStudents({
   return (
     <CollapsibleSection
       title="Enrolled students"
-      description="Everyone who joined this class with your code. Select a learner to open their deep-dive profile."
+      description="Everyone who joined this class with your code. Select a learner to open their profile."
       badge={studentIds.length}
       defaultOpen
       accent="special"
