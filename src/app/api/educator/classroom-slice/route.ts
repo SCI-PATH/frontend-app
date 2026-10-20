@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getAuthApiBase } from "@/lib/api/auth-config";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { CURRICULUM_TOPIC_IDS, getCurriculumTopic } from "@/lib/curriculum/topics";
 import { postgresConfigured, queryRows } from "@/lib/db/postgres";
@@ -9,7 +10,10 @@ import type {
   ClassroomTopicMeta,
   MasteryMatrixResponse,
 } from "@/types/educator";
-import { buildStudentCatalog } from "@/lib/educator/students";
+import {
+  buildStudentCatalog,
+  formatLearnerIdFallback,
+} from "@/lib/educator/students";
 
 const CLASS_META_SQL = `
   SELECT class_code, class_name, grade_level, subject, teacher_id
@@ -118,6 +122,60 @@ function fallbackTopicCatalogForGrade(gradeLevel: number): ClassroomTopicMeta[] 
         pS: topic?.pS ?? 0.1,
       };
     }
+  );
+}
+
+function nameIsJustTheId(displayName: string, learnerId: string): boolean {
+  const name = displayName.trim();
+  const id = learnerId.trim();
+  if (!name || name === id) return true;
+  return name === formatLearnerIdFallback(id);
+}
+
+async function lookupStudentName(learnerId: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${getAuthApiBase()}/students/${encodeURIComponent(learnerId)}`,
+      { cache: "no-store" }
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json().catch(() => null)) as {
+      full_name?: unknown;
+    } | null;
+    const name = String(payload?.full_name ?? "").trim();
+    if (!name || nameIsJustTheId(name, learnerId)) return null;
+    return name;
+  } catch {
+    return null;
+  }
+}
+
+/** Fill roster labels from User Management when Postgres only has the user id. */
+async function withStudentNames(
+  studentIds: readonly string[],
+  students: readonly ClassroomStudentMeta[]
+): Promise<ClassroomStudentMeta[]> {
+  const catalog = students.length > 0 ? students : buildStudentCatalog(studentIds);
+  const missing = catalog.filter((student) =>
+    nameIsJustTheId(student.displayName, student.learnerId)
+  );
+  if (missing.length === 0) return [...catalog];
+
+  const found = await Promise.all(
+    missing.map(async (student) => {
+      const displayName = await lookupStudentName(student.learnerId);
+      return displayName
+        ? { learnerId: student.learnerId, displayName }
+        : null;
+    })
+  );
+  const named = found.filter(
+    (row): row is ClassroomStudentMeta => row !== null
+  );
+  if (named.length === 0) return [...catalog];
+  return buildStudentCatalog(
+    catalog.map((student) => student.learnerId),
+    [...catalog, ...named]
   );
 }
 
@@ -308,6 +366,10 @@ export async function GET(request: Request) {
     const slice = postgresConfigured()
       ? await loadSliceForClassFromPostgres(classCode)
       : await loadSliceForClassFromAnalyticsApi(classCode);
+
+    if (slice.success && slice.studentIds.length > 0) {
+      slice.students = await withStudentNames(slice.studentIds, slice.students);
+    }
 
     if (!slice.success) {
       return NextResponse.json(slice, { status: slice.error ? 404 : 500 });
