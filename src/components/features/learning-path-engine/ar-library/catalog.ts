@@ -81,6 +81,7 @@ export const AR_EXPERIENCES: ArExperience[] = [
     apkSrc: `${S3_AR_BASE}/atom/app.apk`,
     apkDownloadName: "SCI-PATH-Atom-AR.apk",
     accentClass: "border-brand-special/25 bg-brand-special/8 text-brand-special",
+  },
 ];
 
 export function getArExperience(id: string): ArExperience | undefined {
