@@ -10,10 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  getCurriculumTitle,
-  getCurriculumTopic,
-} from "@/lib/curriculum/topics";
+import { getCurriculumTitle } from "@/lib/curriculum/topics";
 import {
   getCellAttemptCount,
   isUnattemptedBaselineCell,
@@ -244,16 +241,12 @@ export function MasteryMatrix({
 
   const tooltip = useMemo(() => {
     if (!hover) return null;
-    const live = catalogById.get(hover.topicId);
-    const fallback = getCurriculumTopic(hover.topicId);
     return {
       studentId: hover.studentId,
       studentName: getStudentDisplayName(hover.studentId, students),
       topicId: hover.topicId,
       title: resolveTitle(hover.topicId),
       mastery: masteryPercent(hover.probability),
-      pG: live?.pG ?? fallback?.pG ?? null,
-      pS: live?.pS ?? fallback?.pS ?? null,
     };
   }, [hover, catalogById, students]);
 
@@ -403,7 +396,7 @@ export function MasteryMatrix({
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-max border-separate border-spacing-1 text-xs">
+              <table className="w-full min-w-max border-separate border-spacing-1 text-xs">
                 <thead>
                   <tr>
                     <th className="sticky left-0 z-20 min-w-[9rem] bg-white px-3 py-2 text-left font-semibold text-brand-text shadow-sm">
@@ -535,32 +528,14 @@ export function MasteryMatrix({
                 {tooltip.topicId}
               </p>
               <p className="mt-2 text-brand-text/80">{tooltip.title}</p>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-brand-background px-2 py-1">
-                  <p className="text-[0.62rem] uppercase text-brand-text/50">
-                    Mastery
-                  </p>
-                  <p className="font-bold text-brand-text">
-                    {tooltip.mastery ?? "—"}%
-                  </p>
-                </div>
-                <div className="rounded-lg bg-brand-background px-2 py-1">
-                  <p className="text-[0.62rem] uppercase text-brand-text/50">
-                    P(G)
-                  </p>
-                  <p className="font-bold text-brand-text">
-                    {tooltip.pG !== null ? tooltip.pG.toFixed(2) : "—"}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-brand-background px-2 py-1">
-                  <p className="text-[0.62rem] uppercase text-brand-text/50">
-                    P(S)
-                  </p>
-                  <p className="font-bold text-brand-text">
-                    {tooltip.pS !== null ? tooltip.pS.toFixed(2) : "—"}
-                  </p>
-                </div>
-              </div>
+              <p className="mt-3 rounded-lg bg-brand-background px-2 py-1.5 text-center">
+                <span className="text-[0.62rem] uppercase text-brand-text/50">
+                  Mastery
+                </span>
+                <span className="ml-2 font-bold text-brand-text">
+                  {tooltip.mastery ?? "—"}%
+                </span>
+              </p>
             </div>
           ) : null}
         </CardContent>

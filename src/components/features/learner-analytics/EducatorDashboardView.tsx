@@ -18,7 +18,7 @@ import {
   buildMatrixCsv,
   downloadCsv,
 } from "@/lib/educator/exportCsv";
-import { countMatrixBands } from "@/lib/educator/bkt";
+import { countMatrixBands, getCellAttemptCount } from "@/lib/educator/bkt";
 import { useEducatorDashboardStore } from "@/store/useEducatorDashboardStore";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -144,6 +144,21 @@ export function EducatorDashboardView() {
       }),
     [attemptMatrix, masteryMatrix, priorByTopicId, studentIds, topicIds]
   );
+
+  const practisedAlerts = useMemo(() => {
+    const hasAttemptData = Object.keys(attemptMatrix).length > 0;
+    return atRiskAlerts.filter((alert) => {
+      const attempts = getCellAttemptCount(
+        attemptMatrix,
+        alert.student_id,
+        alert.topic_id
+      );
+      if (attempts > 0) return true;
+      if (hasAttemptData) return false;
+      const prior = priorByTopicId[alert.topic_id] ?? 0.25;
+      return Math.abs(alert.mastery_probability - prior) >= 0.015;
+    });
+  }, [atRiskAlerts, attemptMatrix, priorByTopicId]);
 
   const selectedRow =
     selectedStudentId !== null
@@ -284,12 +299,12 @@ export function EducatorDashboardView() {
                 <CollapsibleSection
                   title="Priority follow-up list"
                   description="Learners who may need your help soon."
-                  badge={atRiskAlerts.length}
+                  badge={practisedAlerts.length}
                   defaultOpen
                   accent="danger"
                 >
                   <AtRiskFeed
-                    alerts={atRiskAlerts}
+                    alerts={practisedAlerts}
                     students={students}
                     topicCatalog={topicCatalog}
                     showHeader={false}
@@ -311,7 +326,7 @@ export function EducatorDashboardView() {
                   masteryMatrix={masteryMatrix}
                   attemptMatrix={attemptMatrix}
                   priorByTopicId={priorByTopicId}
-                  atRiskAlerts={atRiskAlerts}
+                  atRiskAlerts={practisedAlerts}
                   selectedStudentId={selectedStudentId}
                   onSelectStudent={openLearner}
                 />
@@ -342,7 +357,7 @@ export function EducatorDashboardView() {
               masteryMatrix={masteryMatrix}
               attemptMatrix={attemptMatrix}
               priorByTopicId={priorByTopicId}
-              atRiskAlerts={atRiskAlerts}
+              atRiskAlerts={practisedAlerts}
               selectedStudentId={selectedStudentId}
               onSelectStudent={openLearner}
             />
