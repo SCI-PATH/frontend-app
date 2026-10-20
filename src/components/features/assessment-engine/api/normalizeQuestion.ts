@@ -68,7 +68,7 @@ function resolveBody(
 export function stripQuestionSecrets<T extends Record<string, unknown>>(
   raw: T
 ): T {
-  const copy = { ...raw };
+  const copy: Record<string, unknown> = { ...raw };
   for (const key of SECRET_KEYS) {
     delete copy[key];
   }
@@ -82,7 +82,7 @@ export function stripQuestionSecrets<T extends Record<string, unknown>>(
       copy[nestKey] = nestedCopy;
     }
   }
-  return copy;
+  return copy as T;
 }
 
 /**

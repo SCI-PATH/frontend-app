@@ -29,6 +29,7 @@ import { useQuestionBankGrade } from "../components/question-bank/useQuestionBan
 import { useAssessmentUser } from "../store/useAssessmentUser";
 import type {
   MostMissedQuestionInsight,
+  QuestionType,
   TeacherQuestion,
   TeacherTopic,
 } from "../types";
@@ -92,7 +93,7 @@ export function AssessmentQuestionBrowseScreen() {
       dokLevel === "4"
         ? Number(dokLevel)
         : undefined;
-    const typeQuery =
+    const typeQuery: QuestionType | undefined =
       questionType === "MCQ" ||
       questionType === "TrueFalse" ||
       questionType === "ShortAnswer" ||
