@@ -5,9 +5,7 @@ import {
   ArrowLeft,
   Atom,
   CircuitBoard,
-  Droplets,
   Heart,
-  Magnet,
   Rocket,
   ScanLine,
   Sparkles,
@@ -25,8 +23,6 @@ const EXPERIENCE_ICONS: Record<ArExperienceId, LucideIcon> = {
   kidney: ScanLine,
   circuit: CircuitBoard,
   atom: Atom,
-  magnet: Magnet,
-  water: Droplets,
 };
 
 const EXPERIENCE_ICON_BG: Record<ArExperienceId, string> = {
@@ -34,8 +30,6 @@ const EXPERIENCE_ICON_BG: Record<ArExperienceId, string> = {
   kidney: "bg-brand-primary shadow-brand-primary/25",
   circuit: "bg-brand-primary shadow-brand-primary/25",
   atom: "bg-brand-special shadow-brand-special/25",
-  magnet: "bg-brand-accent shadow-brand-accent/25",
-  water: "bg-brand-primary shadow-brand-primary/25",
 };
 
 const EXPERIENCE_BLOB: Record<ArExperienceId, string> = {
@@ -43,8 +37,6 @@ const EXPERIENCE_BLOB: Record<ArExperienceId, string> = {
   kidney: "bg-brand-primary/20",
   circuit: "bg-brand-primary/20",
   atom: "bg-brand-special/20",
-  magnet: "bg-brand-accent/20",
-  water: "bg-brand-primary/20",
 };
 
 export function ArLibraryHub() {
