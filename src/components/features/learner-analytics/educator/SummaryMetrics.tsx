@@ -33,7 +33,7 @@ export function SummaryMetrics({
   const frustrationMeta = frustrationLoading
     ? "Loading check-ins"
     : samples > 0
-      ? `Average of ${samples} check-in${samples === 1 ? "" : "s"} · 0–100`
+      ? `Average of ${samples} check-in${samples === 1 ? "" : "s"}`
       : "No check-ins yet";
 
   const attempted = bands.mastered + bands.learning + bands.atRisk;
@@ -64,7 +64,7 @@ export function SummaryMetrics({
     },
     {
       title: "Class frustration",
-      count: frustrationScore === null ? "—" : String(frustrationScore),
+      count: frustrationScore === null ? "—" : `${frustrationScore}%`,
       meta: frustrationMeta,
       accent: `border-l-brand-special ${EDUCATOR_PURPLE.bgSoft}`,
       countClass: EDUCATOR_PURPLE.text,
