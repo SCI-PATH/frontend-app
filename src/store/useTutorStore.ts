@@ -259,3 +259,9 @@ export const useTutorStore = create<TutorState>((set, get) => ({
       error: null,
     }),
 }));
+
+useUserStore.subscribe((state, previous) => {
+  if (previous.userId && previous.userId !== state.userId) {
+    useTutorStore.getState().resetConversation();
+  }
+});
