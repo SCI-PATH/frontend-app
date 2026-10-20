@@ -22,17 +22,6 @@ function envUrl(key, fallback) {
     const raw = String(import.meta.env?.[key] || '').trim();
     if (raw) return raw.replace(/\/+$/, '');
   } catch {
-    /* Next.js has no Vite import.meta.env */
-  }
-  try {
-    if (
-      key === 'VITE_LEARNER_ANALYTICS_API_BASE' &&
-      typeof process !== 'undefined'
-    ) {
-      const next = String(process.env?.NEXT_PUBLIC_API_URL || '').trim();
-      if (next) return next.replace(/\/+$/, '');
-    }
-  } catch {
     /* use fallback */
   }
   // Prefer explicit fallback (usually the deployed analytics host). Do NOT
@@ -90,18 +79,7 @@ function liveFrustration(telemetry = {}, metrics = {}) {
 }
 
 async function postFrustrationCue({ userId, frustrationScore, source }) {
-  let base = envUrl('VITE_LEARNER_ANALYTICS_API_BASE', DEFAULT_ANALYTICS_API);
-  try {
-    if (
-      typeof window !== 'undefined' &&
-      typeof process !== 'undefined' &&
-      process.env?.NEXT_PUBLIC_API_URL
-    ) {
-      base = `${window.location.origin}/analytics-api`;
-    }
-  } catch {
-    /* keep analytics host */
-  }
+  const base = envUrl('VITE_LEARNER_ANALYTICS_API_BASE', DEFAULT_ANALYTICS_API);
   const res = await fetch(`${base}/api/v1/engagement/frustration-cue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

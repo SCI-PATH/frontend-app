@@ -61,6 +61,13 @@ export const Q_TYPES: QuestionType[] = [
   "MultiBlank",
 ];
 
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  MCQ: "Multiple choice",
+  TrueFalse: "True or false",
+  ShortAnswer: "Short answer",
+  MultiBlank: "Fill in the blanks",
+};
+
 export function originLabel(origin: string, status: string): string {
   if (origin === "teacher") {
     return status === "pending" ? "Your draft" : "Yours";
@@ -291,6 +298,8 @@ export function FilterToolbar({
   chapterId,
   onChapter,
   chapterOptions,
+  questionType,
+  onQuestionType,
   dokLevel,
   onDokLevel,
   view,
@@ -306,6 +315,9 @@ export function FilterToolbar({
   chapterId: string;
   onChapter: (v: string) => void;
   chapterOptions: { value: string; label: string }[];
+  /** Empty string = all question types. */
+  questionType?: string;
+  onQuestionType?: (v: string) => void;
   /** Webb DOK 1–4; empty string = all. Shown as "Difficulty Level". */
   dokLevel?: string;
   onDokLevel?: (v: string) => void;
@@ -328,8 +340,8 @@ export function FilterToolbar({
           <BrowseViewPills value={view} onChange={onViewChange} />
         </div>
       ) : null}
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
-        <div className="relative min-w-0 flex-1">
+      <div className="flex flex-col gap-3 p-3 sm:p-4">
+        <div className="relative min-w-0">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-text/40"
             aria-hidden
@@ -342,8 +354,15 @@ export function FilterToolbar({
             className="h-10 rounded-xl border-brand-surface pl-10"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
-          <label className={cn(fieldClass, "sm:w-[9.5rem]")}>
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-2",
+            onStatus
+              ? "lg:grid-cols-[9.5rem_minmax(12rem,1.5fr)_11.5rem_11rem_9.5rem]"
+              : "lg:grid-cols-[9.5rem_minmax(12rem,1.5fr)_11.5rem_11rem]"
+          )}
+        >
+          <label className={fieldClass}>
             <span className={fieldLabelClass}>Grade</span>
             <select
               aria-label="Grade"
@@ -363,45 +382,7 @@ export function FilterToolbar({
               ))}
             </select>
           </label>
-          {onStatus ? (
-            <label className={cn(fieldClass, "sm:w-[9.5rem]")}>
-              <span className={fieldLabelClass}>Status</span>
-              <select
-                aria-label="Status"
-                value={status}
-                onChange={(e) => onStatus(e.target.value)}
-                className={selectClass}
-              >
-                <option value="all">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </label>
-          ) : null}
-          {onDokLevel ? (
-            <label className={cn(fieldClass, "sm:w-[12rem]")}>
-              <span className={fieldLabelClass}>Difficulty Level</span>
-              <select
-                aria-label="Difficulty Level"
-                value={dokLevel ?? ""}
-                onChange={(e) => onDokLevel(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">All levels</option>
-                <option value="1">Level 1</option>
-                <option value="2">Level 2</option>
-                <option value="3">Level 3</option>
-                <option value="4">Level 4</option>
-              </select>
-            </label>
-          ) : null}
-          <label
-            className={cn(
-              fieldClass,
-              onStatus || onDokLevel ? "col-span-2 sm:w-[14rem]" : "sm:w-[14rem]"
-            )}
-          >
+          <label className={fieldClass}>
             <span className={fieldLabelClass}>Chapter</span>
             <select
               aria-label="Chapter"
@@ -417,6 +398,57 @@ export function FilterToolbar({
               ))}
             </select>
           </label>
+          {onQuestionType ? (
+            <label className={fieldClass}>
+              <span className={fieldLabelClass}>Question type</span>
+              <select
+                aria-label="Question type"
+                value={questionType ?? ""}
+                onChange={(e) => onQuestionType(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">All types</option>
+                {Q_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {QUESTION_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {onDokLevel ? (
+            <label className={fieldClass}>
+              <span className={fieldLabelClass}>Difficulty Level</span>
+              <select
+                aria-label="Difficulty Level"
+                value={dokLevel ?? ""}
+                onChange={(e) => onDokLevel(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">All levels</option>
+                <option value="1">Level 1</option>
+                <option value="2">Level 2</option>
+                <option value="3">Level 3</option>
+                <option value="4">Level 4</option>
+              </select>
+            </label>
+          ) : null}
+          {onStatus ? (
+            <label className={cn(fieldClass, "col-span-2 lg:col-span-1")}>
+              <span className={fieldLabelClass}>Status</span>
+              <select
+                aria-label="Status"
+                value={status}
+                onChange={(e) => onStatus(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
+          ) : null}
         </div>
       </div>
     </section>

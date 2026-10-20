@@ -39,7 +39,6 @@ import {
   lessonOrdinalFromLessonId,
   findPendingChapterGame,
   isChapterUnlockedForLearning,
-  lessonTitleOf,
   parseGameReturnSearch,
   stripGameReturnParams,
   type GameReturnPayload,

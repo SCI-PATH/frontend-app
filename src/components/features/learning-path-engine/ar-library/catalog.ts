@@ -11,9 +11,7 @@ export type ArExperienceId =
   | "heart"
   | "kidney"
   | "circuit"
-  | "atom"
-  | "magnet"
-  | "water";
+  | "atom";
 
 export type ArExperience = {
   id: ArExperienceId;
@@ -83,32 +81,6 @@ export const AR_EXPERIENCES: ArExperience[] = [
     apkSrc: `${S3_AR_BASE}/atom/app.apk`,
     apkDownloadName: "SCI-PATH-Atom-AR.apk",
     accentClass: "border-brand-special/25 bg-brand-special/8 text-brand-special",
-  },
-  {
-    id: "magnet",
-    title: "Bar Magnet AR",
-    shortTitle: "Magnet",
-    description:
-      "Scan the magnet marker to explore north–south poles and field lines in AR.",
-    href: "/ar-library/magnet",
-    markerSrc: "/ar-library/magnet/marker.png",
-    markerFallbackSrc: "/ar-library/magnet/marker.svg",
-    apkSrc: `${S3_AR_BASE}/magnet/app.apk`,
-    apkDownloadName: "SCI-PATH-Magnet-AR.apk",
-    accentClass: "border-brand-accent/25 bg-brand-accent/8 text-brand-accent",
-  },
-  {
-    id: "water",
-    title: "Water Molecule AR",
-    shortTitle: "Water",
-    description:
-      "Scan the water marker to explore the H₂O molecule shape in AR.",
-    href: "/ar-library/water",
-    markerSrc: "/ar-library/water/marker.png",
-    markerFallbackSrc: "/ar-library/water/marker.svg",
-    apkSrc: `${S3_AR_BASE}/water/app.apk`,
-    apkDownloadName: "SCI-PATH-Water-AR.apk",
-    accentClass: "border-brand-primary/25 bg-brand-primary/8 text-brand-primary",
   },
 ];
 

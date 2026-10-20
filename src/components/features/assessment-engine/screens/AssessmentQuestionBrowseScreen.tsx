@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   fetchMostMissedQuestions,
   fetchTeacherQuestions,
-  fetchTeacherQuestionsAllGrades,
-  fetchTeacherQuestionsAllStatuses,
-  fetchTeacherQuestionsAllStatusesAndGrades,
+  fetchTeacherQuestionsAcrossSegments,
   fetchTeacherTopics,
   fetchTeacherTopicsAllGrades,
 } from "../api/teacher";
@@ -23,6 +21,7 @@ import {
   QuestionBankGradeFilter,
   QuestionCard,
   QuestionListHeader,
+  QUESTION_BANK_GRADES,
   toTeacherQuestion,
 } from "../components/question-bank/bankUi";
 import { useQuestionBankModeration } from "../components/question-bank/useQuestionBankModeration";
@@ -53,6 +52,7 @@ export function AssessmentQuestionBrowseScreen() {
   const [chapterId, setChapterId] = useState("");
   /** Empty = all; "1"|"2"|"3"|"4" = Webb dok_level (UI: Difficulty Level). */
   const [dokLevel, setDokLevel] = useState("");
+  const [questionType, setQuestionType] = useState("");
   const [view, setView] = useState<BankView>("bank");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -92,76 +92,48 @@ export function AssessmentQuestionBrowseScreen() {
       dokLevel === "4"
         ? Number(dokLevel)
         : undefined;
-    const matchesDok = (q: { dok_level?: number }) =>
-      dok == null || Number(q.dok_level) === dok;
+    const typeQuery =
+      questionType === "MCQ" ||
+      questionType === "TrueFalse" ||
+      questionType === "ShortAnswer" ||
+      questionType === "MultiBlank"
+        ? questionType
+        : undefined;
+    const listFilters = {
+      topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
+      dok_level: dok,
+      question_type: typeQuery,
+      q: search.trim() || undefined,
+    };
     try {
-      if (status === "all") {
-        const listQuery = {
-          topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
-          dok_level: dok,
-          q: search.trim() || undefined,
-          offset: 0,
-          limit: 100,
-        };
-        const result =
-          filterGrade === "all"
-            ? await fetchTeacherQuestionsAllStatusesAndGrades(listQuery)
-            : await fetchTeacherQuestionsAllStatuses({
-                grade: filterGrade,
-                ...listQuery,
-              });
-        const needle = search.trim().toLowerCase();
-        const chapter = chapterId.toUpperCase();
-        const filtered = result.questions.filter((q) => {
-          if (!matchesDok(q)) return false;
-          if (
-            chapter &&
-            chapterIdFromTopicId(q.topic_id) !== chapter
-          ) {
-            return false;
-          }
-          if (!needle) return true;
-          const hay = [q.prompt, q.expected_answer, q.topic_id, q.chapter_name]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(needle);
-        });
-        const start = Math.max(0, (page - 1) * PAGE_SIZE);
-        setQuestions(filtered.slice(start, start + PAGE_SIZE));
-        setTotal(filtered.length);
-      } else if (filterGrade === "all") {
-        const result = await fetchTeacherQuestionsAllGrades({
-          status,
-          topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
-          dok_level: dok,
-          q: search.trim() || undefined,
-          offset: 0,
-          limit: 100,
-        });
-        const needle = search.trim().toLowerCase();
-        const chapter = chapterId.toUpperCase();
-        const filtered = result.questions.filter((q) => {
-          if (!matchesDok(q)) return false;
-          if (chapter && chapterIdFromTopicId(q.topic_id) !== chapter) {
-            return false;
-          }
-          if (!needle) return true;
-          const hay = [q.prompt, q.expected_answer, q.topic_id, q.chapter_name]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(needle);
-        });
-        const start = Math.max(0, (page - 1) * PAGE_SIZE);
-        setQuestions(filtered.slice(start, start + PAGE_SIZE));
-        setTotal(filtered.length);
+      if (filterGrade === "all" || status === "all") {
+        const grades =
+          filterGrade === "all" ? [...QUESTION_BANK_GRADES] : [filterGrade];
+        const statuses =
+          status === "all"
+            ? (["pending", "approved", "rejected"] as const)
+            : [status];
+        const segments = grades.flatMap((grade) =>
+          statuses.map((segmentStatus) => ({
+            ...listFilters,
+            grade,
+            status: segmentStatus,
+          }))
+        );
+        const result = await fetchTeacherQuestionsAcrossSegments(
+          segments,
+          page,
+          PAGE_SIZE
+        );
+        setQuestions(result.questions);
+        setTotal(result.total);
       } else {
         const result = await fetchTeacherQuestions({
           grade: filterGrade,
           status,
           topic_id_prefix: chapterId ? chapterId.toUpperCase() : undefined,
           dok_level: dok,
+          question_type: typeQuery,
           q: search.trim() || undefined,
           offset: Math.max(0, (page - 1) * PAGE_SIZE),
           limit: PAGE_SIZE,
@@ -178,7 +150,7 @@ export function AssessmentQuestionBrowseScreen() {
     } finally {
       setLoading(false);
     }
-  }, [filterGrade, status, chapterId, dokLevel, search, page, setError]);
+  }, [filterGrade, status, chapterId, dokLevel, questionType, search, page, setError]);
 
   const loadMostMissed = useCallback(async () => {
     try {
@@ -204,7 +176,7 @@ export function AssessmentQuestionBrowseScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, filterGrade, chapterId, dokLevel, search, view]);
+  }, [status, filterGrade, chapterId, dokLevel, questionType, search, view]);
 
   useEffect(() => {
     void loadTopics();
@@ -234,6 +206,14 @@ export function AssessmentQuestionBrowseScreen() {
       ) {
         return false;
       }
+      if (
+        questionType &&
+        (row.question_type ||
+          questions.find((q) => q.id === row.question_id)?.question_type) !==
+          questionType
+      ) {
+        return false;
+      }
       if (dok != null) {
         const matched = questions.find((q) => q.id === row.question_id);
         const rowDok = matched?.dok_level;
@@ -257,7 +237,7 @@ export function AssessmentQuestionBrowseScreen() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [mostMissed, chapterId, search, dokLevel, questions]);
+  }, [mostMissed, chapterId, search, dokLevel, questionType, questions]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -320,7 +300,10 @@ export function AssessmentQuestionBrowseScreen() {
                 : "Search the shared bank…"
             }
             grade={filterGrade}
-            onGrade={setFilterGrade}
+            onGrade={(next) => {
+              setFilterGrade(next);
+              setChapterId("");
+            }}
             status={view === "bank" ? status : undefined}
             onStatus={
               view === "bank"
@@ -333,6 +316,8 @@ export function AssessmentQuestionBrowseScreen() {
               value: c.id,
               label: c.label,
             }))}
+            questionType={questionType}
+            onQuestionType={setQuestionType}
             dokLevel={dokLevel}
             onDokLevel={setDokLevel}
             view={view}
