@@ -77,9 +77,46 @@ function friendlyFromHttp(status, rawText, data) {
     return "We could not reach the learning service from this network (request blocked). Try again, use another network, or run the backends locally.";
   }
   if (status === 401 || status === 403) return "You don’t have permission for that action.";
-  if (status >= 500) return "The learning service hit a problem. Please try again in a moment.";
+  if (status >= 500) {
+    if (/socket hang up|ECONNRESET|Failed to proxy/i.test(rawText || "")) {
+      return "Connection to the learning server was interrupted. Please try Start lesson again.";
+    }
+    // Next.js dev proxy often surfaces EC2 drops as a bare HTML 500 — not an LPE bug.
+    if (
+      looksLikeNetworkGate(rawText) ||
+      (!candidate && /Internal Server Error/i.test(rawText || ""))
+    ) {
+      return "We could not reach the learning service reliably from this network. Try again in a moment.";
+    }
+    return "The learning service hit a problem. Please try again in a moment.";
+  }
   if (status === 0 || !status) return "We could not reach the learning service. Is the server running?";
   return "Something went wrong. Please try again.";
+}
+
+function isTransientFetchFailure(status) {
+  return status === 0 || (status >= 500 && status <= 504);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(path, options, { timeoutMs = 0, retries = 2, retryDelayMs = 900 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchJson(path, options, { timeoutMs });
+    } catch (err) {
+      lastErr = err;
+      const status = err?.status ?? 0;
+      if (!isTransientFetchFailure(status) || attempt >= retries) {
+        throw err;
+      }
+      await sleep(retryDelayMs * (attempt + 1));
+    }
+  }
+  throw lastErr;
 }
 
 async function fetchJson(path, options, { timeoutMs = 0 } = {}) {
@@ -154,27 +191,8 @@ export function getAnalyticsProfile(userId) {
   return fetchJson(`/analytics/profile/${encodeURIComponent(userId)}`);
 }
 
-/** @deprecated Prefer postAnalyticsProfile with basic|intermediate|advanced */
-export function postAnalyticsMastery({ user_id, mastery_score, source, lesson_id } = {}) {
-  return fetchJson("/analytics/mastery", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id,
-      mastery_score,
-      source: source || "learner_profile_analytics",
-      lesson_id: lesson_id || null,
-    }),
-  });
-}
-
-/** @deprecated Prefer getAnalyticsProfile */
-export function getAnalyticsMastery(userId) {
-  return fetchJson(`/analytics/mastery/${encodeURIComponent(userId)}`);
-}
-
 export function postLesson(body) {
-  return fetchJson("/lesson", {
+  return fetchJsonWithRetry("/lesson", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -249,7 +267,7 @@ export function getCurriculum(grade) {
 
 export function getProgress(userId) {
   const q = new URLSearchParams({ user_id: userId });
-  return fetchJson(`/progress?${q}`);
+  return fetchJsonWithRetry(`/progress?${q}`);
 }
 
 export function postProgress(body) {
@@ -260,13 +278,8 @@ export function postProgress(body) {
   });
 }
 
-export function getCurrentLesson(userId) {
-  const q = new URLSearchParams({ user_id: userId });
-  return fetchJson(`/lesson/current?${q}`);
-}
-
 export function getHealth() {
-  return fetchJson("/health");
+  return fetchJsonWithRetry("/health");
 }
 
 export function getLessonAr(lessonId, { force = false, generate = false } = {}) {
@@ -275,33 +288,6 @@ export function getLessonAr(lessonId, { force = false, generate = false } = {}) 
   if (generate) q.set("generate", "true");
   const qs = q.toString();
   return fetchJson(`/lesson/${encodeURIComponent(lessonId)}/ar${qs ? `?${qs}` : ""}`);
-}
-
-export function regenerateTeacherAr(lessonId) {
-  return fetchJson(`/teacher/ar/${encodeURIComponent(lessonId)}/regenerate`, {
-    method: "POST",
-  });
-}
-
-export function getTeacherAr({ grade } = {}) {
-  const q = new URLSearchParams();
-  if (grade != null && grade !== "") q.set("grade", String(grade));
-  const qs = q.toString();
-  return fetchJson(`/teacher/ar${qs ? `?${qs}` : ""}`);
-}
-
-export function putTeacherAr(lessonId, body) {
-  return fetchJson(`/teacher/ar/${encodeURIComponent(lessonId)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-export function deleteTeacherAr(lessonId) {
-  return fetchJson(`/teacher/ar/${encodeURIComponent(lessonId)}`, {
-    method: "DELETE",
-  });
 }
 
 export function getLessonMedia(lessonId, { preview = false } = {}) {
